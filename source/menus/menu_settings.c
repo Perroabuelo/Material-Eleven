@@ -1,437 +1,274 @@
 #include <psp2/io/fcntl.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "config.h"
 #include "common.h"
+#include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "menu_displayfiles.h"
 #include "menu_settings.h"
+#include "nav_rail.h"
 #include "status_bar.h"
 #include "textures.h"
+#include "touch.h"
+#include "ui_theme.h"
 #include "utils.h"
 #include "vitaaudiolib.h"
 
-static void Menu_DisplayDeviceSettings(void) {
-	int selection = 0, max_items = 2;
+#define CAT_COL_X    (UI_RAIL_WIDTH)
+#define CAT_COL_W    252
+#define DETAIL_X     (CAT_COL_X + CAT_COL_W)
+#define HEADER_H     60
+#define CAT_ROW_H    44
+#define ITEM_ROW_H   46
 
-	const char *menu_items[] = {
-		"ux0:/",
-		"ur0:/",
-		"uma0:/"
-	};
+typedef enum {
+	SETTINGS_ITEM_RADIO,
+	SETTINGS_ITEM_TOGGLE
+} SettingsItemKind;
 
-	while (SCE_TRUE) {
-		vita2d_start_drawing();
-		vita2d_clear_screen();
+typedef struct {
+	const char *label;
+	int item_count;
+	int divider_before; // index a divider is drawn above, or -1 for none
+	void (*get_hint)(char *buf, int size);
+	const char *(*item_label)(int index);
+	SettingsItemKind (*item_kind)(int index);
+	SceBool (*item_active)(int index);
+	void (*item_activate)(int index);
+} SettingsCategory;
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
-
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Device Settings")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Device Settings");
-
-		int printed = 0;
-
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
-
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
-		}
-
-		vita2d_draw_texture(config.device == 0? radio_on : radio_off, 850, 126);
-		vita2d_draw_texture(config.device == 1? radio_on : radio_off, 850, 198);
-		vita2d_draw_texture(config.device == 2? radio_on : radio_off, 850, 270);
-
-		vita2d_end_drawing();
-		vita2d_swap_buffers();
-
-		Utils_ReadControls();
-
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
-
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			if (FS_DirExists(menu_items[selection])) {
-				config.device = selection;
-				Config_Save(config);
-				strcpy(root_path, menu_items[config.device]);
-				strcpy(cwd, root_path);
-				sceIoRemove("ux0:data/ElevenMPV/lastdir.txt");
-				Dirbrowse_PopulateFiles(SCE_TRUE);
-			}
-		}
+// ---- Almacenamiento (device) ----
+static const char *device_items[] = { "ux0:/", "ur0:/", "uma0:/" };
+static void device_hint(char *buf, int size) { snprintf(buf, size, "%s", device_items[config.device]); }
+static const char *device_item_label(int i) { return device_items[i]; }
+static SettingsItemKind device_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
+static SceBool device_item_active(int i) { return config.device == i; }
+static void device_item_activate(int i) {
+	if (FS_DirExists(device_items[i])) {
+		config.device = i;
+		Config_Save(config);
+		strcpy(root_path, device_items[config.device]);
+		strcpy(cwd, root_path);
+		sceIoRemove("ux0:data/ElevenMPV/lastdir.txt");
+		Dirbrowse_PopulateFiles(SCE_TRUE);
 	}
 }
 
-static void Menu_DisplaySortSettings(void) {
-	int selection = 0, max_items = 3;
+// ---- Orden (sort) ----
+static const char *sort_items[] = { "Nombre (A-Z)", "Nombre (Z-A)", "Tamaño (mayor primero)", "Tamaño (menor primero)" };
+static const char *sort_hints[] = { "A-Z", "Z-A", "Tam. v", "Tam. ^" };
+static void sort_hint(char *buf, int size) { snprintf(buf, size, "%s", sort_hints[config.sort]); }
+static const char *sort_item_label(int i) { return sort_items[i]; }
+static SettingsItemKind sort_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
+static SceBool sort_item_active(int i) { return config.sort == i; }
+static void sort_item_activate(int i) { config.sort = i; Config_Save(config); Dirbrowse_PopulateFiles(SCE_TRUE); }
 
-	const char *menu_items[] = {
-		"By name (ascending)",
-		"By name (descending)",
-		"By size (largest first)",
-		"By size (smallest first)"
-	};
+// ---- Metadatos ----
+static const char *meta_items[] = { "Metadatos FLAC", "Metadatos MP3", "Metadatos OPUS" };
+static void meta_hint(char *buf, int size) {
+	int enabled = (config.meta_flac ? 1 : 0) + (config.meta_mp3 ? 1 : 0) + (config.meta_opus ? 1 : 0);
+	snprintf(buf, size, "%d/3", enabled);
+}
+static const char *meta_item_label(int i) { return meta_items[i]; }
+static SettingsItemKind meta_item_kind(int i) { (void)i; return SETTINGS_ITEM_TOGGLE; }
+static SceBool meta_item_active(int i) {
+	switch (i) {
+		case 0: return config.meta_flac;
+		case 1: return config.meta_mp3;
+		case 2: return config.meta_opus;
+	}
+	return SCE_FALSE;
+}
+static void meta_item_activate(int i) {
+	switch (i) {
+		case 0: config.meta_flac = !config.meta_flac; break;
+		case 1: config.meta_mp3 = !config.meta_mp3; break;
+		case 2: config.meta_opus = !config.meta_opus; break;
+	}
+	Config_Save(config);
+}
 
-	while (SCE_TRUE) {
-		vita2d_start_drawing();
-		vita2d_clear_screen();
+// ---- Normalizador (ALC) ----
+static const char *alc_items[] = { "Normalizador desactivado", "Normalizador activado" };
+static void alc_hint(char *buf, int size) { snprintf(buf, size, "%s", config.alc_mode == 0 ? "Off" : "On"); }
+static const char *alc_item_label(int i) { return alc_items[i]; }
+static SettingsItemKind alc_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
+static SceBool alc_item_active(int i) { return config.alc_mode == i; }
+static void alc_item_activate(int i) { config.alc_mode = i; Config_Save(config); Dirbrowse_PopulateFiles(SCE_TRUE); }
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
-
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Sort Settings")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Sort Settings");
-
-		int printed = 0;
-
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
-
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
-		}
-
-		vita2d_draw_texture(config.sort == 0? radio_on : radio_off, 850, 126);
-		vita2d_draw_texture(config.sort == 1? radio_on : radio_off, 850, 198);
-		vita2d_draw_texture(config.sort == 2? radio_on : radio_off, 850, 270);
-		vita2d_draw_texture(config.sort == 3? radio_on : radio_off, 850, 342);
-
-		vita2d_end_drawing();
-		vita2d_swap_buffers();
-
-		Utils_ReadControls();
-
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
-
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			config.sort = selection;
-			Config_Save(config);
-			Dirbrowse_PopulateFiles(SCE_TRUE);
-		}
+// ---- Ecualizador ----
+static const char *eq_items[] = { "Apagado", "Heavy", "Pop", "Jazz", "Unique", "Limitar volumen con EQ" };
+static void eq_hint(char *buf, int size) { snprintf(buf, size, "%s", eq_items[config.eq_mode]); }
+static const char *eq_item_label(int i) { return eq_items[i]; }
+static SettingsItemKind eq_item_kind(int i) { return i == 5 ? SETTINGS_ITEM_TOGGLE : SETTINGS_ITEM_RADIO; }
+static SceBool eq_item_active(int i) { return i == 5 ? config.eq_volume : (config.eq_mode == i); }
+static void eq_item_activate(int i) {
+	if (i == 5) {
+		config.eq_volume = !config.eq_volume;
+		Config_Save(config);
+	}
+	else {
+		config.eq_mode = i;
+		sceAudioOutSetEffectType(config.eq_mode);
+		Config_Save(config);
 	}
 }
 
-static void Menu_DisplayMetadataSettings(void) {
-	int selection = 0, max_items = 2;
+static const SettingsCategory categories[] = {
+	{ "Almacenamiento", 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
+	{ "Orden", 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
+	{ "Metadatos", 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
+	{ "Normalizador", 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
+	{ "Ecualizador", 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
+};
+#define CATEGORY_COUNT (sizeof(categories) / sizeof(categories[0]))
 
-	const char *menu_items[] = {
-		"Enable FLAC metadata",
-		"Enable MP3 metadata",
-		"Enable OPUS metadata"
-	};
-
-	while (SCE_TRUE) {
-		vita2d_start_drawing();
-		vita2d_clear_screen();
-
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
-
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Metadata Settings")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Metadata Settings");
-
-		int printed = 0;
-
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
-
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
-		}
-
-		vita2d_draw_texture(config.meta_flac == SCE_TRUE? toggle_on : toggle_off, 850, 118);
-		vita2d_draw_texture(config.meta_mp3 == SCE_TRUE? toggle_on : toggle_off, 850, 190);
-		vita2d_draw_texture(config.meta_opus == SCE_TRUE? toggle_on : toggle_off, 850, 262);
-
-		vita2d_end_drawing();
-		vita2d_swap_buffers();
-
-		Utils_ReadControls();
-
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
-
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			switch (selection) {
-				case 0:
-					config.meta_flac = !config.meta_flac;
-					Config_Save(config);
-					break;
-
-				case 1:
-					config.meta_mp3 = !config.meta_mp3;
-					Config_Save(config);
-					break;
-
-				case 2:
-					config.meta_opus = !config.meta_opus;
-					Config_Save(config);
-					break;
-			}
-		}
+static void SettingsUI_DrawRadio(float cx, float cy, SceBool active) {
+	if (active) {
+		vita2d_draw_fill_circle(cx, cy, 9.0f, UI_COLOR_ACCENT);
+		vita2d_draw_fill_circle(cx, cy, 6.6f, UI_COLOR_BG);
+		vita2d_draw_fill_circle(cx, cy, 4.5f, UI_COLOR_ACCENT);
+	}
+	else {
+		vita2d_draw_fill_circle(cx, cy, 9.0f, RGBA8(0x4B, 0x45, 0x60, 255));
+		vita2d_draw_fill_circle(cx, cy, 7.4f, UI_COLOR_BG);
 	}
 }
 
-static void Menu_DisplayALCModeSettings(void) {
-	int selection = 0, max_items = 1;
+static void Menu_DrawSettingsCategoryColumn(int category_index) {
+	vita2d_draw_rectangle(CAT_COL_X + CAT_COL_W - 1, 0, 1, 544, UI_COLOR_HAIRLINE);
+	vita2d_draw_rectangle(CAT_COL_X, HEADER_H - 1, CAT_COL_W, 1, UI_COLOR_HAIRLINE);
 
-	const char *menu_items[] = {
-		"ALC off",
-		"ALC mode 1"
-		//"ALC mode max" // Max doesn't seem to work ?
-	};
+	vita2d_font_draw_text(font_ui, CAT_COL_X + 18, UI_TextBaselineY(font_ui, UI_FONT_SIZE_TITLE, "Ajustes", 0, HEADER_H),
+		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_TITLE, "Ajustes");
 
-	while (SCE_TRUE) {
-		vita2d_start_drawing();
-		vita2d_clear_screen();
+	float y = HEADER_H + 10;
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
+	for (int i = 0; i < (int)CATEGORY_COUNT; i++) {
+		SceBool is_active = (i == category_index);
+		float row_x = CAT_COL_X + 10, row_w = CAT_COL_W - 20;
 
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Dynamic Normalizer")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Dynamic Normalizer");
+		if (is_active)
+			UI_DrawRoundedRect(row_x, y, row_w, CAT_ROW_H, 12, UI_COLOR_ACCENT_WASH);
 
-		int printed = 0;
+		unsigned int text_color = is_active ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_SECONDARY;
+		vita2d_font_draw_text(font_ui, row_x + 12, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, categories[i].label, y, CAT_ROW_H),
+			text_color, UI_FONT_SIZE_BODY, categories[i].label);
 
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
+		char hint[32];
+		categories[i].get_hint(hint, sizeof(hint));
+		int hint_w = vita2d_font_text_width(font_mono, UI_FONT_SIZE_LABEL_SMALL, hint);
+		vita2d_font_draw_text(font_mono, row_x + row_w - 12 - hint_w,
+			UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, hint, y, CAT_ROW_H),
+			is_active ? UI_COLOR_ACCENT : UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_LABEL_SMALL, hint);
 
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
-		}
-
-		vita2d_draw_texture(config.alc_mode == 0? radio_on : radio_off, 850, 126);
-		vita2d_draw_texture(config.alc_mode == 1? radio_on : radio_off, 850, 198);
-
-		vita2d_end_drawing();
-		vita2d_swap_buffers();
-
-		Utils_ReadControls();
-
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
-
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			config.alc_mode = selection;
-			Config_Save(config);
-			Dirbrowse_PopulateFiles(SCE_TRUE);
-		}
+		y += CAT_ROW_H;
 	}
 }
 
-static void Menu_DisplayAudioSettings(void) {
-	int selection = 0, max_items = 5;
+static void Menu_DrawSettingsDetail(int category_index, int item_index) {
+	const SettingsCategory *cat = &categories[category_index];
 
-	const char *menu_items[] = {
-		"EQ: Off",
-		"EQ: Heavy",
-		"EQ: Pop",
-		"EQ: Jazz",
-		"EQ: Unique",
-		"Limit volume with EQ"
-	};
+	vita2d_draw_rectangle(DETAIL_X, HEADER_H - 1, 960 - DETAIL_X, 1, UI_COLOR_HAIRLINE);
+	vita2d_font_draw_text(font_ui, DETAIL_X + 26, UI_TextBaselineY(font_ui, UI_FONT_SIZE_TITLE_LARGE, cat->label, 0, HEADER_H),
+		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_TITLE_LARGE, cat->label);
 
-	while (SCE_TRUE) {
-		vita2d_start_drawing();
-		vita2d_clear_screen();
+	float y = HEADER_H + 18;
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
-
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Audio Settings")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Audio Settings");
-
-		int printed = 0;
-
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
-
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
+	for (int i = 0; i < cat->item_count; i++) {
+		if (cat->divider_before == i) {
+			vita2d_draw_rectangle(DETAIL_X + 26, y + 8, 960 - DETAIL_X - 52, 1, UI_COLOR_HAIRLINE);
+			y += 22;
 		}
 
-		for (int i = 0; i < 5; i++)
-			vita2d_draw_texture(config.eq_mode == i ? radio_on : radio_off, 850, 126 + (72 * i));
+		SceBool row_selected = (i == item_index);
+		if (row_selected)
+			UI_DrawRoundedRect(DETAIL_X + 12, y, 960 - DETAIL_X - 24, ITEM_ROW_H, 12, UI_COLOR_ACCENT_WASH);
 
-		vita2d_draw_texture(config.eq_volume == SCE_TRUE ? toggle_on : toggle_off, 850, 118 + (72 * 5));
+		const char *label = cat->item_label(i);
+		SettingsItemKind kind = cat->item_kind(i);
+		SceBool active = cat->item_active(i);
+		unsigned int text_color = row_selected ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_SECONDARY;
 
-		vita2d_end_drawing();
-		vita2d_swap_buffers();
-
-		Utils_ReadControls();
-
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
-
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			if (selection <= 4) {
-				config.eq_mode = selection;
-				sceAudioOutSetEffectType(config.eq_mode);
-				Config_Save(config);
-			}
-			else {
-				config.eq_volume = !config.eq_volume;
-				Config_Save(config);
-			}
+		if (kind == SETTINGS_ITEM_RADIO) {
+			SettingsUI_DrawRadio(DETAIL_X + 26 + 9, y + ITEM_ROW_H / 2, active);
+			vita2d_font_draw_text(font_ui, DETAIL_X + 26 + 30, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, label, y, ITEM_ROW_H),
+				text_color, UI_FONT_SIZE_BODY, label);
 		}
+		else {
+			vita2d_font_draw_text(font_ui, DETAIL_X + 26, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, label, y, ITEM_ROW_H),
+				text_color, UI_FONT_SIZE_BODY, label);
+
+			vita2d_texture *toggle_tex = active ? toggle_on : toggle_off;
+			float toggle_x = 960 - 26 - vita2d_texture_get_width(toggle_tex);
+			float toggle_y = y + (ITEM_ROW_H - vita2d_texture_get_height(toggle_tex)) / 2;
+			vita2d_draw_texture(toggle_tex, toggle_x, toggle_y);
+		}
+
+		y += ITEM_ROW_H;
 	}
 }
 
 void Menu_DisplaySettings(void) {
-	int selection = 0, max_items = 4;
+	int category_index = 0, item_index = 0;
 
-	const char *menu_items[] = {
-		"Device settings",
-		"Sort settings",
-		"Metadata settings",
-		"Dynamic normalizer modes",
-		"Audio settings"
-	};
+	vita2d_set_clear_color(UI_COLOR_BG);
 
 	while (SCE_TRUE) {
+		const SettingsCategory *cat = &categories[category_index];
+
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
-		StatusBar_Display();
+		Menu_DrawSettingsCategoryColumn(category_index);
+		Menu_DrawSettingsDetail(category_index, item_index);
 
-		vita2d_draw_texture(icon_back, 25, 54);
-		vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, "Settings")) / 2) + 20, RGBA8(255, 255, 255, 255), 25, "Settings");
+		const char *hints[] = { "Seleccionar", "Atrás", NULL, "L . R - cambiar de categoria" };
+		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 4);
 
-		int printed = 0;
-
-		for (int i = 0; i < max_items + 1; i++) {
-			if (printed == FILES_PER_PAGE)
-				break;
-
-			if (selection < FILES_PER_PAGE || i > (selection - FILES_PER_PAGE)) {
-				if (i == selection)
-					vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-				vita2d_font_draw_text(font, 30, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, menu_items[i]);
-
-				printed++;
-			}
-		}
+		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_SETTINGS);
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 
 		Utils_ReadControls();
+		Touch_Update();
 
-		if (pressed & SCE_CTRL_CANCEL)
-			break;
+		if (tapped == UI_SCREEN_FOLDERS) {
+			Menu_DisplayFiles();
+			return;
+		}
+		else if (tapped == UI_SCREEN_NOW_PLAYING) {
+			// Now Playing needs an active track; nothing to switch to from here
+			// without one, so the rail tap is a no-op when nothing is loaded.
+		}
+
+		if (pressed & SCE_CTRL_CANCEL) {
+			Menu_DisplayFiles();
+			return;
+		}
+
+		if (pressed & SCE_CTRL_LTRIGGER) {
+			category_index--;
+			item_index = 0;
+		}
+		else if (pressed & SCE_CTRL_RTRIGGER) {
+			category_index++;
+			item_index = 0;
+		}
+		Utils_SetMax(&category_index, 0, (int)CATEGORY_COUNT - 1);
+		Utils_SetMin(&category_index, (int)CATEGORY_COUNT - 1, 0);
 
 		if (pressed & SCE_CTRL_UP)
-			selection--;
+			item_index--;
 		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
+			item_index++;
+		Utils_SetMax(&item_index, 0, cat->item_count - 1);
+		Utils_SetMin(&item_index, cat->item_count - 1, 0);
 
-		Utils_SetMax(&selection, 0, max_items);
-		Utils_SetMin(&selection, max_items, 0);
-
-		if (pressed & SCE_CTRL_ENTER) {
-			switch (selection) {
-				case 0:
-					Menu_DisplayDeviceSettings();
-					break;
-				case 1:
-					Menu_DisplaySortSettings();
-					break;
-				case 2:
-					Menu_DisplayMetadataSettings();
-					break;
-				case 3:
-					Menu_DisplayALCModeSettings();
-					break;
-				case 4:
-					Menu_DisplayAudioSettings();
-					break;
-			}
-		}
+		if (pressed & SCE_CTRL_ENTER)
+			cat->item_activate(item_index);
 	}
 }

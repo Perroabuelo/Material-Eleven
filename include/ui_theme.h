@@ -36,11 +36,21 @@ extern vita2d_font *font_mono;
 #define UI_RAIL_WIDTH      76
 #define UI_HINT_BAR_HEIGHT 32
 
+// Font sizes (Manrope / IBM Plex Mono, matching the mockups' scale).
+#define UI_FONT_SIZE_HINT        13
+#define UI_FONT_SIZE_BADGE       11
+#define UI_FONT_SIZE_LABEL_SMALL 12
+#define UI_FONT_SIZE_BODY        14
+#define UI_FONT_SIZE_TITLE       16
+#define UI_FONT_SIZE_TITLE_LARGE 19
+#define UI_FONT_SIZE_DISPLAY     22
+
 // Screen identifiers for the nav rail / cross-screen state.
 typedef enum {
-	UI_SCREEN_NOW_PLAYING,
-	UI_SCREEN_FOLDERS,
-	UI_SCREEN_SETTINGS
+	UI_SCREEN_NOW_PLAYING = 0,
+	UI_SCREEN_FOLDERS = 1,
+	UI_SCREEN_SETTINGS = 2,
+	UI_SCREEN_NONE = -1
 } UI_Screen;
 
 void UI_Theme_Load(void);

@@ -62,6 +62,7 @@ add_executable(${PROJECT_NAME}
   source/dirbrowse.c
   source/fs.c
   source/main.c
+  source/nav_rail.c
   source/status_bar.c
   source/textures.c
   source/touch.c

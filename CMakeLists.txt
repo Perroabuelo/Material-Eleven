@@ -65,6 +65,7 @@ add_executable(${PROJECT_NAME}
   source/status_bar.c
   source/textures.c
   source/touch.c
+  source/ui_theme.c
   source/utils.c
   source/audio/audio.c
   source/audio/flac.c
@@ -120,4 +121,6 @@ vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   FILE sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
   FILE sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
   FILE res/Roboto-Regular.ttf Roboto-Regular.ttf
+  FILE res/Manrope.ttf Manrope.ttf
+  FILE res/IBMPlexMono-Medium.ttf IBMPlexMono-Medium.ttf
 )

@@ -14,12 +14,14 @@
 #include "menu_displayfiles.h"
 #include "textures.h"
 #include "touch.h"
+#include "ui_theme.h"
 #include "utils.h"
 #include "vitaaudiolib.h"
 
 int main(int argc, char *argv[]) {
 	vita2d_init();
 	font = vita2d_load_font_file("app0:Roboto-Regular.ttf");
+	UI_Theme_Load();
 	Textures_Load();
 
 	sceIoMkdir("ux0:data/ElevenMPV", 0777);
@@ -48,6 +50,7 @@ int main(int argc, char *argv[]) {
 	Utils_TermAppUtil();
 
 	Textures_Free();
+	UI_Theme_Free();
 	vita2d_free_font(font);
 	vita2d_fini();
 

@@ -131,9 +131,9 @@ static const SettingsCategory categories[] = {
 
 static void SettingsUI_DrawRadio(float cx, float cy, SceBool active) {
 	if (active) {
-		vita2d_draw_fill_circle(cx, cy, 9.0f, UI_COLOR_ACCENT);
+		vita2d_draw_fill_circle(cx, cy, 9.0f, ui_color_accent);
 		vita2d_draw_fill_circle(cx, cy, 6.6f, UI_COLOR_BG);
-		vita2d_draw_fill_circle(cx, cy, 4.5f, UI_COLOR_ACCENT);
+		vita2d_draw_fill_circle(cx, cy, 4.5f, ui_color_accent);
 	}
 	else {
 		vita2d_draw_fill_circle(cx, cy, 9.0f, RGBA8(0x4B, 0x45, 0x60, 255));
@@ -146,7 +146,7 @@ static void SettingsUI_DrawRadio(float cx, float cy, SceBool active) {
 static void SettingsUI_DrawToggle(float x, float y, SceBool active) {
 	float knob_cx = active ? (x + TOGGLE_W - TOGGLE_H / 2.0f) : (x + TOGGLE_H / 2.0f);
 
-	UI_DrawPill(x, y, TOGGLE_W, TOGGLE_H, active ? UI_COLOR_ACCENT : UI_COLOR_SURFACE_2);
+	UI_DrawPill(x, y, TOGGLE_W, TOGGLE_H, active ? ui_color_accent : UI_COLOR_SURFACE_2);
 	vita2d_draw_fill_circle(knob_cx, y + TOGGLE_H / 2.0f, TOGGLE_KNOB_R,
 		active ? UI_COLOR_BG : UI_COLOR_TEXT_TERTIARY);
 }
@@ -165,7 +165,7 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 		float row_x = CAT_COL_X + 10, row_w = CAT_COL_W - 20;
 
 		if (is_active)
-			UI_DrawRoundedRect(row_x, y, row_w, CAT_ROW_H, 12, UI_COLOR_ACCENT_WASH);
+			UI_DrawRoundedRect(row_x, y, row_w, CAT_ROW_H, 12, ui_color_accent_wash);
 
 		unsigned int text_color = is_active ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_SECONDARY;
 		vita2d_font_draw_text(font_ui, row_x + 12, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, categories[i].label, y, CAT_ROW_H),
@@ -176,7 +176,7 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 		int hint_w = vita2d_font_text_width(font_mono, UI_FONT_SIZE_LABEL_SMALL, hint);
 		vita2d_font_draw_text(font_mono, row_x + row_w - 12 - hint_w,
 			UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, hint, y, CAT_ROW_H),
-			is_active ? UI_COLOR_ACCENT : UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_LABEL_SMALL, hint);
+			is_active ? ui_color_accent : UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_LABEL_SMALL, hint);
 
 		y += CAT_ROW_H;
 	}
@@ -199,7 +199,7 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 
 		SceBool row_selected = (i == item_index);
 		if (row_selected)
-			UI_DrawRoundedRect(DETAIL_X + 12, y, 960 - DETAIL_X - 24, ITEM_ROW_H, 12, UI_COLOR_ACCENT_WASH);
+			UI_DrawRoundedRect(DETAIL_X + 12, y, 960 - DETAIL_X - 24, ITEM_ROW_H, 12, ui_color_accent_wash);
 
 		const char *label = cat->item_label(i);
 		SettingsItemKind kind = cat->item_kind(i);

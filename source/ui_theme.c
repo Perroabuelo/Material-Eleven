@@ -46,6 +46,9 @@
 vita2d_font *font_ui = NULL;
 vita2d_font *font_mono = NULL;
 
+unsigned int ui_color_accent = UI_ACCENT_FIXED;
+unsigned int ui_color_accent_wash = RGBA8(0xFF, 0x91, 0x66, UI_ACCENT_WASH_ALPHA);
+
 void UI_Theme_Load(void) {
 	font_ui = vita2d_load_font_file("app0:Manrope.ttf");
 	font_mono = vita2d_load_font_file("app0:IBMPlexMono-Medium.ttf");
@@ -233,7 +236,7 @@ void UI_DrawBadge(float x, float y, unsigned int size, const char *label, unsign
 }
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {
-	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, UI_COLOR_ACCENT_WASH);
+	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, ui_color_accent_wash);
 }
 
 int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h) {
@@ -446,6 +449,24 @@ unsigned int UI_MakeAccentLegible(unsigned int color) {
 	}
 
 	return accent;
+}
+
+static void UI_Theme_ApplyAccent(unsigned int accent) {
+	ui_color_accent = accent;
+	ui_color_accent_wash = RGBA8(accent & 0xFF, (accent >> 8) & 0xFF, (accent >> 16) & 0xFF, UI_ACCENT_WASH_ALPHA);
+}
+
+void UI_Theme_ResetAccent(void) {
+	UI_Theme_ApplyAccent(UI_ACCENT_FIXED);
+}
+
+void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover) {
+	unsigned int dominant = 0;
+
+	if (cover && UI_CoverDominantColor(cover, &dominant))
+		UI_Theme_ApplyAccent(UI_MakeAccentLegible(dominant));
+	else
+		UI_Theme_ResetAccent();
 }
 
 SceBool UI_GetFormatBadge(const char *ext, const char **out_label, unsigned int *out_color, unsigned int *out_wash) {

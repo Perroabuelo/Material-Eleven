@@ -274,7 +274,7 @@ static void Menu_DrawTransportControls(void) {
 	UI_DrawRoundedRect(next_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE, 16, UI_COLOR_SURFACE);
 	UI_DrawSkipGlyph(next_x + SIDE_BTN_SIZE / 2.0f, TRANSPORT_CY, SKIP_GLYPH_SIZE, SCE_TRUE, UI_COLOR_TEXT_PRIMARY);
 
-	UI_DrawRoundedRect(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2, 26, UI_COLOR_ACCENT);
+	UI_DrawRoundedRect(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2, 26, ui_color_accent);
 	if (Audio_IsPaused())
 		UI_DrawPlayGlyph(cx, TRANSPORT_CY, PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
 	else
@@ -368,7 +368,7 @@ static void Menu_RunNowPlayingLoop(void) {
 		double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
 		float seek_w = RIGHT_PANEL_R - RIGHT_PANEL_X;
 		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, seek_w, SEEK_H, UI_COLOR_SURFACE);
-		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, UI_COLOR_ACCENT);
+		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
 
 		Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
 		vita2d_font_draw_text(font_mono, RIGHT_PANEL_X, UI_TextBaselineY(font_mono, UI_FONT_SIZE_HINT, position_time, SEEK_Y + 10, 20),

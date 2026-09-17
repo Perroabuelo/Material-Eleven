@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "audio.h"
+#include "ui_theme.h"
 #include "vitaaudiolib.h"
 #include "fs.h"
 
@@ -142,6 +143,13 @@ int Audio_Init(const char *path) {
 	}
 
 	(* decoder.init)(path);
+
+	// decoder.init is where FLAC_Init / MP3_Init / OPUS_Init decode the embedded
+	// cover art into metadata.cover_image, so this is the single point per track
+	// load where the accent can follow it. Formats with no cover art at all (WAV,
+	// OGG, the trackers) leave cover_image NULL and fall back to the fixed accent.
+	UI_Theme_SetAccentFromCoverArt((metadata.has_meta && metadata.cover_image) ? metadata.cover_image : NULL);
+
 	vitaAudioInit((* decoder.rate)(), (* decoder.channels)() == 2? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO);
 	vitaAudioSetChannelCallback(0, Audio_Decode, NULL);
 	track_loaded = SCE_TRUE;
@@ -198,4 +206,7 @@ void Audio_Term(void) {
 	// Clear metadata struct
 	metadata = empty_metadata;
 	decoder = empty_decoder;
+
+	// No track loaded any more, so the accent goes back to the fixed color.
+	UI_Theme_ResetAccent();
 }

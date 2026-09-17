@@ -95,10 +95,10 @@ UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
 		SceBool is_active = (b->screen == active);
 
 		if (is_active)
-			UI_DrawRoundedRect(b->x, b->y, b->size, b->size, RAIL_BUTTON_RADIUS, UI_COLOR_ACCENT_WASH);
+			UI_DrawRoundedRect(b->x, b->y, b->size, b->size, RAIL_BUTTON_RADIUS, ui_color_accent_wash);
 
 		NavRail_DrawIcon(b->screen, b->x + b->size / 2.0f, b->y + b->size / 2.0f,
-			is_active ? UI_COLOR_ACCENT : UI_COLOR_TEXT_TERTIARY);
+			is_active ? ui_color_accent : UI_COLOR_TEXT_TERTIARY);
 
 		if (Touch_Position(b->x, b->y, b->x + b->size, b->y + b->size))
 			tapped = b->screen;

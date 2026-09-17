@@ -9,13 +9,23 @@ extern vita2d_font *font_ui;
 // IBM Plex Mono - numeric / technical strings (durations, format badges, hints).
 extern vita2d_font *font_mono;
 
+// The interface accent and its low-alpha wash. Unlike the rest of the palette
+// these are runtime values, shared by every screen and by the nav rail: they
+// follow the current track's cover art via UI_Theme_SetAccentFromCoverArt, and
+// fall back to UI_ACCENT_FIXED when there is no cover or no track.
+extern unsigned int ui_color_accent;
+extern unsigned int ui_color_accent_wash;
+
 // Palette (Material3-inspired dark skin, see openspec/changes/add-ui-skin).
 #define UI_COLOR_BG              RGBA8(0x12, 0x0F, 0x17, 255)
 #define UI_COLOR_BG_ELEVATED     RGBA8(0x17, 0x14, 0x1F, 255)
 #define UI_COLOR_SURFACE         RGBA8(0x1C, 0x18, 0x26, 255)
 #define UI_COLOR_SURFACE_2       RGBA8(0x24, 0x1F, 0x30, 255)
-#define UI_COLOR_ACCENT          RGBA8(0xFF, 0x91, 0x66, 255)
-#define UI_COLOR_ACCENT_WASH     RGBA8(0xFF, 0x91, 0x66, 36)
+// The accent is the one palette entry derived at runtime, from the current
+// track's cover art - see ui_color_accent below. These two are its fallback
+// value and the alpha its wash is built at.
+#define UI_ACCENT_FIXED          RGBA8(0xFF, 0x91, 0x66, 255)
+#define UI_ACCENT_WASH_ALPHA     36
 #define UI_COLOR_TEXT_PRIMARY    RGBA8(0xF4, 0xEF, 0xEA, 255)
 #define UI_COLOR_TEXT_SECONDARY  RGBA8(0xB0, 0xA8, 0xC0, 255)
 #define UI_COLOR_TEXT_TERTIARY   RGBA8(0x75, 0x6C, 0x89, 255)
@@ -103,6 +113,13 @@ SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_col
 // Clamps a color's saturation and lightness into the band that stays legible
 // over UI_COLOR_BG and apart from UI_COLOR_TEXT_SECONDARY.
 unsigned int UI_MakeAccentLegible(unsigned int color);
+
+// Points ui_color_accent / ui_color_accent_wash at the color derived from
+// `cover`. A NULL cover, or one with no usable hue, restores UI_ACCENT_FIXED.
+// Called once per track load, never per frame.
+void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover);
+// Restores the fixed accent, for when no track is loaded.
+void UI_Theme_ResetAccent(void);
 
 // Format badge styling (color + label) for a recognized audio extension.
 // Returns SCE_FALSE (and leaves outputs untouched) for an unrecognized extension.

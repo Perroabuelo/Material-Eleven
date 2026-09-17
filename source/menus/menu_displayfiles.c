@@ -139,7 +139,7 @@ static void Menu_DrawMiniPlayer(void) {
 
 	UI_DrawSkipGlyph(prev_x + 15, row_cy, MINI_GLYPH_SIZE, SCE_FALSE, UI_COLOR_TEXT_SECONDARY);
 
-	UI_DrawRoundedRect(play_cx - play_r, row_cy - play_r, play_r * 2, play_r * 2, (int)play_r, UI_COLOR_ACCENT);
+	UI_DrawRoundedRect(play_cx - play_r, row_cy - play_r, play_r * 2, play_r * 2, (int)play_r, ui_color_accent);
 	if (Audio_IsPaused())
 		UI_DrawPlayGlyph(play_cx, row_cy, MINI_PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
 	else

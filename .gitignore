@@ -56,6 +56,7 @@ build/
 .claude/*
 !.claude/CLAUDE.md
 .mcp.json
+.codex/config.toml
 .repowise/
 .vscode/
 templates/

@@ -102,14 +102,20 @@ static void Menu_InitMusic(char *path) {
 }
 
 static void Music_FreeCurrentTrack(void) {
+	// Tearing a track down stalls the render loop for a long time - Audio_Term
+	// sleeps 100ms and the next track decodes its cover art - so the frame still
+	// in flight has to be retired first. Otherwise the next vita2d_start_drawing
+	// resets the vertex pool out from under vertices the GPU is still reading.
+	// This used to sit inside the branch below, which meant it only ran when the
+	// outgoing track happened to have cover art.
+	vita2d_wait_rendering_done();
+
 	free(filename);
 	free(length_time);
 	free(position_time);
 
-	if ((metadata.has_meta) && (metadata.cover_image)) {
-		vita2d_wait_rendering_done();
+	if ((metadata.has_meta) && (metadata.cover_image))
 		vita2d_free_texture(metadata.cover_image);
-	}
 }
 
 static void Music_HandleNext(SceBool forward, int next_state) {

@@ -53,7 +53,8 @@ dkms.conf
 # Local tooling / editor / agent config
 build/
 .agents/
-.claude/
+.claude/*
+!.claude/CLAUDE.md
 .mcp.json
 .repowise/
 .vscode/

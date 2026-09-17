@@ -1,7 +1,7 @@
 ## 1. Verificación técnica previa (bloquea todo lo demás, sin commit propio)
 
 - [x] 1.1 Confirmar en el header real de VITASDK instalado (`vita2d.h`) si existe una función de dibujo por arreglo de vértices con primitiva GXM configurable (la asumida en `design.md` como `vita2d_draw_array`); verificar consultando el header instalado por el toolchain, no solo el uso ya existente en este repo. Dejar registrada la firma exacta encontrada (o su ausencia) antes de continuar.
-  - **Confirmado.** Toolchain en WSL (Ubuntu-24.04): `/home/perroabuelo/vitasdk`. En `arm-vita-eabi/include/vita2d.h:100`:
+  - **Confirmado.** Toolchain en WSL (Ubuntu-24.04), en `$VITASDK`. En `arm-vita-eabi/include/vita2d.h:100`:
     `void vita2d_draw_array(SceGxmPrimitiveType mode, const vita2d_color_vertex *vertices, size_t count);`
     con `typedef struct vita2d_color_vertex { float x; float y; float z; unsigned int color; }` (`vita2d.h:21-26`). La firma coincide con la asumida en `design.md`.
 - [x] 1.2 Si la función del punto 1.1 no existe con la firma asumida, confirmar la ruta alternativa (apilado de `vita2d_draw_rectangle` por fila de píxel) como la que se va a implementar en las secciones 2 y 3, y ajustar sus tareas en consecuencia antes de escribir código.

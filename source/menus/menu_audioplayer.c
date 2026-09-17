@@ -409,9 +409,7 @@ static void Menu_RunNowPlayingLoop(void) {
 }
 
 void Menu_PlayAudio(char *path) {
-	SceBool had_track = Audio_HasTrack();
-
-	if (had_track) {
+	if (Audio_HasTrack()) {
 		Audio_Stop();
 		Music_FreeCurrentTrack();
 		Audio_Term();
@@ -420,9 +418,6 @@ void Menu_PlayAudio(char *path) {
 
 	Menu_GetMusicList();
 	Menu_InitMusic(path);
-
-	if (!had_track)
-		Utils_LockPower();
 
 	Menu_RunNowPlayingLoop();
 }

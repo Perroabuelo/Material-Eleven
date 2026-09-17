@@ -51,7 +51,6 @@ int main(int argc, char *argv[]) {
 	if (Audio_HasTrack()) {
 		Audio_Stop();
 		Audio_Term();
-		Utils_UnlockPower();
 	}
 
 	sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);

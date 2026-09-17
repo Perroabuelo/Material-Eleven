@@ -38,6 +38,7 @@ static enum Audio_FileType file_type = FILE_TYPE_NONE;
 Audio_Metadata metadata = {0};
 static Audio_Metadata empty_metadata = {0};
 static Audio_Decoder decoder = {0}, empty_decoder = {0};
+static SceBool track_loaded = SCE_FALSE;
 SceBool playing = SCE_TRUE, paused = SCE_FALSE;
 
 static void Audio_Decode(void *buf, unsigned int length, void *userdata) {
@@ -143,7 +144,12 @@ int Audio_Init(const char *path) {
 	(* decoder.init)(path);
 	vitaAudioInit((* decoder.rate)(), (* decoder.channels)() == 2? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO);
 	vitaAudioSetChannelCallback(0, Audio_Decode, NULL);
+	track_loaded = SCE_TRUE;
 	return 0;
+}
+
+SceBool Audio_HasTrack(void) {
+	return track_loaded;
 }
 
 SceBool Audio_IsPaused(void) {
@@ -181,6 +187,7 @@ SceUInt64 Audio_Seek(SceUInt64 index) {
 void Audio_Term(void) {
 	playing = SCE_TRUE;
 	paused = SCE_FALSE;
+	track_loaded = SCE_FALSE;
 
 	vitaAudioSetChannelCallback(0, NULL, NULL); // Clear channel callback
 	vitaAudioEndPre();

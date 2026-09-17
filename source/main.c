@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "audio.h"
 #include "common.h"
 #include "config.h"
 #include "dirbrowse.h"
@@ -39,10 +40,21 @@ int main(int argc, char *argv[]) {
 
 	sceShellUtilInitEvents(0);
 	sceSysmoduleLoadModule(SCE_SYSMODULE_MUSIC_EXPORT);
+	sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
 	Utils_InitPowerTick();
 
 	Menu_DisplayFiles();
 
+	// Playback now survives navigating away from Now Playing, so a track
+	// may still be loaded here if the user exits (START) while it plays
+	// in the background; tear it down before the process ends.
+	if (Audio_HasTrack()) {
+		Audio_Stop();
+		Audio_Term();
+		Utils_UnlockPower();
+	}
+
+	sceSysmoduleUnloadModule(SCE_SYSMODULE_IME);
 	sceSysmoduleUnloadModule(SCE_SYSMODULE_MUSIC_EXPORT);
 
 	Touch_Shutdown();

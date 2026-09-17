@@ -20,6 +20,10 @@ typedef struct {
 extern Audio_Metadata metadata;
 
 int Audio_Init(const char *path);
+// SCE_TRUE from the moment Audio_Init succeeds until Audio_Term runs, so
+// other screens can tell whether a track is loaded and playing in the
+// background after the user has navigated away from Now Playing.
+SceBool Audio_HasTrack(void);
 SceBool Audio_IsPaused(void);
 void Audio_Pause(void);
 void Audio_Stop(void);

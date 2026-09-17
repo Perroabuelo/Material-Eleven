@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "textures.h"
+#include "ui_theme.h"
 
 static int percent_width = 0;
 
@@ -85,21 +86,21 @@ static void StatusBar_GetBatteryStatus(int x, int y) {
 		}
 
 		snprintf(buf, 13, "%d%%", percent);
-		percent_width = vita2d_font_text_width(font, 25, buf);
-		vita2d_font_draw_text(font, (x - percent_width - 5), y, RGBA8(255, 255, 255, 255), 25, buf);
+		percent_width = vita2d_font_text_width(font_mono, UI_FONT_SIZE_BADGE, buf);
+		vita2d_font_draw_text(font_mono, (x - percent_width - 5), y, UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_BADGE, buf);
 	}
 	else {
 		snprintf(buf, 13, "%d%%", percent);
-		percent_width = vita2d_font_text_width(font, 25, buf);
-		vita2d_font_draw_text(font, (x - percent_width - 5), y, RGBA8(255, 255, 255, 255), 25, buf);
+		percent_width = vita2d_font_text_width(font_mono, UI_FONT_SIZE_BADGE, buf);
+		vita2d_font_draw_text(font_mono, (x - percent_width - 5), y, UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_BADGE, buf);
 		vita2d_draw_texture(battery_unknown, x, 4);
 	}
 }
 
 void StatusBar_Display(void) {
 	int width = 0, height = 0;
-	vita2d_font_text_dimensions(font, 25, StatusBar_GetCurrentTime(), &width, &height);
+	vita2d_font_text_dimensions(font_mono, UI_FONT_SIZE_BADGE, StatusBar_GetCurrentTime(), &width, &height);
 
-	StatusBar_GetBatteryStatus(((950 - width) - (32 + 10)), ((40 - height) / 2) + 25);
-	vita2d_font_draw_text(font, (950 - width), ((40 - height) / 2) + 25, RGBA8(255, 255, 255, 255), 25, StatusBar_GetCurrentTime());
+	StatusBar_GetBatteryStatus(((950 - width) - (32 + 10)), ((28 - height) / 2) + 14);
+	vita2d_font_draw_text(font_mono, (950 - width), ((28 - height) / 2) + 14, UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_BADGE, StatusBar_GetCurrentTime());
 }

@@ -2,10 +2,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "audio.h"
 #include "common.h"
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
@@ -240,9 +242,9 @@ void Menu_DisplaySettings(void) {
 			Menu_DisplayFiles();
 			return;
 		}
-		else if (tapped == UI_SCREEN_NOW_PLAYING) {
-			// Now Playing needs an active track; nothing to switch to from here
-			// without one, so the rail tap is a no-op when nothing is loaded.
+		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {
+			Menu_ShowNowPlaying();
+			return;
 		}
 
 		if (pressed & SCE_CTRL_CANCEL) {

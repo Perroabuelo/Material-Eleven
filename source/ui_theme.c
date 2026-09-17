@@ -320,87 +320,126 @@ static SceBool UI_CoverBytesPerPixel(SceGxmTextureFormat format, unsigned int *o
 	}
 }
 
-SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color) {
-	float weight[UI_HUE_BUCKETS] = { 0 };
-	float sum_r[UI_HUE_BUCKETS] = { 0 }, sum_g[UI_HUE_BUCKETS] = { 0 }, sum_b[UI_HUE_BUCKETS] = { 0 };
-	int count[UI_HUE_BUCKETS] = { 0 };
-	unsigned int bytes_per_pixel = 0;
-	int sampled = 0, chromatic = 0, best = 0;
+typedef struct {
+	const unsigned char *pixels;
+	unsigned int w, h, stride, bytes_per_pixel, step_x, step_y;
+} UI_CoverSampler;
 
-	if (!cover || !out_color)
+typedef struct {
+	float weight[UI_HUE_BUCKETS];
+	float sum_r[UI_HUE_BUCKETS], sum_g[UI_HUE_BUCKETS], sum_b[UI_HUE_BUCKETS];
+	int count[UI_HUE_BUCKETS];
+	int sampled, chromatic;
+} UI_HueHistogram;
+
+static SceBool UI_CoverSamplerInit(const vita2d_texture *cover, UI_CoverSampler *s) {
+	if (!cover)
 		return SCE_FALSE;
 
-	if (!UI_CoverBytesPerPixel(vita2d_texture_get_format(cover), &bytes_per_pixel))
+	if (!UI_CoverBytesPerPixel(vita2d_texture_get_format(cover), &s->bytes_per_pixel))
 		return SCE_FALSE;
 
-	const unsigned char *pixels = (const unsigned char *)vita2d_texture_get_datap(cover);
-	unsigned int w = vita2d_texture_get_width(cover);
-	unsigned int h = vita2d_texture_get_height(cover);
-	unsigned int stride = vita2d_texture_get_stride(cover);
+	s->pixels = (const unsigned char *)vita2d_texture_get_datap(cover);
+	s->w = vita2d_texture_get_width(cover);
+	s->h = vita2d_texture_get_height(cover);
+	s->stride = vita2d_texture_get_stride(cover);
 
-	if (!pixels || w == 0 || h == 0 || stride == 0)
+	if (!s->pixels || s->w == 0 || s->h == 0 || s->stride == 0)
 		return SCE_FALSE;
 
-	unsigned int step_x = (w + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
-	unsigned int step_y = (h + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
-	if (step_x == 0)
-		step_x = 1;
-	if (step_y == 0)
-		step_y = 1;
+	s->step_x = (s->w + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
+	s->step_y = (s->h + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
+	if (s->step_x == 0)
+		s->step_x = 1;
+	if (s->step_y == 0)
+		s->step_y = 1;
 
-	for (unsigned int y = 0; y < h; y += step_y) {
-		const unsigned char *row = pixels + (size_t)y * stride;
+	return SCE_TRUE;
+}
 
-		for (unsigned int x = 0; x < w; x += step_x) {
-			const unsigned char *px = row + (size_t)x * bytes_per_pixel;
+// Byte 0 of a pixel is red in all three formats above; the 3 and 4 byte ones
+// continue with green and blue, the 1 byte one is a single luminance channel.
+static SceBool UI_CoverReadPixel(const unsigned char *px, unsigned int bytes_per_pixel,
+	float *out_r, float *out_g, float *out_b) {
+	if (bytes_per_pixel == 4 && px[3] < 128)
+		return SCE_FALSE; // transparent, carries no color
 
-			if (bytes_per_pixel == 4 && px[3] < 128)
-				continue; // transparent, carries no color
+	*out_r = px[0] / 255.0f;
+	*out_g = (bytes_per_pixel >= 3) ? (px[1] / 255.0f) : *out_r;
+	*out_b = (bytes_per_pixel >= 3) ? (px[2] / 255.0f) : *out_r;
 
-			float r = px[0] / 255.0f;
-			float g = (bytes_per_pixel >= 3) ? (px[1] / 255.0f) : r;
-			float b = (bytes_per_pixel >= 3) ? (px[2] / 255.0f) : r;
-			float hue, sat, lum;
+	return SCE_TRUE;
+}
 
-			sampled++;
-			UI_RgbToHsl(r, g, b, &hue, &sat, &lum);
+static void UI_HueHistogramAdd(UI_HueHistogram *hist, float r, float g, float b) {
+	float hue, sat, lum;
+	int bucket;
 
-			// Flat black, flat white and gray carry no hue to vote with.
-			if (sat < UI_HUE_MIN_SAT || lum < UI_HUE_MIN_LUM || lum > UI_HUE_MAX_LUM)
-				continue;
+	hist->sampled++;
+	UI_RgbToHsl(r, g, b, &hue, &sat, &lum);
 
-			int bucket = (int)(hue * UI_HUE_BUCKETS);
-			if (bucket < 0)
-				bucket = 0;
-			if (bucket >= UI_HUE_BUCKETS)
-				bucket = UI_HUE_BUCKETS - 1;
+	// Flat black, flat white and gray carry no hue to vote with.
+	if (sat < UI_HUE_MIN_SAT || lum < UI_HUE_MIN_LUM || lum > UI_HUE_MAX_LUM)
+		return;
 
-			// Weighted by saturation, so a vivid minority outvotes a washed-out majority.
-			weight[bucket] += sat;
-			sum_r[bucket] += r;
-			sum_g[bucket] += g;
-			sum_b[bucket] += b;
-			count[bucket]++;
-			chromatic++;
-		}
-	}
+	bucket = (int)(hue * UI_HUE_BUCKETS);
+	if (bucket < 0)
+		bucket = 0;
+	if (bucket >= UI_HUE_BUCKETS)
+		bucket = UI_HUE_BUCKETS - 1;
 
-	if (sampled == 0 || (float)chromatic < (float)sampled * UI_HUE_MIN_SHARE)
+	// Weighted by saturation, so a vivid minority outvotes a washed-out majority.
+	hist->weight[bucket] += sat;
+	hist->sum_r[bucket] += r;
+	hist->sum_g[bucket] += g;
+	hist->sum_b[bucket] += b;
+	hist->count[bucket]++;
+	hist->chromatic++;
+}
+
+static SceBool UI_HueHistogramPeak(const UI_HueHistogram *hist, unsigned int *out_color) {
+	int best = 0;
+	float inv;
+
+	if (hist->sampled == 0 || (float)hist->chromatic < (float)hist->sampled * UI_HUE_MIN_SHARE)
 		return SCE_FALSE;
 
 	for (int i = 1; i < UI_HUE_BUCKETS; i++) {
-		if (weight[i] > weight[best])
+		if (hist->weight[i] > hist->weight[best])
 			best = i;
 	}
 
-	if (count[best] == 0)
+	if (hist->count[best] == 0)
 		return SCE_FALSE;
 
-	float inv = 1.0f / (float)count[best];
-	*out_color = RGBA8((int)(sum_r[best] * inv * 255.0f + 0.5f), (int)(sum_g[best] * inv * 255.0f + 0.5f),
-		(int)(sum_b[best] * inv * 255.0f + 0.5f), 255);
+	inv = 1.0f / (float)hist->count[best];
+	*out_color = RGBA8((int)(hist->sum_r[best] * inv * 255.0f + 0.5f), (int)(hist->sum_g[best] * inv * 255.0f + 0.5f),
+		(int)(hist->sum_b[best] * inv * 255.0f + 0.5f), 255);
 
 	return SCE_TRUE;
+}
+
+SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color) {
+	UI_HueHistogram hist;
+	UI_CoverSampler s;
+
+	if (!out_color || !UI_CoverSamplerInit(cover, &s))
+		return SCE_FALSE;
+
+	memset(&hist, 0, sizeof(hist));
+
+	for (unsigned int y = 0; y < s.h; y += s.step_y) {
+		const unsigned char *row = s.pixels + (size_t)y * s.stride;
+
+		for (unsigned int x = 0; x < s.w; x += s.step_x) {
+			float r, g, b;
+
+			if (UI_CoverReadPixel(row + (size_t)x * s.bytes_per_pixel, s.bytes_per_pixel, &r, &g, &b))
+				UI_HueHistogramAdd(&hist, r, g, b);
+		}
+	}
+
+	return UI_HueHistogramPeak(&hist, out_color);
 }
 
 static float UI_SrgbToLinear(float c) {

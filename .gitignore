@@ -57,5 +57,4 @@ build/
 .mcp.json
 .repowise/
 .vscode/
-openspec/
 templates/

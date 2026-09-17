@@ -28,9 +28,11 @@ extern vita2d_font *font_mono;
 #define UI_COLOR_TRACKER         RGBA8(0xF0, 0xC3, 0x4D, 255)
 #define UI_COLOR_TRACKER_WASH    RGBA8(0xF0, 0xC3, 0x4D, 41)
 
-// Radius families (see design.md: 9-sliced corner textures, two baked sizes).
+// Radius families (drawn as vector arcs, see openspec/changes/vectorize-ui-controls).
 #define UI_RADIUS_SM 10
 #define UI_RADIUS_LG 24
+
+#define UI_PI 3.14159265358979f
 
 // Shared layout constants.
 #define UI_RAIL_WIDTH      76
@@ -65,6 +67,29 @@ void UI_DrawPill(float x, float y, float w, float h, unsigned int color);
 void UI_DrawBadge(float x, float y, unsigned int size, const char *label, unsigned int bg, unsigned int fg, unsigned int border);
 // Accent-wash rounded-rect highlight behind an active list row.
 void UI_DrawRowHighlight(float x, float y, float w, float h);
+
+// ---- Vector primitives (vita2d_draw_array; no texture involved) ----
+// Every UI control and chrome shape is composed from these, so icons stay
+// crisp at their drawn size instead of being a rescaled PNG.
+
+// Filled triangle.
+void UI_DrawTriangle(float x0, float y0, float x1, float y1, float x2, float y2, unsigned int color);
+// Filled convex quad; vertices given in order around the perimeter.
+void UI_DrawQuad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, unsigned int color);
+// Straight `thickness`-px stroke with round caps (the mockups' strokeLinecap: round).
+void UI_DrawStroke(float x0, float y0, float x1, float y1, float thickness, unsigned int color);
+// Annulus `thickness` px wide whose outer edge sits at `radius`.
+void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int color);
+
+// ---- Transport glyphs (shared by Now Playing and the Folders mini-player) ----
+// `size` is the glyph's nominal box, centered on (cx, cy).
+
+// Play: one right-pointing triangle.
+void UI_DrawPlayGlyph(float cx, float cy, float size, unsigned int color);
+// Pause: two bars.
+void UI_DrawPauseGlyph(float cx, float cy, float size, unsigned int color);
+// Skip to next / previous track: two triangles plus the end bar.
+void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned int color);
 
 // Baseline Y so `text` sits vertically centered within [box_top, box_top+box_h).
 int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h);

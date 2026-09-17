@@ -1,6 +1,7 @@
+#include <math.h>
+
 #include "common.h"
 #include "nav_rail.h"
-#include "textures.h"
 #include "touch.h"
 #include "ui_theme.h"
 
@@ -9,21 +10,75 @@
 #define RAIL_SETTINGS_SIZE    40
 #define RAIL_TOP_PAD          18
 #define RAIL_GAP              22
+// Drawn at its final size - no 28px texture rescaled down to 19px any more.
+#define RAIL_ICON_SIZE        22
+#define RAIL_GEAR_TEETH       8
 
 typedef struct {
 	UI_Screen screen;
-	vita2d_texture *icon;
 	float x, y, size;
 } NavRail_Button;
 
 static void NavRail_GetButtons(NavRail_Button out[3]) {
 	float x = (UI_RAIL_WIDTH - RAIL_BUTTON_SIZE) / 2.0f;
 
-	out[0] = (NavRail_Button){ UI_SCREEN_NOW_PLAYING, icon_nav_now_playing, x, RAIL_TOP_PAD, RAIL_BUTTON_SIZE };
-	out[1] = (NavRail_Button){ UI_SCREEN_FOLDERS, icon_nav_folders, x, RAIL_TOP_PAD + RAIL_BUTTON_SIZE + RAIL_GAP, RAIL_BUTTON_SIZE };
+	out[0] = (NavRail_Button){ UI_SCREEN_NOW_PLAYING, x, RAIL_TOP_PAD, RAIL_BUTTON_SIZE };
+	out[1] = (NavRail_Button){ UI_SCREEN_FOLDERS, x, RAIL_TOP_PAD + RAIL_BUTTON_SIZE + RAIL_GAP, RAIL_BUTTON_SIZE };
 
 	float settings_x = (UI_RAIL_WIDTH - RAIL_SETTINGS_SIZE) / 2.0f;
-	out[2] = (NavRail_Button){ UI_SCREEN_SETTINGS, icon_nav_settings, settings_x, 544 - RAIL_TOP_PAD - RAIL_SETTINGS_SIZE, RAIL_SETTINGS_SIZE };
+	out[2] = (NavRail_Button){ UI_SCREEN_SETTINGS, settings_x, 544 - RAIL_TOP_PAD - RAIL_SETTINGS_SIZE, RAIL_SETTINGS_SIZE };
+}
+
+// Now Playing: filled play triangle, nudged right so it reads optically centered.
+static void NavRail_DrawNowPlayingGlyph(float cx, float cy, float size, unsigned int color) {
+	float h = size * 0.88f, w = size * 0.76f;
+	float left = cx - w * 0.38f;
+
+	UI_DrawTriangle(left, cy - h / 2.0f, left + w, cy, left, cy + h / 2.0f, color);
+}
+
+// Folders: outlined folder with a tab on the left.
+static void NavRail_DrawFoldersGlyph(float cx, float cy, float size, unsigned int color) {
+	float x = cx - size / 2.0f, y = cy - size / 2.0f;
+	float t = size * 0.10f;
+	float l = x + size * 0.08f, r = x + size * 0.92f;
+	float top = y + size * 0.24f, fold = y + size * 0.36f, bottom = y + size * 0.78f;
+
+	UI_DrawStroke(l, top, x + size * 0.40f, top, t, color);
+	UI_DrawStroke(x + size * 0.40f, top, x + size * 0.50f, fold, t, color);
+	UI_DrawStroke(x + size * 0.50f, fold, r, fold, t, color);
+	UI_DrawStroke(r, fold, r, bottom, t, color);
+	UI_DrawStroke(r, bottom, l, bottom, t, color);
+	UI_DrawStroke(l, bottom, l, top, t, color);
+}
+
+// Settings: cog - an open ring plus radial teeth, so it stays correct over both
+// the plain rail background and the accent wash of the active button.
+static void NavRail_DrawSettingsGlyph(float cx, float cy, float size, unsigned int color) {
+	float tooth_inner = size * 0.30f, tooth_outer = size * 0.50f, tooth_half_w = size * 0.085f;
+
+	UI_DrawRing(cx, cy, size * 0.375f, size * 0.175f, color);
+
+	for (int i = 0; i < RAIL_GEAR_TEETH; i++) {
+		float a = (2.0f * UI_PI * (float)i) / (float)RAIL_GEAR_TEETH;
+		float c = cosf(a), s = sinf(a);
+		// Perpendicular to the tooth axis.
+		float pc = -s * tooth_half_w, ps = c * tooth_half_w;
+
+		UI_DrawQuad(cx + c * tooth_inner + pc, cy + s * tooth_inner + ps,
+			cx + c * tooth_outer + pc, cy + s * tooth_outer + ps,
+			cx + c * tooth_outer - pc, cy + s * tooth_outer - ps,
+			cx + c * tooth_inner - pc, cy + s * tooth_inner - ps, color);
+	}
+}
+
+static void NavRail_DrawIcon(UI_Screen screen, float cx, float cy, unsigned int color) {
+	switch (screen) {
+		case UI_SCREEN_NOW_PLAYING: NavRail_DrawNowPlayingGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
+		case UI_SCREEN_FOLDERS: NavRail_DrawFoldersGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
+		case UI_SCREEN_SETTINGS: NavRail_DrawSettingsGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
+		default: break;
+	}
 }
 
 UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
@@ -42,11 +97,8 @@ UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
 		if (is_active)
 			UI_DrawRoundedRect(b->x, b->y, b->size, b->size, RAIL_BUTTON_RADIUS, UI_COLOR_ACCENT_WASH);
 
-		float icon_size = 19;
-		float icon_x = b->x + (b->size - icon_size) / 2;
-		float icon_y = b->y + (b->size - icon_size) / 2;
-		vita2d_draw_texture_tint_scale(b->icon, icon_x, icon_y, icon_size / vita2d_texture_get_width(b->icon),
-			icon_size / vita2d_texture_get_height(b->icon), is_active ? UI_COLOR_ACCENT : UI_COLOR_TEXT_TERTIARY);
+		NavRail_DrawIcon(b->screen, b->x + b->size / 2.0f, b->y + b->size / 2.0f,
+			is_active ? UI_COLOR_ACCENT : UI_COLOR_TEXT_TERTIARY);
 
 		if (Touch_Position(b->x, b->y, b->x + b->size, b->y + b->size))
 			tapped = b->screen;

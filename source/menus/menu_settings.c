@@ -12,7 +12,6 @@
 #include "menu_settings.h"
 #include "nav_rail.h"
 #include "status_bar.h"
-#include "textures.h"
 #include "touch.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -24,6 +23,9 @@
 #define HEADER_H     60
 #define CAT_ROW_H    44
 #define ITEM_ROW_H   46
+#define TOGGLE_W     48
+#define TOGGLE_H     26
+#define TOGGLE_KNOB_R 10
 
 typedef enum {
 	SETTINGS_ITEM_RADIO,
@@ -139,6 +141,16 @@ static void SettingsUI_DrawRadio(float cx, float cy, SceBool active) {
 	}
 }
 
+// Track via UI_DrawPill (already vector) plus a drawn knob - the toggle PNGs it
+// replaces were solid black, which read as an empty pill on the dark surface.
+static void SettingsUI_DrawToggle(float x, float y, SceBool active) {
+	float knob_cx = active ? (x + TOGGLE_W - TOGGLE_H / 2.0f) : (x + TOGGLE_H / 2.0f);
+
+	UI_DrawPill(x, y, TOGGLE_W, TOGGLE_H, active ? UI_COLOR_ACCENT : UI_COLOR_SURFACE_2);
+	vita2d_draw_fill_circle(knob_cx, y + TOGGLE_H / 2.0f, TOGGLE_KNOB_R,
+		active ? UI_COLOR_BG : UI_COLOR_TEXT_TERTIARY);
+}
+
 static void Menu_DrawSettingsCategoryColumn(int category_index) {
 	vita2d_draw_rectangle(CAT_COL_X + CAT_COL_W - 1, 0, 1, 544, UI_COLOR_HAIRLINE);
 	vita2d_draw_rectangle(CAT_COL_X, HEADER_H - 1, CAT_COL_W, 1, UI_COLOR_HAIRLINE);
@@ -203,10 +215,7 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 			vita2d_font_draw_text(font_ui, DETAIL_X + 26, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, label, y, ITEM_ROW_H),
 				text_color, UI_FONT_SIZE_BODY, label);
 
-			vita2d_texture *toggle_tex = active ? toggle_on : toggle_off;
-			float toggle_x = 960 - 26 - vita2d_texture_get_width(toggle_tex);
-			float toggle_y = y + (ITEM_ROW_H - vita2d_texture_get_height(toggle_tex)) / 2;
-			vita2d_draw_texture(toggle_tex, toggle_x, toggle_y);
+			SettingsUI_DrawToggle(960 - 26 - TOGGLE_W, y + (ITEM_ROW_H - TOGGLE_H) / 2.0f, active);
 		}
 
 		y += ITEM_ROW_H;

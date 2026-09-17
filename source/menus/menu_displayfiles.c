@@ -8,7 +8,6 @@
 #include "menu_settings.h"
 #include "nav_rail.h"
 #include "status_bar.h"
-#include "textures.h"
 #include "touch.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -18,6 +17,9 @@
 #define FILTER_W      220
 #define FILTER_H      36
 #define MINI_PLAYER_H 62
+// Glyph boxes for the mini-player transport controls.
+#define MINI_GLYPH_SIZE      22
+#define MINI_PLAY_GLYPH_SIZE 16
 
 static float Menu_FilterBoxX(void) { return 960 - 22 - FILTER_W; }
 static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
@@ -135,15 +137,15 @@ static void Menu_DrawMiniPlayer(void) {
 	float prev_x = play_cx - play_r - 20 - 30;
 	float row_cy = y + MINI_PLAYER_H / 2;
 
-	vita2d_texture *prev_tex = btn_rewind;
-	vita2d_draw_texture(prev_tex, prev_x + (30 - vita2d_texture_get_width(prev_tex)) / 2, row_cy - vita2d_texture_get_height(prev_tex) / 2);
+	UI_DrawSkipGlyph(prev_x + 15, row_cy, MINI_GLYPH_SIZE, SCE_FALSE, UI_COLOR_TEXT_SECONDARY);
 
 	UI_DrawRoundedRect(play_cx - play_r, row_cy - play_r, play_r * 2, play_r * 2, (int)play_r, UI_COLOR_ACCENT);
-	vita2d_texture *play_tex = Audio_IsPaused() ? btn_play : btn_pause;
-	vita2d_draw_texture(play_tex, play_cx - vita2d_texture_get_width(play_tex) / 2, row_cy - vita2d_texture_get_height(play_tex) / 2);
+	if (Audio_IsPaused())
+		UI_DrawPlayGlyph(play_cx, row_cy, MINI_PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
+	else
+		UI_DrawPauseGlyph(play_cx, row_cy, MINI_PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
 
-	vita2d_texture *next_tex = btn_forward;
-	vita2d_draw_texture(next_tex, next_x + (30 - vita2d_texture_get_width(next_tex)) / 2, row_cy - vita2d_texture_get_height(next_tex) / 2);
+	UI_DrawSkipGlyph(next_x + 15, row_cy, MINI_GLYPH_SIZE, SCE_TRUE, UI_COLOR_TEXT_SECONDARY);
 }
 
 static SceBool Menu_HandleMiniPlayerTouch(void) {

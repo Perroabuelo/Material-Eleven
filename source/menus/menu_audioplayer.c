@@ -15,7 +15,6 @@
 #include "nav_rail.h"
 #include "status_bar.h"
 #include "touch.h"
-#include "textures.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -187,6 +186,54 @@ void Music_Next(void) {
 #define SEEK_H           5
 #define UPNEXT_ROW_H     40
 
+// Glyph boxes for the vector transport icons (drawn, not rescaled textures),
+// each comfortably inside the control it sits in.
+#define PLAY_GLYPH_SIZE   30
+#define SKIP_GLYPH_SIZE   28
+#define STATE_GLYPH_SIZE  22
+
+// Shuffle: two paths that cross, each ending in a right-pointing arrow head.
+static void Menu_DrawShuffleGlyph(float cx, float cy, float size, unsigned int color) {
+	float x = cx - size / 2.0f, y = cy - size / 2.0f;
+	float t = size * 0.085f;
+	float top = y + size * 0.25f, bottom = y + size * 0.75f;
+	float in_x = x + size * 0.11f, bend_x = x + size * 0.30f;
+	float out_x = x + size * 0.58f, tip_x = x + size * 0.72f;
+	float head = size * 0.13f;
+
+	// Lower-left -> upper-right.
+	UI_DrawStroke(in_x, bottom, bend_x, bottom, t, color);
+	UI_DrawStroke(bend_x, bottom, out_x, top, t, color);
+	UI_DrawStroke(out_x, top, tip_x, top, t, color);
+
+	// Upper-left -> lower-right.
+	UI_DrawStroke(in_x, top, bend_x, top, t, color);
+	UI_DrawStroke(bend_x, top, out_x, bottom, t, color);
+	UI_DrawStroke(out_x, bottom, tip_x, bottom, t, color);
+
+	UI_DrawTriangle(tip_x, top - head, x + size * 0.92f, top, tip_x, top + head, color);
+	UI_DrawTriangle(tip_x, bottom - head, x + size * 0.92f, bottom, tip_x, bottom + head, color);
+}
+
+// Repeat: a broken loop, arrow head at each open end.
+static void Menu_DrawRepeatGlyph(float cx, float cy, float size, unsigned int color) {
+	float x = cx - size / 2.0f, y = cy - size / 2.0f;
+	float t = size * 0.085f;
+	float top = y + size * 0.28f, bottom = y + size * 0.72f, mid = y + size * 0.50f;
+	float left = x + size * 0.15f, right = x + size * 0.85f;
+	float head = size * 0.13f;
+
+	// Top run, left side going down.
+	UI_DrawStroke(left, top, x + size * 0.70f, top, t, color);
+	UI_DrawStroke(left, top, left, mid, t, color);
+	UI_DrawTriangle(x + size * 0.70f, top - head, x + size * 0.93f, top, x + size * 0.70f, top + head, color);
+
+	// Bottom run, right side going up.
+	UI_DrawStroke(right, bottom, x + size * 0.30f, bottom, t, color);
+	UI_DrawStroke(right, bottom, right, mid, t, color);
+	UI_DrawTriangle(x + size * 0.30f, bottom - head, x + size * 0.07f, bottom, x + size * 0.30f, bottom + head, color);
+}
+
 static void Menu_DrawUpNext(void) {
 	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 18 - (2 * UPNEXT_ROW_H) - 22;
 
@@ -222,26 +269,24 @@ static void Menu_DrawTransportControls(void) {
 	float side_y = TRANSPORT_CY - SIDE_BTN_SIZE / 2;
 
 	UI_DrawRoundedRect(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE, 16, UI_COLOR_SURFACE);
-	vita2d_draw_texture(btn_rewind, prev_x + (SIDE_BTN_SIZE - vita2d_texture_get_width(btn_rewind)) / 2,
-		side_y + (SIDE_BTN_SIZE - vita2d_texture_get_height(btn_rewind)) / 2);
+	UI_DrawSkipGlyph(prev_x + SIDE_BTN_SIZE / 2.0f, TRANSPORT_CY, SKIP_GLYPH_SIZE, SCE_FALSE, UI_COLOR_TEXT_PRIMARY);
 
 	UI_DrawRoundedRect(next_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE, 16, UI_COLOR_SURFACE);
-	vita2d_draw_texture(btn_forward, next_x + (SIDE_BTN_SIZE - vita2d_texture_get_width(btn_forward)) / 2,
-		side_y + (SIDE_BTN_SIZE - vita2d_texture_get_height(btn_forward)) / 2);
+	UI_DrawSkipGlyph(next_x + SIDE_BTN_SIZE / 2.0f, TRANSPORT_CY, SKIP_GLYPH_SIZE, SCE_TRUE, UI_COLOR_TEXT_PRIMARY);
 
 	UI_DrawRoundedRect(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2, 26, UI_COLOR_ACCENT);
-	vita2d_texture *play_tex = Audio_IsPaused() ? btn_play : btn_pause;
-	vita2d_draw_texture(play_tex, cx - vita2d_texture_get_width(play_tex) / 2, TRANSPORT_CY - vita2d_texture_get_height(play_tex) / 2);
+	if (Audio_IsPaused())
+		UI_DrawPlayGlyph(cx, TRANSPORT_CY, PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
+	else
+		UI_DrawPauseGlyph(cx, TRANSPORT_CY, PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
 
 	float shuffle_x = prev_x - TOGGLE_ICON_GAP - TOGGLE_ICON_SIZE;
-	vita2d_texture *shuffle_tex = (state == MUSIC_STATE_SHUFFLE) ? btn_shuffle_overlay : btn_shuffle;
-	vita2d_draw_texture(shuffle_tex, shuffle_x + (TOGGLE_ICON_SIZE - vita2d_texture_get_width(shuffle_tex)) / 2,
-		TRANSPORT_CY - vita2d_texture_get_height(shuffle_tex) / 2);
+	Menu_DrawShuffleGlyph(shuffle_x + TOGGLE_ICON_SIZE / 2.0f, TRANSPORT_CY, STATE_GLYPH_SIZE,
+		(state == MUSIC_STATE_SHUFFLE) ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
 
 	float repeat_x = next_x + SIDE_BTN_SIZE + TOGGLE_ICON_GAP;
-	vita2d_texture *repeat_tex = (state == MUSIC_STATE_REPEAT) ? btn_repeat_overlay : btn_repeat;
-	vita2d_draw_texture(repeat_tex, repeat_x + (TOGGLE_ICON_SIZE - vita2d_texture_get_width(repeat_tex)) / 2,
-		TRANSPORT_CY - vita2d_texture_get_height(repeat_tex) / 2);
+	Menu_DrawRepeatGlyph(repeat_x + TOGGLE_ICON_SIZE / 2.0f, TRANSPORT_CY, STATE_GLYPH_SIZE,
+		(state == MUSIC_STATE_REPEAT) ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
 }
 
 static SceBool Menu_HandleTransportTouch(void) {

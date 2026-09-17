@@ -1,8 +1,16 @@
+#include <math.h>
 #include <string.h>
 
 #include "common.h"
 #include "textures.h"
 #include "ui_theme.h"
+
+// vita2d submits its own 2D primitives at this depth; the vector helpers below
+// match it so they interleave with vita2d_draw_rectangle in submission order.
+#define UI_VEC_Z 0.5f
+// Segments around a full ring - 24 keeps the gear/knob edges smooth at the
+// sizes this app draws them (radius <= 12).
+#define UI_RING_SEGMENTS 24
 
 vita2d_font *font_ui = NULL;
 vita2d_font *font_mono = NULL;
@@ -15,6 +23,103 @@ void UI_Theme_Load(void) {
 void UI_Theme_Free(void) {
 	vita2d_free_font(font_mono);
 	vita2d_free_font(font_ui);
+}
+
+static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int color) {
+	v->x = x;
+	v->y = y;
+	v->z = UI_VEC_Z;
+	v->color = color;
+}
+
+void UI_DrawTriangle(float x0, float y0, float x1, float y1, float x2, float y2, unsigned int color) {
+	vita2d_color_vertex v[3];
+
+	UI_SetVertex(&v[0], x0, y0, color);
+	UI_SetVertex(&v[1], x1, y1, color);
+	UI_SetVertex(&v[2], x2, y2, color);
+
+	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLES, v, 3);
+}
+
+void UI_DrawQuad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, unsigned int color) {
+	vita2d_color_vertex v[4];
+
+	UI_SetVertex(&v[0], x0, y0, color);
+	UI_SetVertex(&v[1], x1, y1, color);
+	UI_SetVertex(&v[2], x2, y2, color);
+	UI_SetVertex(&v[3], x3, y3, color);
+
+	// A fan over 4 perimeter-ordered vertices is (0,1,2) + (0,2,3).
+	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLE_FAN, v, 4);
+}
+
+void UI_DrawStroke(float x0, float y0, float x1, float y1, float thickness, unsigned int color) {
+	float dx = x1 - x0, dy = y1 - y0;
+	float len = sqrtf(dx * dx + dy * dy);
+	float r = thickness / 2.0f;
+
+	if (len < 0.001f) {
+		vita2d_draw_fill_circle(x0, y0, r, color);
+		return;
+	}
+
+	// Offset perpendicular to the segment by half the thickness on each side.
+	float nx = (-dy / len) * r, ny = (dx / len) * r;
+	UI_DrawQuad(x0 + nx, y0 + ny, x1 + nx, y1 + ny, x1 - nx, y1 - ny, x0 - nx, y0 - ny, color);
+
+	vita2d_draw_fill_circle(x0, y0, r, color);
+	vita2d_draw_fill_circle(x1, y1, r, color);
+}
+
+void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int color) {
+	vita2d_color_vertex v[(UI_RING_SEGMENTS + 1) * 2];
+	float inner = radius - thickness;
+
+	if (inner < 0.0f)
+		inner = 0.0f;
+
+	for (int i = 0; i <= UI_RING_SEGMENTS; i++) {
+		float a = (2.0f * UI_PI * (float)i) / (float)UI_RING_SEGMENTS;
+		float c = cosf(a), s = sinf(a);
+
+		UI_SetVertex(&v[i * 2], cx + c * radius, cy + s * radius, color);
+		UI_SetVertex(&v[i * 2 + 1], cx + c * inner, cy + s * inner, color);
+	}
+
+	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLE_STRIP, v, (UI_RING_SEGMENTS + 1) * 2);
+}
+
+// Nudged right by a fraction of its width so it reads optically centered.
+void UI_DrawPlayGlyph(float cx, float cy, float size, unsigned int color) {
+	float h = size, w = size * 0.87f;
+	float left = cx - w * 0.38f;
+
+	UI_DrawTriangle(left, cy - h / 2.0f, left + w, cy, left, cy + h / 2.0f, color);
+}
+
+void UI_DrawPauseGlyph(float cx, float cy, float size, unsigned int color) {
+	float bw = size * 0.26f, gap = size * 0.18f, h = size * 0.92f;
+
+	vita2d_draw_rectangle(cx - gap / 2.0f - bw, cy - h / 2.0f, bw, h, color);
+	vita2d_draw_rectangle(cx + gap / 2.0f, cy - h / 2.0f, bw, h, color);
+}
+
+void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned int color) {
+	float h = size * 0.68f, tw = size * 0.30f, bw = size * 0.11f;
+	float left = cx - (tw * 2.0f + bw) / 2.0f;
+	float top = cy - h / 2.0f, bottom = cy + h / 2.0f;
+
+	if (forward) {
+		UI_DrawTriangle(left, top, left + tw, cy, left, bottom, color);
+		UI_DrawTriangle(left + tw, top, left + tw * 2.0f, cy, left + tw, bottom, color);
+		vita2d_draw_rectangle(left + tw * 2.0f, top, bw, h, color);
+	}
+	else {
+		vita2d_draw_rectangle(left, top, bw, h, color);
+		UI_DrawTriangle(left + bw + tw, top, left + bw, cy, left + bw + tw, bottom, color);
+		UI_DrawTriangle(left + bw + tw * 2.0f, top, left + bw + tw, cy, left + bw + tw * 2.0f, bottom, color);
+	}
 }
 
 static void UI_DrawCornerAtlasQuad(vita2d_texture *atlas, int native_radius, float dst_x, float dst_y,

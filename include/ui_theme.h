@@ -94,6 +94,16 @@ void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned 
 // Baseline Y so `text` sits vertically centered within [box_top, box_top+box_h).
 int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h);
 
+// ---- Dynamic accent derived from cover art ----
+
+// Dominant chromatic color of a decoded cover texture, from a subsampled hue
+// histogram. Returns SCE_FALSE (leaving `out_color` untouched) when the texture
+// cannot be sampled or carries no usable hue, such as a grayscale cover.
+SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color);
+// Clamps a color's saturation and lightness into the band that stays legible
+// over UI_COLOR_BG and apart from UI_COLOR_TEXT_SECONDARY.
+unsigned int UI_MakeAccentLegible(unsigned int color);
+
 // Format badge styling (color + label) for a recognized audio extension.
 // Returns SCE_FALSE (and leaves outputs untouched) for an unrecognized extension.
 SceBool UI_GetFormatBadge(const char *ext, const char **out_label, unsigned int *out_color, unsigned int *out_wash);

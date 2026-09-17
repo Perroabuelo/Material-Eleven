@@ -15,6 +15,34 @@
 #define UI_ARC_MIN_SEGMENTS 6
 #define UI_ARC_MAX_SEGMENTS 16
 
+// Cover-art sampling: roughly a 48x48 grid of samples, whatever the cover's
+// real size. Runs once per track load, not per frame.
+#define UI_COVER_SAMPLE_GRID 48
+#define UI_HUE_BUCKETS 24
+// A pixel needs this much saturation, and a lightness away from both extremes,
+// before its hue counts as a vote.
+#define UI_HUE_MIN_SAT 0.18f
+#define UI_HUE_MIN_LUM 0.10f
+#define UI_HUE_MAX_LUM 0.92f
+// Below this share of sampled pixels, the cover has no usable hue at all and
+// the caller keeps the fixed accent.
+#define UI_HUE_MIN_SHARE 0.06f
+
+// The fixed accent #FF9166 sits at S 1.00 / L 0.70. This band brackets it, so a
+// derived accent lands in the same contrast range against UI_COLOR_BG (L 0.08)
+// and stays apart from UI_COLOR_TEXT_SECONDARY (S 0.20 / L 0.70) by saturation.
+#define UI_ACCENT_MIN_SAT 0.60f
+#define UI_ACCENT_MAX_SAT 0.95f
+#define UI_ACCENT_MIN_LUM 0.58f
+#define UI_ACCENT_MAX_LUM 0.76f
+// The HSL band alone is not enough: lightness is a poor stand-in for perceived
+// luminance, so a violet at L 0.60 reads far darker than an orange at the same
+// L. These drive a second pass that lifts the lightness until the accent clears
+// a real contrast floor over the background.
+#define UI_ACCENT_MIN_CONTRAST 4.5f
+#define UI_ACCENT_LUM_CEILING 0.88f
+#define UI_ACCENT_LUM_STEP 0.02f
+
 vita2d_font *font_ui = NULL;
 vita2d_font *font_mono = NULL;
 
@@ -211,6 +239,213 @@ void UI_DrawRowHighlight(float x, float y, float w, float h) {
 int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h) {
 	int height = vita2d_font_text_height(f, size, text);
 	return (int)(box_top + ((box_h - height) / 2) + height);
+}
+
+// ---- Dynamic accent derived from cover art ----
+
+static void UI_RgbToHsl(float r, float g, float b, float *out_h, float *out_s, float *out_l) {
+	float max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+	float min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+	float span = max - min;
+
+	*out_l = (max + min) / 2.0f;
+
+	if (span < 0.0001f) {
+		*out_h = 0.0f;
+		*out_s = 0.0f;
+		return;
+	}
+
+	*out_s = (*out_l > 0.5f) ? (span / (2.0f - max - min)) : (span / (max + min));
+
+	float hue;
+	if (max == r)
+		hue = (g - b) / span + (g < b ? 6.0f : 0.0f);
+	else if (max == g)
+		hue = (b - r) / span + 2.0f;
+	else
+		hue = (r - g) / span + 4.0f;
+
+	*out_h = hue / 6.0f;
+}
+
+static float UI_HueToChannel(float p, float q, float t) {
+	if (t < 0.0f)
+		t += 1.0f;
+	if (t > 1.0f)
+		t -= 1.0f;
+
+	if (t < 1.0f / 6.0f)
+		return p + (q - p) * 6.0f * t;
+	if (t < 1.0f / 2.0f)
+		return q;
+	if (t < 2.0f / 3.0f)
+		return p + (q - p) * (2.0f / 3.0f - t) * 6.0f;
+
+	return p;
+}
+
+static unsigned int UI_HslToRgba(float h, float s, float l) {
+	float r, g, b;
+
+	if (s < 0.0001f)
+		r = g = b = l;
+	else {
+		float q = (l < 0.5f) ? (l * (1.0f + s)) : (l + s - l * s);
+		float p = 2.0f * l - q;
+		r = UI_HueToChannel(p, q, h + 1.0f / 3.0f);
+		g = UI_HueToChannel(p, q, h);
+		b = UI_HueToChannel(p, q, h - 1.0f / 3.0f);
+	}
+
+	return RGBA8((int)(r * 255.0f + 0.5f), (int)(g * 255.0f + 0.5f), (int)(b * 255.0f + 0.5f), 255);
+}
+
+// vita2d decodes cover art straight into a GPU texture, always in linear layout
+// (the library only ever calls sceGxmTextureInitLinear), so the pixels are
+// readable from the CPU. The two loaders produce different formats:
+// vita2d_load_PNG_buffer goes through vita2d_create_empty_texture (4 bytes per
+// pixel, U8U8U8U8_ABGR) while vita2d_load_JPEG_buffer asks for U8U8U8_BGR
+// (3 bytes), or U8_R (1 byte) for a grayscale JPEG. In each of those the
+// swizzle's least significant channel is red, so byte 0 of a pixel is always R.
+static SceBool UI_CoverBytesPerPixel(SceGxmTextureFormat format, unsigned int *out_bytes) {
+	switch (format) {
+		case SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR: *out_bytes = 4; return SCE_TRUE;
+		case SCE_GXM_TEXTURE_FORMAT_U8U8U8_BGR: *out_bytes = 3; return SCE_TRUE;
+		case SCE_GXM_TEXTURE_FORMAT_U8_R: *out_bytes = 1; return SCE_TRUE;
+		default: return SCE_FALSE;
+	}
+}
+
+SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color) {
+	float weight[UI_HUE_BUCKETS] = { 0 };
+	float sum_r[UI_HUE_BUCKETS] = { 0 }, sum_g[UI_HUE_BUCKETS] = { 0 }, sum_b[UI_HUE_BUCKETS] = { 0 };
+	int count[UI_HUE_BUCKETS] = { 0 };
+	unsigned int bytes_per_pixel = 0;
+	int sampled = 0, chromatic = 0, best = 0;
+
+	if (!cover || !out_color)
+		return SCE_FALSE;
+
+	if (!UI_CoverBytesPerPixel(vita2d_texture_get_format(cover), &bytes_per_pixel))
+		return SCE_FALSE;
+
+	const unsigned char *pixels = (const unsigned char *)vita2d_texture_get_datap(cover);
+	unsigned int w = vita2d_texture_get_width(cover);
+	unsigned int h = vita2d_texture_get_height(cover);
+	unsigned int stride = vita2d_texture_get_stride(cover);
+
+	if (!pixels || w == 0 || h == 0 || stride == 0)
+		return SCE_FALSE;
+
+	unsigned int step_x = (w + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
+	unsigned int step_y = (h + UI_COVER_SAMPLE_GRID - 1) / UI_COVER_SAMPLE_GRID;
+	if (step_x == 0)
+		step_x = 1;
+	if (step_y == 0)
+		step_y = 1;
+
+	for (unsigned int y = 0; y < h; y += step_y) {
+		const unsigned char *row = pixels + (size_t)y * stride;
+
+		for (unsigned int x = 0; x < w; x += step_x) {
+			const unsigned char *px = row + (size_t)x * bytes_per_pixel;
+
+			if (bytes_per_pixel == 4 && px[3] < 128)
+				continue; // transparent, carries no color
+
+			float r = px[0] / 255.0f;
+			float g = (bytes_per_pixel >= 3) ? (px[1] / 255.0f) : r;
+			float b = (bytes_per_pixel >= 3) ? (px[2] / 255.0f) : r;
+			float hue, sat, lum;
+
+			sampled++;
+			UI_RgbToHsl(r, g, b, &hue, &sat, &lum);
+
+			// Flat black, flat white and gray carry no hue to vote with.
+			if (sat < UI_HUE_MIN_SAT || lum < UI_HUE_MIN_LUM || lum > UI_HUE_MAX_LUM)
+				continue;
+
+			int bucket = (int)(hue * UI_HUE_BUCKETS);
+			if (bucket < 0)
+				bucket = 0;
+			if (bucket >= UI_HUE_BUCKETS)
+				bucket = UI_HUE_BUCKETS - 1;
+
+			// Weighted by saturation, so a vivid minority outvotes a washed-out majority.
+			weight[bucket] += sat;
+			sum_r[bucket] += r;
+			sum_g[bucket] += g;
+			sum_b[bucket] += b;
+			count[bucket]++;
+			chromatic++;
+		}
+	}
+
+	if (sampled == 0 || (float)chromatic < (float)sampled * UI_HUE_MIN_SHARE)
+		return SCE_FALSE;
+
+	for (int i = 1; i < UI_HUE_BUCKETS; i++) {
+		if (weight[i] > weight[best])
+			best = i;
+	}
+
+	if (count[best] == 0)
+		return SCE_FALSE;
+
+	float inv = 1.0f / (float)count[best];
+	*out_color = RGBA8((int)(sum_r[best] * inv * 255.0f + 0.5f), (int)(sum_g[best] * inv * 255.0f + 0.5f),
+		(int)(sum_b[best] * inv * 255.0f + 0.5f), 255);
+
+	return SCE_TRUE;
+}
+
+static float UI_SrgbToLinear(float c) {
+	return (c <= 0.03928f) ? (c / 12.92f) : powf((c + 0.055f) / 1.055f, 2.4f);
+}
+
+static float UI_RelativeLuminance(unsigned int color) {
+	return 0.2126f * UI_SrgbToLinear((float)(color & 0xFF) / 255.0f)
+		+ 0.7152f * UI_SrgbToLinear((float)((color >> 8) & 0xFF) / 255.0f)
+		+ 0.0722f * UI_SrgbToLinear((float)((color >> 16) & 0xFF) / 255.0f);
+}
+
+static float UI_ContrastOverBg(unsigned int color) {
+	float lum = UI_RelativeLuminance(color);
+	float bg = UI_RelativeLuminance(UI_COLOR_BG);
+
+	return (lum > bg) ? ((lum + 0.05f) / (bg + 0.05f)) : ((bg + 0.05f) / (lum + 0.05f));
+}
+
+unsigned int UI_MakeAccentLegible(unsigned int color) {
+	float r = (float)(color & 0xFF) / 255.0f;
+	float g = (float)((color >> 8) & 0xFF) / 255.0f;
+	float b = (float)((color >> 16) & 0xFF) / 255.0f;
+	float hue, sat, lum;
+	unsigned int accent;
+
+	UI_RgbToHsl(r, g, b, &hue, &sat, &lum);
+
+	if (sat < UI_ACCENT_MIN_SAT)
+		sat = UI_ACCENT_MIN_SAT;
+	if (sat > UI_ACCENT_MAX_SAT)
+		sat = UI_ACCENT_MAX_SAT;
+	if (lum < UI_ACCENT_MIN_LUM)
+		lum = UI_ACCENT_MIN_LUM;
+	if (lum > UI_ACCENT_MAX_LUM)
+		lum = UI_ACCENT_MAX_LUM;
+
+	accent = UI_HslToRgba(hue, sat, lum);
+
+	// Second pass on perceived luminance, not HSL lightness: a blue or violet
+	// sits well below an orange of the same lightness, so lift it until the
+	// accent actually clears the contrast floor over the background.
+	while (lum < UI_ACCENT_LUM_CEILING && UI_ContrastOverBg(accent) < UI_ACCENT_MIN_CONTRAST) {
+		lum += UI_ACCENT_LUM_STEP;
+		accent = UI_HslToRgba(hue, sat, lum);
+	}
+
+	return accent;
 }
 
 SceBool UI_GetFormatBadge(const char *ext, const char **out_label, unsigned int *out_color, unsigned int *out_wash) {

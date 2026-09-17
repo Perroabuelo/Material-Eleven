@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "common.h"
-#include "textures.h"
 #include "ui_theme.h"
 
 // vita2d submits its own 2D primitives at this depth; the vector helpers below
@@ -11,6 +10,10 @@
 // Segments around a full ring - 24 keeps the gear/knob edges smooth at the
 // sizes this app draws them (radius <= 12).
 #define UI_RING_SEGMENTS 24
+// Segments per 90-degree corner arc, scaled with the radius. The radii in use
+// run from 2 (the seek bar pill) to 38 (the play button).
+#define UI_ARC_MIN_SEGMENTS 6
+#define UI_ARC_MAX_SEGMENTS 16
 
 vita2d_font *font_ui = NULL;
 vita2d_font *font_mono = NULL;
@@ -122,10 +125,28 @@ void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned 
 	}
 }
 
-static void UI_DrawCornerAtlasQuad(vita2d_texture *atlas, int native_radius, float dst_x, float dst_y,
-	float tex_x, float tex_y, float radius, unsigned int color) {
-	float scale = (float)radius / (float)native_radius;
-	vita2d_draw_texture_tint_part_scale(atlas, dst_x, dst_y, tex_x, tex_y, native_radius, native_radius, scale, scale, color);
+// Quarter disc filling one `radius` x `radius` corner box, as a triangle fan
+// from the corner's center. The fan's first and last radii land exactly on the
+// box edges, so the arc butts against the straight bands without overlapping
+// them - which matters because rounded rects are also drawn in semi-transparent
+// colors (the accent wash, the hairline), where an overlap would show a seam.
+static void UI_DrawCornerArc(float cx, float cy, float radius, float start_angle, unsigned int color) {
+	vita2d_color_vertex v[UI_ARC_MAX_SEGMENTS + 2];
+	int segments = (int)(radius * 0.7f);
+
+	if (segments < UI_ARC_MIN_SEGMENTS)
+		segments = UI_ARC_MIN_SEGMENTS;
+	if (segments > UI_ARC_MAX_SEGMENTS)
+		segments = UI_ARC_MAX_SEGMENTS;
+
+	UI_SetVertex(&v[0], cx, cy, color);
+
+	for (int i = 0; i <= segments; i++) {
+		float a = start_angle + (UI_PI / 2.0f) * ((float)i / (float)segments);
+		UI_SetVertex(&v[i + 1], cx + cosf(a) * radius, cy + sinf(a) * radius, color);
+	}
+
+	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLE_FAN, v, segments + 2);
 }
 
 void UI_DrawRoundedRect(float x, float y, float w, float h, int radius, unsigned int color) {
@@ -144,21 +165,22 @@ void UI_DrawRoundedRect(float x, float y, float w, float h, int radius, unsigned
 		return;
 	}
 
-	vita2d_texture *atlas = (radius <= UI_RADIUS_SM) ? ui_corner_sm : ui_corner_lg;
-	int native_radius = (radius <= UI_RADIUS_SM) ? UI_RADIUS_SM : UI_RADIUS_LG;
+	float r = (float)radius;
 
 	// Vertical band covering the full height minus the left/right corner columns.
-	vita2d_draw_rectangle(x + radius, y, w - 2 * radius, h, color);
+	vita2d_draw_rectangle(x + r, y, w - 2 * r, h, color);
 	// Left / right middle strips, between the top and bottom corners.
-	if (h - 2 * radius > 0) {
-		vita2d_draw_rectangle(x, y + radius, radius, h - 2 * radius, color);
-		vita2d_draw_rectangle(x + w - radius, y + radius, radius, h - 2 * radius, color);
+	if (h - 2 * r > 0) {
+		vita2d_draw_rectangle(x, y + r, r, h - 2 * r, color);
+		vita2d_draw_rectangle(x + w - r, y + r, r, h - 2 * r, color);
 	}
 
-	UI_DrawCornerAtlasQuad(atlas, native_radius, x, y, 0, 0, radius, color); // top-left
-	UI_DrawCornerAtlasQuad(atlas, native_radius, x + w - radius, y, native_radius, 0, radius, color); // top-right
-	UI_DrawCornerAtlasQuad(atlas, native_radius, x, y + h - radius, 0, native_radius, radius, color); // bottom-left
-	UI_DrawCornerAtlasQuad(atlas, native_radius, x + w - radius, y + h - radius, native_radius, native_radius, radius, color); // bottom-right
+	// Screen space has y growing downwards, so each arc sweeps +90 degrees
+	// clockwise from the start angle given here.
+	UI_DrawCornerArc(x + r, y + r, r, UI_PI, color); // top-left
+	UI_DrawCornerArc(x + w - r, y + r, r, UI_PI * 1.5f, color); // top-right
+	UI_DrawCornerArc(x + w - r, y + h - r, r, 0.0f, color); // bottom-right
+	UI_DrawCornerArc(x + r, y + h - r, r, UI_PI * 0.5f, color); // bottom-left
 }
 
 void UI_DrawPill(float x, float y, float w, float h, unsigned int color) {

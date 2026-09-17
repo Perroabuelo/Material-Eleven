@@ -1,26 +1,194 @@
+#include <psp2/ime_dialog.h>
 #include <string.h>
 
+#include "audio.h"
 #include "common.h"
 #include "dirbrowse.h"
+#include "menu_audioplayer.h"
 #include "menu_settings.h"
+#include "nav_rail.h"
 #include "status_bar.h"
 #include "textures.h"
+#include "touch.h"
+#include "ui_theme.h"
 #include "utils.h"
 
+#define CONTENT_X     (UI_RAIL_WIDTH)
+#define TOPBAR_H      60
+#define FILTER_W      220
+#define FILTER_H      36
+#define MINI_PLAYER_H 62
+
+static float Menu_FilterBoxX(void) { return 960 - 22 - FILTER_W; }
+static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
+
+static void Menu_PromptFilter(void) {
+	SceWChar16 title[] = u"Buscar en esta carpeta";
+	SceWChar16 initial[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
+	SceWChar16 input[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
+
+	const char *current = Dirbrowse_GetFilter();
+	int i = 0;
+	for (; current[i] != '\0' && i < SCE_IME_DIALOG_MAX_TEXT_LENGTH - 1; i++)
+		initial[i] = (SceWChar16)(unsigned char)current[i];
+	initial[i] = 0;
+	memcpy(input, initial, sizeof(initial));
+
+	SceImeDialogParam param;
+	sceImeDialogParamInit(&param);
+	param.dialogMode = SCE_IME_DIALOG_DIALOG_MODE_WITH_CANCEL;
+	param.textBoxMode = SCE_IME_DIALOG_TEXTBOX_MODE_WITH_CLEAR;
+	param.title = title;
+	param.maxTextLength = 63;
+	param.initialText = initial;
+	param.inputTextBuffer = input;
+
+	if (sceImeDialogInit(&param) < 0)
+		return;
+
+	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
+		vita2d_start_drawing();
+		vita2d_clear_screen();
+		vita2d_common_dialog_update();
+		vita2d_end_drawing();
+		vita2d_swap_buffers();
+	}
+
+	if (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+		SceImeDialogResult result;
+		memset(&result, 0, sizeof(result));
+		sceImeDialogGetResult(&result);
+
+		if (result.button == SCE_IME_DIALOG_BUTTON_ENTER) {
+			char narrow[64];
+			int j = 0;
+			for (; input[j] != 0 && j < 63; j++)
+				narrow[j] = (char)input[j];
+			narrow[j] = '\0';
+
+			if (narrow[0] != '\0')
+				Dirbrowse_SetFilter(narrow);
+			else
+				Dirbrowse_ClearFilter();
+		}
+	}
+
+	sceImeDialogTerm();
+}
+
+static void Menu_DrawTopBar(void) {
+	vita2d_draw_rectangle(CONTENT_X, TOPBAR_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
+
+	const char *device_label = root_path;
+	float chip_pad = 12.0f;
+	int chip_text_w = vita2d_font_text_width(font_mono, UI_FONT_SIZE_LABEL_SMALL, device_label);
+	float chip_x = CONTENT_X + 22, chip_h = 34, chip_y = (TOPBAR_H - chip_h) / 2, chip_w = chip_text_w + chip_pad * 2;
+
+	UI_DrawRoundedRect(chip_x, chip_y, chip_w, chip_h, 10, UI_COLOR_SURFACE);
+	vita2d_font_draw_text(font_mono, chip_x + chip_pad, UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, device_label, chip_y, chip_h),
+		UI_COLOR_TRACKER, UI_FONT_SIZE_LABEL_SMALL, device_label);
+
+	const char *relative = cwd + strlen(root_path);
+	if (relative[0] != '\0')
+		vita2d_font_draw_text(font_ui, chip_x + chip_w + 14, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, relative, 0, TOPBAR_H),
+			UI_COLOR_TEXT_SECONDARY, UI_FONT_SIZE_BODY, relative);
+
+	float fx = Menu_FilterBoxX(), fy = Menu_FilterBoxY();
+	UI_DrawPill(fx, fy, FILTER_W, FILTER_H, UI_COLOR_SURFACE);
+
+	const char *filter_text = Dirbrowse_HasFilter() ? Dirbrowse_GetFilter() : "Buscar en esta carpeta";
+	unsigned int filter_color = Dirbrowse_HasFilter() ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED;
+	vita2d_font_draw_text(font_ui, fx + 14, UI_TextBaselineY(font_ui, UI_FONT_SIZE_LABEL_SMALL, filter_text, fy, FILTER_H),
+		filter_color, UI_FONT_SIZE_LABEL_SMALL, filter_text);
+}
+
+static float Menu_MiniPlayerY(void) { return 544 - UI_HINT_BAR_HEIGHT - MINI_PLAYER_H; }
+
+static void Menu_DrawMiniPlayer(void) {
+	if (!Audio_HasTrack())
+		return;
+
+	float y = Menu_MiniPlayerY();
+	vita2d_draw_rectangle(CONTENT_X, y, 960 - CONTENT_X, MINI_PLAYER_H, UI_COLOR_BG_ELEVATED);
+	vita2d_draw_rectangle(CONTENT_X, y, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
+
+	float cover_size = 40, cover_x = CONTENT_X + 22, cover_y = y + (MINI_PLAYER_H - cover_size) / 2;
+	if ((metadata.has_meta) && (metadata.cover_image))
+		vita2d_draw_texture_scale(metadata.cover_image, cover_x, cover_y,
+			cover_size / vita2d_texture_get_width(metadata.cover_image), cover_size / vita2d_texture_get_height(metadata.cover_image));
+	else
+		UI_DrawRoundedRect(cover_x, cover_y, cover_size, cover_size, 11, UI_COLOR_LOSSLESS);
+
+	const char *title = Music_GetDisplayTitle();
+	const char *artist = Music_GetDisplayArtist();
+	float text_x = cover_x + cover_size + 14;
+
+	vita2d_font_draw_text(font_ui, text_x, UI_TextBaselineY(font_ui, UI_FONT_SIZE_LABEL_SMALL, title, y + 6, 20),
+		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_LABEL_SMALL, title);
+	if (artist[0] != '\0')
+		vita2d_font_draw_text(font_mono, text_x, UI_TextBaselineY(font_mono, UI_FONT_SIZE_BADGE, artist, y + 26, 18),
+			UI_COLOR_TEXT_SECONDARY, UI_FONT_SIZE_BADGE, artist);
+
+	float next_x = 960 - 22 - 30;
+	float play_r = 19;
+	float play_cx = next_x - 20 - play_r;
+	float prev_x = play_cx - play_r - 20 - 30;
+	float row_cy = y + MINI_PLAYER_H / 2;
+
+	vita2d_texture *prev_tex = btn_rewind;
+	vita2d_draw_texture(prev_tex, prev_x + (30 - vita2d_texture_get_width(prev_tex)) / 2, row_cy - vita2d_texture_get_height(prev_tex) / 2);
+
+	UI_DrawRoundedRect(play_cx - play_r, row_cy - play_r, play_r * 2, play_r * 2, (int)play_r, UI_COLOR_ACCENT);
+	vita2d_texture *play_tex = Audio_IsPaused() ? btn_play : btn_pause;
+	vita2d_draw_texture(play_tex, play_cx - vita2d_texture_get_width(play_tex) / 2, row_cy - vita2d_texture_get_height(play_tex) / 2);
+
+	vita2d_texture *next_tex = btn_forward;
+	vita2d_draw_texture(next_tex, next_x + (30 - vita2d_texture_get_width(next_tex)) / 2, row_cy - vita2d_texture_get_height(next_tex) / 2);
+}
+
+static SceBool Menu_HandleMiniPlayerTouch(void) {
+	if (!Audio_HasTrack())
+		return SCE_FALSE;
+
+	float y = Menu_MiniPlayerY();
+	float next_x = 960 - 22 - 30;
+	float play_r = 19;
+	float play_cx = next_x - 20 - play_r;
+	float prev_x = play_cx - play_r - 20 - 30;
+	float row_cy = y + MINI_PLAYER_H / 2;
+
+	if (Touch_Position(play_cx - play_r, row_cy - play_r, play_cx + play_r, row_cy + play_r)) {
+		Music_TogglePlayPause();
+		return SCE_TRUE;
+	}
+	if (Touch_Position(prev_x, y, prev_x + 30, y + MINI_PLAYER_H)) {
+		Music_Previous();
+		return SCE_TRUE;
+	}
+	if (Touch_Position(next_x, y, next_x + 30, y + MINI_PLAYER_H)) {
+		Music_Next();
+		return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
+}
+
 static void Menu_HandleControls(void) {
-	if (file_count > 0) {
+	int visible_count = Dirbrowse_GetVisibleCount();
+
+	if (visible_count > 0) {
 		if (pressed & SCE_CTRL_UP)
 			position--;
 		else if (pressed & SCE_CTRL_DOWN)
 			position++;
 
-		Utils_SetMax(&position, 0, file_count - 1);
-		Utils_SetMin(&position, file_count - 1, 0);
+		Utils_SetMax(&position, 0, visible_count - 1);
+		Utils_SetMin(&position, visible_count - 1, 0);
 
 		if (pressed & SCE_CTRL_LEFT)
 			position = 0;
 		else if (pressed & SCE_CTRL_RIGHT)
-			position = file_count - 1;
+			position = visible_count - 1;
 
 		if (pressed & SCE_CTRL_ENTER)
 			Dirbrowse_OpenFile();
@@ -34,25 +202,51 @@ static void Menu_HandleControls(void) {
 
 void Menu_DisplayFiles(void) {
 	Dirbrowse_PopulateFiles(SCE_FALSE);
-	vita2d_set_clear_color(RGBA8(250, 250, 250, 255));
+	vita2d_set_clear_color(UI_COLOR_BG);
 
 	while (SCE_TRUE) {
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 
-		vita2d_draw_rectangle(0, 0, 960, 40, RGBA8(40, 40, 40, 255));
-		vita2d_draw_rectangle(0, 40, 960, 72, RGBA8(51, 51, 51, 255));
 		StatusBar_Display();
+		Menu_DrawTopBar();
 		Dirbrowse_DisplayFiles();
+		Menu_DrawMiniPlayer();
+
+		const char *hints[] = { "Abrir / Reproducir", "Carpeta superior", NULL, NULL, "SELECT - Ajustes", "START - Salir" };
+		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
+
+		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 
 		Utils_ReadControls();
+		Touch_Update();
+
+		if (tapped == UI_SCREEN_SETTINGS) {
+			Menu_DisplaySettings();
+			return;
+		}
+		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {
+			Menu_ShowNowPlaying();
+			return;
+		}
+
+		if (Menu_HandleMiniPlayerTouch())
+			continue;
+
+		if (Touch_Position(Menu_FilterBoxX(), Menu_FilterBoxY(), Menu_FilterBoxX() + FILTER_W, Menu_FilterBoxY() + FILTER_H)) {
+			Menu_PromptFilter();
+			continue;
+		}
+
 		Menu_HandleControls();
 
-		if (pressed & SCE_CTRL_SELECT)
+		if (pressed & SCE_CTRL_SELECT) {
 			Menu_DisplaySettings();
+			return;
+		}
 
 		if (pressed & SCE_CTRL_START)
 			break;

@@ -1,8 +1,8 @@
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "common.h"
@@ -11,14 +11,16 @@
 #include "fs.h"
 #include "menu_audioplayer.h"
 #include "textures.h"
+#include "ui_theme.h"
 #include "utils.h"
 
 File *files = NULL;
+static char filter_query[64] = "";
 
 static void Dirbrowse_RecursiveFree(File *node) {
 	if (node == NULL) // End of list
 		return;
-	
+
 	Dirbrowse_RecursiveFree(node->next); // Nest further
 	free(node); // Free memory
 }
@@ -90,18 +92,19 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 				// Copy File Name
 				strcpy(item->name, entries[i].d_name);
 				strcpy(item->ext, FS_GetFileExt(item->name));
+				item->size = entries[i].d_stat.st_size;
 				file_count++;
 			}
 
 			// New List
-			if (files == NULL) 
+			if (files == NULL)
 				files = item;
 
 			// Existing List
 			else {
 				File *list = files;
-					
-				while(list->next != NULL) 
+
+				while(list->next != NULL)
 					list = list->next;
 
 				list->next = item;
@@ -114,61 +117,161 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 		return dir;
 
 	if (!refresh) {
-		if (position >= file_count) 
+		if (position >= file_count)
 			position = file_count - 1; // Keep index
 	}
-	else 
+	else
 		position = 0; // Refresh position
 
 	return 0;
 }
 
-void Dirbrowse_DisplayFiles(void) {
-	vita2d_font_draw_text(font, 102, 40 + ((72 - vita2d_font_text_height(font, 25, cwd)) / 2) + 20, RGBA8(255, 255, 255, 255), 25, cwd);
+// ---- In-folder filename filter ----
 
-	if (!(!strcmp(cwd, root_path)))
-		vita2d_draw_texture(icon_back, 25, 54);
+static SceBool Dirbrowse_NameContains(const char *name, const char *query) {
+	size_t name_len = strlen(name), query_len = strlen(query);
+	if (query_len == 0)
+		return SCE_TRUE;
+	if (query_len > name_len)
+		return SCE_FALSE;
 
-	int i = 0, printed = 0;
-	File *file = files; // Draw file list
-
-	for(; file != NULL; file = file->next) {
-		if (printed == FILES_PER_PAGE) // Limit the files per page
-			break;
-
-		if (position < FILES_PER_PAGE || i > (position - FILES_PER_PAGE)) {
-			if (i == position)
-				vita2d_draw_rectangle(0, 112 + (72 * printed), 960, 72, RGBA8(230, 230, 230, 255));
-
-			if (file->is_dir)
-				vita2d_draw_texture(icon_dir, 15, 117 + (72 * printed));
-			else if ((!strncasecmp(file->ext, "flac", 4)) || (!strncasecmp(file->ext, "it", 4)) || (!strncasecmp(file->ext, "mod", 4))
-				|| (!strncasecmp(file->ext, "mp3", 4)) || (!strncasecmp(file->ext, "ogg", 4)) || (!strncasecmp(file->ext, "opus", 4))
-				|| (!strncasecmp(file->ext, "s3m", 4))|| (!strncasecmp(file->ext, "wav", 4)) || (!strncasecmp(file->ext, "xm", 4)))
-				vita2d_draw_texture(icon_audio, 15, 117 + (72 * printed));
-			else
-				vita2d_draw_texture(icon_file, 15, 117 + (72 * printed));
-
-			if (strncmp(file->name, "..", 2) == 0)
-				vita2d_font_draw_text(font, 102, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, "Parent folder");
-			else 
-				vita2d_font_draw_text(font, 102, 120 + (72 / 2) + (72 * printed), RGBA8(51, 51, 51, 255), 25, file->name);
-
-			printed++; // Increase printed counter
-		}
-
-		i++; // Increase counter
+	for (size_t i = 0; i + query_len <= name_len; i++) {
+		if (!strncasecmp(name + i, query, query_len))
+			return SCE_TRUE;
 	}
+
+	return SCE_FALSE;
+}
+
+static SceBool Dirbrowse_EntryVisible(File *file) {
+	if (!strcmp(file->name, ".."))
+		return SCE_TRUE;
+
+	return Dirbrowse_NameContains(file->name, filter_query);
+}
+
+void Dirbrowse_SetFilter(const char *query) {
+	snprintf(filter_query, sizeof(filter_query), "%s", query);
+	position = 0;
+}
+
+void Dirbrowse_ClearFilter(void) {
+	filter_query[0] = '\0';
+	position = 0;
+}
+
+SceBool Dirbrowse_HasFilter(void) {
+	return filter_query[0] != '\0';
+}
+
+const char *Dirbrowse_GetFilter(void) {
+	return filter_query;
+}
+
+int Dirbrowse_GetVisibleCount(void) {
+	int n = 0;
+	for (File *file = files; file != NULL; file = file->next)
+		if (Dirbrowse_EntryVisible(file))
+			n++;
+	return n;
 }
 
 File *Dirbrowse_GetFileIndex(int index) {
 	int i = 0;
-	File *file = files; // Find file Item
-	
-	for(; file != NULL && i != index; file = file->next)
+	for (File *file = files; file != NULL; file = file->next) {
+		if (!Dirbrowse_EntryVisible(file))
+			continue;
+		if (i == index)
+			return file;
 		i++;
+	}
 
-	return file; // Return file
+	return NULL;
+}
+
+// ---- Rendering ----
+
+#define LIST_X       (UI_RAIL_WIDTH)
+#define ROW_H        50
+#define ROW_ICON_SIZE 32
+
+static void Dirbrowse_FormatSize(char *buf, int buf_size, SceOff bytes) {
+	if (bytes >= 1024 * 1024)
+		snprintf(buf, buf_size, "%.1f MB", bytes / (1024.0 * 1024.0));
+	else if (bytes >= 1024)
+		snprintf(buf, buf_size, "%.1f KB", bytes / 1024.0);
+	else
+		snprintf(buf, buf_size, "%d B", (int)bytes);
+}
+
+static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
+	if (selected)
+		UI_DrawRowHighlight(LIST_X + 10, y, 960 - LIST_X - 20, ROW_H);
+
+	float icon_x = LIST_X + 22, icon_y = y + (ROW_H - ROW_ICON_SIZE) / 2;
+	UI_DrawRoundedRect(icon_x, icon_y, ROW_ICON_SIZE, ROW_ICON_SIZE, 9, UI_COLOR_SURFACE_2);
+
+	vita2d_texture *icon = file->is_dir ? icon_dir : icon_file;
+	SceBool is_parent = !strcmp(file->name, "..");
+	const char *badge_label = NULL; unsigned int badge_color = 0, badge_wash = 0;
+	SceBool has_badge = (!file->is_dir) && UI_GetFormatBadge(file->ext, &badge_label, &badge_color, &badge_wash);
+	if (has_badge)
+		icon = icon_audio;
+
+	vita2d_draw_texture(icon, icon_x + (ROW_ICON_SIZE - vita2d_texture_get_width(icon)) / 2,
+		icon_y + (ROW_ICON_SIZE - vita2d_texture_get_height(icon)) / 2);
+
+	const char *name = is_parent ? "Carpeta superior" : file->name;
+	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;
+	float title_y = y + 8;
+
+	vita2d_font_draw_text(font_ui, text_x, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, name, title_y, 20),
+		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_BODY, name);
+
+	if (!is_parent) {
+		char subtitle[32];
+		if (file->is_dir)
+			snprintf(subtitle, sizeof(subtitle), "Carpeta");
+		else
+			Dirbrowse_FormatSize(subtitle, sizeof(subtitle), file->size);
+
+		vita2d_font_draw_text(font_mono, text_x, UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, subtitle, title_y + 18, 16),
+			UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_LABEL_SMALL, subtitle);
+	}
+
+	if (has_badge)
+		UI_DrawBadge(960 - 26 - 60, y + (ROW_H - 22) / 2, UI_FONT_SIZE_BADGE, badge_label, badge_wash, badge_color, badge_color);
+}
+
+void Dirbrowse_DisplayFiles(void) {
+	int visible_count = Dirbrowse_GetVisibleCount();
+
+	char caption[48];
+	int folder_count = 0, track_count = 0;
+	for (File *f = files; f != NULL; f = f->next) {
+		if (!strcmp(f->name, ".."))
+			continue;
+		if (f->is_dir)
+			folder_count++;
+		else
+			track_count++;
+	}
+	snprintf(caption, sizeof(caption), "%d CARPETAS . %d PISTAS", folder_count, track_count);
+	vita2d_font_draw_text(font_mono, LIST_X + 22, UI_TextBaselineY(font_mono, UI_FONT_SIZE_BADGE, caption, 60, 24),
+		UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_BADGE, caption);
+
+	int printed = 0;
+
+	for (int idx = 0; idx < visible_count; idx++) {
+		if (printed == FILES_PER_PAGE)
+			break;
+
+		if (position < FILES_PER_PAGE || idx > (position - FILES_PER_PAGE)) {
+			File *file = Dirbrowse_GetFileIndex(idx);
+			Dirbrowse_DrawRow(file, 92 + (ROW_H * printed), idx == position);
+			printed++;
+		}
+	}
 }
 
 void Dirbrowse_OpenFile(void) {
@@ -197,7 +300,7 @@ void Dirbrowse_OpenFile(void) {
 // Navigate to Folder
 int Dirbrowse_Navigate(SceBool parent) {
 	File *file = Dirbrowse_GetFileIndex(position); // Get index
-	
+
 	if (file == NULL)
 		return -1;
 
@@ -227,6 +330,7 @@ int Dirbrowse_Navigate(SceBool parent) {
 		}
 	}
 
+	Dirbrowse_ClearFilter();
 	Dirbrowse_SaveLastDirectory();
 
 	return 0; // Return success

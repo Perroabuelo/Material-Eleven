@@ -66,8 +66,20 @@ static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int 
 	v->color = color;
 }
 
+// vita2d_draw_array hands the pointer straight to sceGxmSetVertexStream without
+// copying it, and sceGxmDraw only queues the draw - the GPU reads the vertices
+// later, when the frame is flushed. So they must live in GPU-visible memory that
+// outlives this call, never on the stack. vita2d's frame pool is exactly that,
+// and vita2d_start_drawing resets it each frame. It returns NULL when full.
+static vita2d_color_vertex *UI_VertexBuffer(unsigned int count) {
+	return (vita2d_color_vertex *)vita2d_pool_memalign(count * sizeof(vita2d_color_vertex), sizeof(vita2d_color_vertex));
+}
+
 void UI_DrawTriangle(float x0, float y0, float x1, float y1, float x2, float y2, unsigned int color) {
-	vita2d_color_vertex v[3];
+	vita2d_color_vertex *v = UI_VertexBuffer(3);
+
+	if (!v)
+		return;
 
 	UI_SetVertex(&v[0], x0, y0, color);
 	UI_SetVertex(&v[1], x1, y1, color);
@@ -77,7 +89,10 @@ void UI_DrawTriangle(float x0, float y0, float x1, float y1, float x2, float y2,
 }
 
 void UI_DrawQuad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, unsigned int color) {
-	vita2d_color_vertex v[4];
+	vita2d_color_vertex *v = UI_VertexBuffer(4);
+
+	if (!v)
+		return;
 
 	UI_SetVertex(&v[0], x0, y0, color);
 	UI_SetVertex(&v[1], x1, y1, color);
@@ -107,8 +122,11 @@ void UI_DrawStroke(float x0, float y0, float x1, float y1, float thickness, unsi
 }
 
 void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int color) {
-	vita2d_color_vertex v[(UI_RING_SEGMENTS + 1) * 2];
+	vita2d_color_vertex *v = UI_VertexBuffer((UI_RING_SEGMENTS + 1) * 2);
 	float inner = radius - thickness;
+
+	if (!v)
+		return;
 
 	if (inner < 0.0f)
 		inner = 0.0f;
@@ -162,13 +180,17 @@ void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned 
 // them - which matters because rounded rects are also drawn in semi-transparent
 // colors (the accent wash, the hairline), where an overlap would show a seam.
 static void UI_DrawCornerArc(float cx, float cy, float radius, float start_angle, unsigned int color) {
-	vita2d_color_vertex v[UI_ARC_MAX_SEGMENTS + 2];
 	int segments = (int)(radius * 0.7f);
+	vita2d_color_vertex *v;
 
 	if (segments < UI_ARC_MIN_SEGMENTS)
 		segments = UI_ARC_MIN_SEGMENTS;
 	if (segments > UI_ARC_MAX_SEGMENTS)
 		segments = UI_ARC_MAX_SEGMENTS;
+
+	v = UI_VertexBuffer(segments + 2);
+	if (!v)
+		return;
 
 	UI_SetVertex(&v[0], cx, cy, color);
 

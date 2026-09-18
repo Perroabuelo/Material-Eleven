@@ -18,7 +18,7 @@
 - [x] 1.2 Establecer el punto único de destrucción de recursos gráficos, que sincroniza el dibujo pendiente y después libera, y migrar a él todas las liberaciones existentes de textura y de tipografía; verificar por inspección que no queda ninguna liberación directa fuera de ese punto y que ninguna sincronización vive dentro de una rama condicional
 - [x] 1.3 Validar el resultado de toda carga de imagen y de tipografía antes de usarla, eliminando la dereferencia sin comprobación que hoy ocurre al fijar los filtros de una textura recién cargada; verificar forzando el fallo de una carga que la aplicación sigue en pie
 - [x] 1.4 Añadir el contador de agotamiento del pool de vértices y la superposición de depuración conmutable con memoria gráfica libre y marca de agua del pool; verificar que la superposición muestra valores plausibles y que puede activarse y desactivarse en ejecución
-- [ ] 1.5 Ejecutar el PPH sobre esta etapa y registrar la memoria gráfica libre de referencia, que servirá de línea base para las etapas siguientes
+- [x] 1.5 Ejecutar el PPH sobre esta etapa y registrar la memoria gráfica libre de referencia, que servirá de línea base para las etapas siguientes
 - [ ] 1.6 Confirmar que la interfaz se ve exactamente igual que antes de la etapa, dado que esta etapa no debe mover ningún píxel
 
 ## 2. Nitidez del dibujo y del texto
@@ -29,7 +29,7 @@
 - [ ] 2.4 Comprobar que la nitidez ya no depende del recorrido: llegar a Now Playing por dos rutas de navegación distintas y con tracks distintos, y verificar que el título se ve igual en ambos casos
 - [x] 2.5 Derivar la línea base del texto de las métricas de la tipografía al tamaño dibujado en vez del recuadro de la cadena concreta; verificar que dos filas consecutivas, una con caracteres descendentes y otra sin ellos, comparten línea base, y que el tiempo transcurrido no salta verticalmente al cambiar de valor
 - [ ] 2.6 Revisar la memoria gráfica libre con la superposición frente a la línea base de 1.5, ya que esta etapa suma atlas de tipografía y modo de suavizado a la vez
-- [ ] 2.7 Ejecutar el PPH sobre esta etapa
+- [x] 2.7 Ejecutar el PPH sobre esta etapa
 
 ## 3. Escala tipográfica, densidad y overflow
 
@@ -40,7 +40,7 @@
 - [x] 3.5 Llevar los targets táctiles de los controles de pista anterior y siguiente y de las entradas de la barra de navegación al mínimo táctil; verificar tocando cerca de los bordes del área activa que el toque se registra
 - [x] 3.6 Implementar el recorte de texto con indicador de continuación sobre el recorte rectangular, habilitándolo y deshabilitándolo alrededor de cada dibujo acotado; verificar con un nombre de archivo largo que no invade el badge ni la columna vecina, y con un título largo que no se sale del panel
 - [x] 3.7 Recorrer las tres pantallas buscando recorte que haya quedado activo por una ruta de salida temprana, comprobando que nada desaparece después de un dibujo acotado
-- [ ] 3.8 Ejecutar el PPH sobre esta etapa
+- [x] 3.8 Ejecutar el PPH sobre esta etapa
 
 ## 4. Cierre de las islas rasterizadas
 
@@ -50,7 +50,7 @@
 - [ ] 4.4 Revisar el contador de agotamiento del pool tras sumar la geometría de esta etapa y, si el margen quedó estrecho, ajustar el tamaño del pool en la llamada de inicialización
 - [x] 4.5 Retirar de los recursos y de la carga las imágenes y la tipografía que ya no dibuja ninguna pantalla, incluidas las que no se dibujaban antes de este change; verificar que la aplicación compila, arranca y que la memoria gráfica libre al inicio mejora respecto de la línea base
 - [x] 4.6 Corregir el comentario del código que afirma que la biblioteca no ofrece recorte, dejando constancia de que el recorte rectangular existe y que lo que falta es el recorte por forma arbitraria
-- [ ] 4.7 Ejecutar el PPH sobre esta etapa
+- [x] 4.7 Ejecutar el PPH sobre esta etapa
 
 ## 5. Cobertura de glifos no latinos
 
@@ -82,7 +82,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 1.2 punto único de destrucción | verificado por inspección | Cero llamadas a `vita2d_free_texture` / `vita2d_free_font` fuera de `source/ui_gpu.c`. Las tres sincronizaciones del repositorio están en el primer nivel de su función, ninguna dentro de una rama. |
 | 1.3 validación de cargas | verificado por inspección | `Texture_LoadImageBilinear` retorna antes de fijar filtros si el PNG no decodifica; los cuatro accesos de texto y `UI_GpuDrawTexture` toleran un recurso nulo. Falta forzar el fallo en consola. |
 | 1.4 contador y superposición | **verificado en consola** | Conmuta con L + R + SELECT y reporta valores plausibles. Lectura: `user 97280 KB`, `cdram 90112 KB`, marca de agua `1999776 B`, agotado `0 veces`, `GFX MSAA 4x`, cdram al init `114688 KB`. |
-| 1.5 línea base de memoria | **registrada** | CDRAM libre al inicializar: **114688 KB (112 MB)**. Como las cuatro etapas llegaron juntas, no hay una línea base previa a la etapa 2 con la que contrastar: esta cifra es de arranque, antes de crear el render target y los atlas. El PPH de esta etapa sigue pendiente. |
+| 1.5 PPH + línea base de memoria | **superado** | CDRAM libre al inicializar: **114688 KB (112 MB)**. Como las cuatro etapas llegaron juntas, no hay una línea base previa a la etapa 2 con la que contrastar: esta cifra es de arranque, antes de crear el render target y los atlas. PPH superado: sin volcado `psp2core` y la interfaz siguió respondiendo. |
 | 1.6 la interfaz no se movió | pendiente de consola | |
 | 2.1 MSAA con degradación | **verificado en consola**, con desvío del diseño | `vita2d_init_advanced_with_msaa` retorna `1` incondicionalmente: el desensamblado de `libvita2d.a` muestra `movs r0, #1` en sus dos salidas e ignora todo error de `sceGxm`. Comprobar el retorno, como pide `design.md`, no puede detectar nada. La degradación se decide **antes** de la llamada, según el CDRAM libre que informa `sceKernelGetFreeMemorySize`. El modo elegido queda visible en la superposición. |
 | 2.2 FPS con suavizado | pendiente de consola | |
@@ -90,7 +90,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 2.4 nitidez independiente del recorrido | pendiente de consola | |
 | 2.5 línea base por métricas | implementado | `UI_TextBaselineY` ya no recibe la cadena: centra la extensión de la cara medida una vez sobre `"Agjy"`. El parámetro desapareció de los 27 sitios de dibujo, así que la regresión no se puede escribir. Pendiente de consola: filas con y sin descendentes. |
 | 2.6 memoria gráfica vs. línea base | **medida** | CDRAM 114688 KB al init contra 90112 KB en uso: **24576 KB (24 MB) consumidos**. De esos, 1536 KB son los seis atlas de fuente (6 x 256 KB) y los 22.5 MB restantes son el render target con MSAA 4x más los framebuffers. Quedan **88 MB libres**. El riesgo que `design.md` señalaba como el único punto donde dos decisiones compiten por el mismo recurso queda holgado: no hace falta bajar el modo de suavizado ni recortar tamaños. |
-| 2.7 PPH etapa 2 | pendiente de consola | |
+| 2.7 PPH etapa 2 | **superado** | Cubierto por la misma pasada: las cuatro etapas llegaron juntas, así que un solo PPH las ejercita a todas. Sin volcado. |
 | 3.1 escala consolidada | implementado | 7 tokens a 5: 15/17/19/22/30 px, o sea 10.9/12.3/13.8/16.0/21.8 unidades. El más chico llega al mínimo de etiqueta del lenguaje; el reloj, el porcentaje de batería, los badges y los hints usan los dos más chicos y ninguno queda por debajo. |
 | 3.2 densidad de Folders | implementado | Fila 50 -> 64, barra de hints 32 -> 40, `FILES_PER_PAGE` 6 -> 5, mini reproductor 62 -> 72. Comprobado por aritmética: filas 100..420, mini 432..504, hints 504..544, sin solape. |
 | 3.3 relayout de Settings | implementado | Header 60 -> 64, fila de categoría 44 -> 56, de ítem 46 -> 58, columna 252 -> 286. Peor caso (Ecualizador, 6 ítems con divisor) 82..452 contra la barra de hints en 504. |
@@ -98,14 +98,14 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 3.5 targets táctiles | implementado | `UI_TOUCH_MIN` = 66 px = 48 unidades = 7.6 mm. El control dibujado conserva su tamaño y sólo crece el área activa (`UI_TouchTarget`). Con `TOGGLE_ICON_GAP` en 26 las áreas de shuffle/anterior y siguiente/repetir se solapaban 1 px y el botón probado primero se comía el borde del otro; a 30 quedan 3 px de separación. El mini reproductor se rehizo sobre un paso de 66 px. |
 | 3.6 recorte con indicador | implementado | `UI_DrawTextClipped` sobre `vita2d_set_clip_rectangle`, con el indicador dibujado fuera del recorte. Aplicado a nombres de archivo, subtítulos, breadcrumb, título y artista (pantalla y mini), siguientes y etiquetas de ajustes. |
 | 3.7 recorte que quede activo | verificado por inspección | El recorte se habilita y deshabilita dentro de `UI_DrawTextClipped`, sin ninguna ruta de retorno entre ambas llamadas, así que no puede quedar activo. Es el único sitio del repositorio que lo toca. |
-| 3.8 PPH etapa 3 | pendiente de consola | |
+| 3.8 PPH etapa 3 | **superado** | Misma pasada. Sin volcado. |
 | 4.1 batería vectorial | implementado | Carcasa redondeada, borne y barra de carga cuyo largo **es** el porcentaje, así que todo nivel tiene su ancho. El tramo inalcanzable desaparece por construcción: la escalera de 7 buckets, donde 30..49 caía en el de 50 y el arte de 30 nunca se dibujaba, ya no existe. Ámbar bajo 20%, rayo al cargar, carcasa vacía si no se puede leer el nivel. |
 | 4.2 íconos de fila vectoriales | implementado | Carpeta, corchea y página con esquina doblada, dibujados a 20 px. Pendiente de consola: verlos en una carpeta con los tres tipos. |
 | 4.3 reloj | implementado | La cadena se arma una vez por fotograma y de ahí salen el ancho y el dibujo; antes se leía el reloj dos veces. Eliminada la condicional cuyas dos ramas tenían el mismo `snprintf`. |
 | 4.4 margen del pool | **medido; el pool está sobredimensionado 22x** | Agotado **0 veces**, así que ninguna geometría se dejó de dibujar. Marca de agua `1999776 B` libres sobre 2 MB, o sea un **pico de 97376 B (95 KB) por fotograma, el 4.6% del pool**. La justificación que escribí al fijarlo en 2 MB —que el chrome vectorial gasta mucho más por fotograma que las texturas que reemplazó— **no se sostiene contra la medición**: el default de 1 MB de vita2d sobraba, y 512 KB dejarían aún 5x de holgura. La marca de agua sólo cubre los fotogramas realmente dibujados en la sesión. |
 | 4.5 purga de recursos | implementado | Fuera 16 PNG de batería, 4 de íconos, 2 de radio, 2 de carátula por defecto y `Roboto-Regular.ttf` (se cargaba en cada arranque y no lo dibujaba nadie). `source/textures.c`, `include/textures.h` y la maquinaria `ADD_RESOURCES` quedaron sin contenido y se eliminaron. El .vpk pasa de 2 885 058 a 1 981 814 bytes, y ya no se reservan 24 texturas ni un handle de fuente al arrancar. Pendiente de consola: confirmar la mejora de memoria libre contra la línea base. |
 | 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
-| 4.7 PPH etapa 4 | pendiente de consola | |
+| 4.7 PPH etapa 4 | **superado** | Misma pasada. Sin volcado. El cambio repetido de track alternando con y sin carátula embebida es el caso exacto de `f3d908e`, y no se reprodujo. |
 | 5.x cobertura no latina | **bloqueado** | Dos bloqueos, uno de proceso y uno verificado contra la biblioteca. Ver "Bloqueo de la etapa 5" abajo. |
 
 ## Cobertura real de las tipografías propias

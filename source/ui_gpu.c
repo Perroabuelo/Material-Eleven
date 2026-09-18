@@ -1,5 +1,6 @@
 #include <psp2/ctrl.h>
 #include <psp2/kernel/sysmem.h>
+#include <psp2/pvf.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -20,7 +21,7 @@
 #define UI_DEBUG_LINE_H 20
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
 
-static SceBool debug_visible = SCE_FALSE;
+static UI_DebugMode debug_mode = UI_DEBUG_OFF;
 static SceBool combo_was_held = SCE_FALSE;
 
 // Lifetime counters. The pool watermark is the smallest free space seen since
@@ -50,6 +51,15 @@ void UI_GpuFreeFont(vita2d_font **font) {
 	*font = NULL;
 }
 
+void UI_GpuFreePvf(vita2d_pvf **font) {
+	if (!font || !*font)
+		return;
+
+	vita2d_wait_rendering_done();
+	vita2d_free_pvf(*font);
+	*font = NULL;
+}
+
 void *UI_GpuPoolAlloc(unsigned int size, unsigned int alignment) {
 	void *p = vita2d_pool_memalign(size, alignment);
 
@@ -72,7 +82,7 @@ void UI_Debug_SetGraphicsMode(const char *mode, int cdram_kb) {
 }
 
 SceBool UI_Debug_IsVisible(void) {
-	return debug_visible;
+	return debug_mode != UI_DEBUG_OFF;
 }
 
 static void UI_Debug_SampleMemory(void) {
@@ -88,6 +98,106 @@ static void UI_Debug_SampleMemory(void) {
 	free_cdram_kb = info.size_cdram / 1024;
 }
 
+
+// ---- Glyph probe (task 5.1) ----
+//
+// vita2d_load_system_pvf takes no size: it calls scePvfSetCharSize with a
+// constant baked into the library, so every handle rasterises at one size,
+// about 18 px at the resolution vita2d sets. A fallback can therefore be drawn
+// at neutral scale for exactly one token, and every other token is a rescale -
+// which is the thing this whole change exists to stop doing. The probe shows
+// both so the trade can be judged by looking at it.
+#define UI_PROBE_NEUTRAL_SCALE 1.0f
+// 30 px display token over the ~18 px the system font rasterises at.
+#define UI_PROBE_DISPLAY_SCALE 1.67f
+
+#define UI_PROBE_PANEL_X (UI_RAIL_WIDTH + 10)
+#define UI_PROBE_PANEL_Y 10
+#define UI_PROBE_PANEL_W 780
+#define UI_PROBE_PANEL_H 232
+#define UI_PROBE_ROW_H   30
+
+static vita2d_pvf *probe_pvf = NULL;
+static SceBool probe_attempted = SCE_FALSE;
+
+static int UI_ProbeIsLatin(unsigned int c) { return c < 0x0500; }
+static int UI_ProbeIsHangul(unsigned int c) {
+	return (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3130 && c <= 0x318F) || (c >= 0xAC00 && c <= 0xD7A3);
+}
+static int UI_ProbeIsKana(unsigned int c) { return (c >= 0x3040 && c <= 0x30FF) || (c >= 0x31F0 && c <= 0x31FF); }
+static int UI_ProbeIsHan(unsigned int c) {
+	return (c >= 0x3400 && c <= 0x4DBF) || (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0xF900 && c <= 0xFAFF);
+}
+
+// The same multi-font group a real fallback would ask for, so the probe tests
+// the dispatch too and not just whether some font exists.
+static const vita2d_system_pvf_config probe_configs[] = {
+	{ SCE_PVF_LANGUAGE_LATIN, UI_ProbeIsLatin },
+	{ SCE_PVF_LANGUAGE_K,     UI_ProbeIsHangul },
+	{ SCE_PVF_LANGUAGE_J,     UI_ProbeIsKana },
+	{ SCE_PVF_LANGUAGE_C,     UI_ProbeIsHan },
+};
+#define UI_PROBE_CONFIG_COUNT ((int)(sizeof(probe_configs) / sizeof(probe_configs[0])))
+
+static const struct {
+	const char *label;
+	const char *sample;
+} probe_samples[] = {
+	{ "latin",    "Abc 123" },
+	{ "cirilico", "\u0417\u0434\u0440\u0430\u0432" },
+	{ "coreano",  "\uba5c\ub85c\ub9dd\uc2a4" },
+	{ "japones",  "\u3053\u3093\u306b\u3061\u306f" },
+	{ "chino",    "\u4f60\u597d\u4e16\u754c" },
+};
+#define UI_PROBE_SAMPLE_COUNT ((int)(sizeof(probe_samples) / sizeof(probe_samples[0])))
+
+// Called from UI_Debug_Update, never from inside a frame.
+static void UI_Debug_LoadProbeFont(void) {
+	if (probe_attempted)
+		return;
+
+	probe_attempted = SCE_TRUE;
+	probe_pvf = vita2d_load_system_pvf(UI_PROBE_CONFIG_COUNT, probe_configs);
+}
+
+static void UI_Debug_DrawGlyphProbe(void) {
+	float x = UI_PROBE_PANEL_X + 12;
+	float y = UI_PROBE_PANEL_Y + 8;
+	float col_own = x + 90, col_neutral = x + 300, col_scaled = x + 520;
+
+	UI_DrawRoundedRect(UI_PROBE_PANEL_X, UI_PROBE_PANEL_Y, UI_PROBE_PANEL_W, UI_PROBE_PANEL_H,
+		UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, "escritura");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_own, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, "propia");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_neutral, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, probe_pvf ? "sistema x1.0" : "sistema NO DISPONIBLE");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_scaled, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, "sistema x1.67");
+	y += UI_PROBE_ROW_H;
+
+	for (int i = 0; i < UI_PROBE_SAMPLE_COUNT; i++) {
+		int baseline = UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UI_PROBE_ROW_H);
+
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, baseline, UI_COLOR_TEXT_TERTIARY, probe_samples[i].label);
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, col_own, baseline, UI_COLOR_TEXT_PRIMARY, probe_samples[i].sample);
+
+		if (probe_pvf) {
+			vita2d_pvf_draw_text(probe_pvf, (int)col_neutral, baseline, UI_COLOR_TEXT_PRIMARY,
+				UI_PROBE_NEUTRAL_SCALE, probe_samples[i].sample);
+			vita2d_pvf_draw_text(probe_pvf, (int)col_scaled, baseline, UI_COLOR_TEXT_PRIMARY,
+				UI_PROBE_DISPLAY_SCALE, probe_samples[i].sample);
+		}
+
+		y += UI_PROBE_ROW_H;
+	}
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, "L + R + SELECT  para cerrar");
+}
+
 void UI_Debug_Update(void) {
 	SceCtrlData pad;
 	SceBool held;
@@ -98,8 +208,14 @@ void UI_Debug_Update(void) {
 	// Rising edge of the whole combo, so holding it does not strobe the panel.
 	held = ((pad.buttons & UI_DEBUG_TOGGLE_COMBO) == UI_DEBUG_TOGGLE_COMBO);
 	if (held && !combo_was_held) {
-		debug_visible = !debug_visible;
+		debug_mode = (debug_mode + 1) % UI_DEBUG_MODE_COUNT;
 		mem_sample_countdown = 0; // refresh the moment it comes up
+
+		// Loading the fallback creates a GPU texture, so it happens here -
+		// after vita2d_end_drawing and vita2d_swap_buffers, outside any frame -
+		// and never from inside UI_Debug_Draw.
+		if (debug_mode == UI_DEBUG_GLYPHS)
+			UI_Debug_LoadProbeFont();
 	}
 	combo_was_held = held;
 
@@ -109,7 +225,7 @@ void UI_Debug_Update(void) {
 	if (free_space < pool_low_water)
 		pool_low_water = free_space;
 
-	if (!debug_visible)
+	if (debug_mode != UI_DEBUG_STATS)
 		return;
 
 	if (mem_sample_countdown == 0) {
@@ -119,12 +235,21 @@ void UI_Debug_Update(void) {
 	mem_sample_countdown--;
 }
 
+void UI_Debug_Free(void) {
+	UI_GpuFreePvf(&probe_pvf);
+}
+
 void UI_Debug_Draw(void) {
 	char line[64];
 	float x = UI_DEBUG_PANEL_X + UI_DEBUG_PANEL_PAD;
 	float y = UI_DEBUG_PANEL_Y + 6;
 
-	if (!debug_visible)
+	if (debug_mode == UI_DEBUG_GLYPHS) {
+		UI_Debug_DrawGlyphProbe();
+		return;
+	}
+
+	if (debug_mode != UI_DEBUG_STATS)
 		return;
 
 	UI_DrawRoundedRect(UI_DEBUG_PANEL_X, UI_DEBUG_PANEL_Y, UI_DEBUG_PANEL_W, UI_DEBUG_PANEL_H, UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
@@ -154,7 +279,7 @@ void UI_Debug_Draw(void) {
 		UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;
 
-	snprintf(line, sizeof(line), "L + R + SELECT  para ocultar");
+	snprintf(line, sizeof(line), "L + R + SELECT  para la sonda de glifos");
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		UI_COLOR_TEXT_MUTED, line);
 }

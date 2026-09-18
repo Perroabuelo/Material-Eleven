@@ -91,6 +91,7 @@ target_link_libraries(${PROJECT_NAME}
   SceGxm_stub
   SceIme_stub
   ScePower_stub
+  ScePvf_stub
   SceRtc_stub
   SceShellSvc_stub
   SceSysmem_stub

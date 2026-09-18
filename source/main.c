@@ -110,6 +110,7 @@ int main(int argc, char *argv[]) {
 	sceAppMgrReleaseBgmPort();
 	Utils_TermAppUtil();
 
+	UI_Debug_Free();
 	UI_Theme_Free();
 	vita2d_fini();
 

@@ -23,6 +23,7 @@
 // a later draw call.
 void UI_GpuFreeTexture(vita2d_texture **texture);
 void UI_GpuFreeFont(vita2d_font **font);
+void UI_GpuFreePvf(vita2d_pvf **font);
 
 // ---- Per-frame vertex pool ----
 //
@@ -41,10 +42,27 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 
 // ---- Debug overlay ----
 //
-// Free memory, the frame pool's low-water mark and the exhaustion counter.
-// Toggled at runtime by holding L + R + SELECT; off at startup, so it costs
-// nothing in normal use.
+// L + R + SELECT cycles: off -> resource stats -> glyph probe -> off. Off at
+// startup, so it costs nothing in normal use.
+//
+// The glyph probe answers the half of task 5.1 that needs the console: which
+// scripts the firmware's own fonts can draw. It renders the same samples three
+// ways - in the application's face, in the system PVF at neutral scale, and in
+// the system PVF at the scale the 30 px display token would need - because
+// vita2d_load_system_pvf hardcodes its character size, so a fallback can only
+// be neutral at one size and everything else is a rescale. Seeing all three
+// side by side is what makes that trade judgeable rather than theoretical.
 #define UI_DEBUG_TOGGLE_COMBO (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_SELECT)
+
+typedef enum {
+	UI_DEBUG_OFF = 0,
+	UI_DEBUG_STATS,
+	UI_DEBUG_GLYPHS,
+	UI_DEBUG_MODE_COUNT
+} UI_DebugMode;
+
+// Releases anything the overlay allocated. Called once, at shutdown.
+void UI_Debug_Free(void);
 
 // Records which multisampling mode startup settled on and the free CDRAM it
 // was chosen from, so the overlay can show what the app is actually running

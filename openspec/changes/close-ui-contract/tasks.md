@@ -67,7 +67,7 @@
 - [ ] 6.1 Recorrer los requirements de `ui/typography` escenario por escenario sobre la consola y confirmar que cada uno se cumple
 - [ ] 6.2 Recorrer los requirements de `ui/rendering` escenario por escenario sobre la consola y confirmar que cada uno se cumple
 - [ ] 6.3 Confirmar que los cinco specs vigentes siguen comportándose igual: el nav rail lista las mismas tres destinaciones y marca la activa, los badges de formato aparecen en las mismas extensiones, el filtro por nombre sigue acotado a la carpeta actual, los ajustes conservan su efecto y persistencia, y el acento sigue derivándose de la carátula con su reserva fija
-- [ ] 6.4 Evaluar sobre la consola si los tamaños chicos necesitan un peso tipográfico adicional y, de ser así, incorporarlo como ajuste aditivo; si no hace falta, dejarlo registrado para no volver a abrirlo
+- [x] 6.4 Evaluar sobre la consola si los tamaños chicos necesitan un peso tipográfico adicional y, de ser así, incorporarlo como ajuste aditivo; si no hace falta, dejarlo registrado para no volver a abrirlo
 - [ ] 6.5 Revisar que ninguna etapa dejó tareas de verificación sin registrar su resultado, en particular las mediciones de fotogramas por segundo, de memoria gráfica libre y de cobertura de escrituras
 
 ## Registro de verificacion
@@ -224,3 +224,30 @@ registro:**
 
 Vendorizar y parchear `vita2d_font` ya fue evaluado y descartado en `design.md`,
 y este hallazgo no cambia esa evaluación.
+
+## Peso tipografico: la causa real
+
+La tarea 6.4 preveia evaluar si los tamanos chicos necesitaban un peso adicional.
+La evaluacion en consola la disparo el usuario al notar que la tipografia del
+sistema se leia mejor que la propia. La causa resultó ser otra y mas simple.
+
+`res/Manrope.ttf` era una **fuente variable** con eje `wght` de 200 a 800 y su
+instancia por defecto en **200 (ExtraLight)**, el peso mas delgado de la familia.
+FreeType renderiza la instancia por defecto cuando nadie le indica otra cosa, asi
+que toda la interfaz se venia dibujando en ExtraLight sobre un panel de 220 ppp.
+No era que la del sistema fuera mejor: la propia estaba en el borde mas fino de
+su propio rango.
+
+Corregirlo no se podia desde el codigo. `vita2d_load_font_file` no expone la
+`FT_Face` con la que dibuja, asi que no hay donde llamar a
+`FT_Set_Var_Design_Coordinates`, y cambiar el valor por defecto de `fvar` no
+alcanza porque FreeType define la instancia por defecto como los contornos base
+de `glyf`, sin aplicar deltas de `gvar`. La fuente se instancio a peso estatico
+con `fontTools.varLib.instancer`, fijando `wght` en **500 (Medium)**, el mismo
+`usWeightClass` que ya tiene IBM Plex Mono en este proyecto, de modo que las dos
+familias quedan al mismo peso optico.
+
+Efectos: `usWeightClass` 200 -> 500, `fvar` y `gvar` eliminadas, el archivo baja
+de 164 700 a 97 536 bytes, y la cobertura de codepoints queda **identica** (678,
+mismos rangos) — sólo cambió el peso. El `.ttf` variable original queda en el
+historial de git por si hiciera falta volver.

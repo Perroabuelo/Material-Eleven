@@ -15,6 +15,7 @@
 #include "menu_displayfiles.h"
 #include "textures.h"
 #include "touch.h"
+#include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
 #include "vitaaudiolib.h"
@@ -62,7 +63,7 @@ int main(int argc, char *argv[]) {
 
 	Textures_Free();
 	UI_Theme_Free();
-	vita2d_free_font(font);
+	UI_GpuFreeFont(&font);
 	vita2d_fini();
 
 	sceKernelExitProcess(0);

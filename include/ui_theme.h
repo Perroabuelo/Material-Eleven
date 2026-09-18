@@ -4,10 +4,39 @@
 #include <psp2/types.h>
 #include <vita2d.h>
 
-// Manrope - body text, titles, labels.
-extern vita2d_font *font_ui;
-// IBM Plex Mono - numeric / technical strings (durations, format badges, hints).
-extern vita2d_font *font_mono;
+// ---- Text ----
+//
+// Nothing outside ui_theme.c names a font handle. A draw site names a face and
+// a size token and the theme resolves the handle, because the handle is the
+// contract: vita2d_font's glyph atlas is keyed by glyph index alone, with no
+// size in the key, so a glyph shared between two sizes is rasterised once at
+// whichever size drew it first and rescaled for the other. Keeping handles
+// behind this API is what makes "one handle per drawn size" enforceable rather
+// than a convention - see openspec/changes/close-ui-contract.
+
+typedef enum {
+	UI_FACE_UI = 0, // Manrope - body text, titles, labels
+	UI_FACE_MONO,   // IBM Plex Mono - durations, format badges, hints
+	UI_FACE_COUNT
+} UI_Face;
+
+typedef enum {
+	UI_TS_BADGE = 0,
+	UI_TS_LABEL_SMALL,
+	UI_TS_HINT,
+	UI_TS_BODY,
+	UI_TS_TITLE,
+	UI_TS_TITLE_LARGE,
+	UI_TS_DISPLAY,
+	UI_TS_COUNT
+} UI_TextSize;
+
+// All four tolerate a face whose font failed to load: they draw nothing and
+// measure zero rather than dereferencing a null handle.
+void UI_DrawText(UI_Face face, UI_TextSize ts, float x, float baseline_y, unsigned int color, const char *text);
+int UI_TextWidth(UI_Face face, UI_TextSize ts, const char *text);
+int UI_TextHeight(UI_Face face, UI_TextSize ts, const char *text);
+void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_w, int *out_h);
 
 // The interface accent and its low-alpha wash. Unlike the rest of the palette
 // these are runtime values, shared by every screen and by the nav rail: they
@@ -48,14 +77,9 @@ extern unsigned int ui_color_accent_wash;
 #define UI_RAIL_WIDTH      76
 #define UI_HINT_BAR_HEIGHT 32
 
-// Font sizes (Manrope / IBM Plex Mono, matching the mockups' scale).
-#define UI_FONT_SIZE_HINT        13
-#define UI_FONT_SIZE_BADGE       11
-#define UI_FONT_SIZE_LABEL_SMALL 12
-#define UI_FONT_SIZE_BODY        14
-#define UI_FONT_SIZE_TITLE       16
-#define UI_FONT_SIZE_TITLE_LARGE 19
-#define UI_FONT_SIZE_DISPLAY     22
+// Nominal pixel size behind each UI_TextSize token, indexed by the enum.
+// Draw sites name the token, never the number.
+extern const unsigned int ui_text_px[UI_TS_COUNT];
 
 // Screen identifiers for the nav rail / cross-screen state.
 typedef enum {
@@ -73,8 +97,8 @@ void UI_Theme_Free(void);
 void UI_DrawRoundedRect(float x, float y, float w, float h, int radius, unsigned int color);
 // Fully-rounded rect (radius = h/2) - pills, toggle tracks, search fields.
 void UI_DrawPill(float x, float y, float w, float h, unsigned int color);
-// Pill with a 1px border, sized to fit `label` drawn in font_mono.
-void UI_DrawBadge(float x, float y, unsigned int size, const char *label, unsigned int bg, unsigned int fg, unsigned int border);
+// Pill with a 1px border, sized to fit `label` drawn in the mono face at `ts`.
+void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg, unsigned int border);
 // Accent-wash rounded-rect highlight behind an active list row.
 void UI_DrawRowHighlight(float x, float y, float w, float h);
 
@@ -102,7 +126,7 @@ void UI_DrawPauseGlyph(float cx, float cy, float size, unsigned int color);
 void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned int color);
 
 // Baseline Y so `text` sits vertically centered within [box_top, box_top+box_h).
-int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h);
+int UI_TextBaselineY(UI_Face face, UI_TextSize ts, const char *text, float box_top, float box_h);
 
 // ---- Dynamic accent derived from cover art ----
 

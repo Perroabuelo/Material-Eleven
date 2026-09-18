@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "common.h"
+#include "ui_gpu.h"
 #include "ui_theme.h"
 
 // vita2d submits its own 2D primitives at this depth; the vector helpers below
@@ -43,20 +44,95 @@
 #define UI_ACCENT_LUM_CEILING 0.88f
 #define UI_ACCENT_LUM_STEP 0.02f
 
-vita2d_font *font_ui = NULL;
-vita2d_font *font_mono = NULL;
-
 unsigned int ui_color_accent = UI_ACCENT_FIXED;
 unsigned int ui_color_accent_wash = RGBA8(0xFF, 0x91, 0x66, UI_ACCENT_WASH_ALPHA);
 
+// ---- Text ----
+
+const unsigned int ui_text_px[UI_TS_COUNT] = {
+	[UI_TS_BADGE] = 11,
+	[UI_TS_LABEL_SMALL] = 12,
+	[UI_TS_HINT] = 13,
+	[UI_TS_BODY] = 14,
+	[UI_TS_TITLE] = 16,
+	[UI_TS_TITLE_LARGE] = 19,
+	[UI_TS_DISPLAY] = 22,
+};
+
+static const char *const ui_face_file[UI_FACE_COUNT] = {
+	[UI_FACE_UI] = "app0:Manrope.ttf",
+	[UI_FACE_MONO] = "app0:IBMPlexMono-Medium.ttf",
+};
+
+// One shared handle per face for now: the per-size handles this table is shaped
+// to hold arrive with the sharpness stage. Resolving through UI_FontFor is what
+// lets that change land here and nowhere else.
+static vita2d_font *ui_font[UI_FACE_COUNT];
+
+static vita2d_font *UI_FontFor(UI_Face face, UI_TextSize ts) {
+	(void)ts;
+
+	if (face < 0 || face >= UI_FACE_COUNT)
+		return NULL;
+
+	return ui_font[face];
+}
+
 void UI_Theme_Load(void) {
-	font_ui = vita2d_load_font_file("app0:Manrope.ttf");
-	font_mono = vita2d_load_font_file("app0:IBMPlexMono-Medium.ttf");
+	for (int f = 0; f < UI_FACE_COUNT; f++)
+		ui_font[f] = vita2d_load_font_file(ui_face_file[f]);
 }
 
 void UI_Theme_Free(void) {
-	vita2d_free_font(font_mono);
-	vita2d_free_font(font_ui);
+	for (int f = UI_FACE_COUNT - 1; f >= 0; f--)
+		UI_GpuFreeFont(&ui_font[f]);
+}
+
+void UI_DrawText(UI_Face face, UI_TextSize ts, float x, float baseline_y, unsigned int color, const char *text) {
+	vita2d_font *f = UI_FontFor(face, ts);
+
+	if (!f || !text)
+		return;
+
+	vita2d_font_draw_text(f, (int)x, (int)baseline_y, color, ui_text_px[ts], text);
+}
+
+int UI_TextWidth(UI_Face face, UI_TextSize ts, const char *text) {
+	vita2d_font *f = UI_FontFor(face, ts);
+
+	if (!f || !text)
+		return 0;
+
+	return vita2d_font_text_width(f, ui_text_px[ts], text);
+}
+
+int UI_TextHeight(UI_Face face, UI_TextSize ts, const char *text) {
+	vita2d_font *f = UI_FontFor(face, ts);
+
+	if (!f || !text)
+		return 0;
+
+	return vita2d_font_text_height(f, ui_text_px[ts], text);
+}
+
+void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_w, int *out_h) {
+	vita2d_font *f = UI_FontFor(face, ts);
+
+	if (out_w)
+		*out_w = 0;
+	if (out_h)
+		*out_h = 0;
+
+	if (!f || !text)
+		return;
+
+	vita2d_font_text_dimensions(f, ui_text_px[ts], text, out_w, out_h);
+}
+
+int UI_TextBaselineY(UI_Face face, UI_TextSize ts, const char *text, float box_top, float box_h) {
+	int height = UI_TextHeight(face, ts, text);
+
+	return (int)(box_top + ((box_h - height) / 2) + height);
 }
 
 static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int color) {
@@ -66,13 +142,11 @@ static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int 
 	v->color = color;
 }
 
-// vita2d_draw_array hands the pointer straight to sceGxmSetVertexStream without
-// copying it, and sceGxmDraw only queues the draw - the GPU reads the vertices
-// later, when the frame is flushed. So they must live in GPU-visible memory that
-// outlives this call, never on the stack. vita2d's frame pool is exactly that,
-// and vita2d_start_drawing resets it each frame. It returns NULL when full.
+// Every vector shape below gets its vertices here and nowhere else; see
+// UI_GpuPoolAlloc in ui_gpu.h for why the frame pool is the only valid source
+// and how exhaustion is made observable. Returns NULL when the pool is full.
 static vita2d_color_vertex *UI_VertexBuffer(unsigned int count) {
-	return (vita2d_color_vertex *)vita2d_pool_memalign(count * sizeof(vita2d_color_vertex), sizeof(vita2d_color_vertex));
+	return (vita2d_color_vertex *)UI_GpuPoolAlloc(count * sizeof(vita2d_color_vertex), sizeof(vita2d_color_vertex));
 }
 
 void UI_DrawTriangle(float x0, float y0, float x1, float y1, float x2, float y2, unsigned int color) {
@@ -240,9 +314,9 @@ void UI_DrawPill(float x, float y, float w, float h, unsigned int color) {
 	UI_DrawRoundedRect(x, y, w, h, (int)(h / 2.0f), color);
 }
 
-void UI_DrawBadge(float x, float y, unsigned int size, const char *label, unsigned int bg, unsigned int fg, unsigned int border) {
-	int text_w = vita2d_font_text_width(font_mono, size, label);
-	int text_h = vita2d_font_text_height(font_mono, size, label);
+void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg, unsigned int border) {
+	int text_w = UI_TextWidth(UI_FACE_MONO, ts, label);
+	int text_h = UI_TextHeight(UI_FACE_MONO, ts, label);
 	float pad_x = 8.0f, pad_y = 4.0f;
 	float w = text_w + pad_x * 2;
 	float h = text_h + pad_y * 2;
@@ -254,16 +328,11 @@ void UI_DrawBadge(float x, float y, unsigned int size, const char *label, unsign
 	else
 		UI_DrawPill(x, y, w, h, bg);
 
-	vita2d_font_draw_text(font_mono, x + pad_x, UI_TextBaselineY(font_mono, size, label, y, h), fg, size, label);
+	UI_DrawText(UI_FACE_MONO, ts, x + pad_x, UI_TextBaselineY(UI_FACE_MONO, ts, label, y, h), fg, label);
 }
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {
 	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, ui_color_accent_wash);
-}
-
-int UI_TextBaselineY(vita2d_font *f, unsigned int size, const char *text, float box_top, float box_h) {
-	int height = vita2d_font_text_height(f, size, text);
-	return (int)(box_top + ((box_h - height) / 2) + height);
 }
 
 // ---- Dynamic accent derived from cover art ----

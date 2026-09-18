@@ -1,6 +1,7 @@
 #include <psp2/types.h>
 
 #include "textures.h"
+#include "ui_gpu.h"
 
 extern SceUChar8 _binary_res_battery_20_png_start;
 extern SceUChar8 _binary_res_battery_30_png_start;
@@ -32,8 +33,15 @@ extern SceUChar8 _binary_res_default_artwork_blur_png_start;
 extern SceUChar8 _binary_res_radio_button_checked_png_start;
 extern SceUChar8 _binary_res_radio_button_unchecked_png_start;
 
+// A PNG that fails to decode comes back NULL, and setting filters on it used to
+// dereference it right here. Every draw site guards the handle instead, so a
+// resource that does not load leaves a gap rather than taking the app down.
 static vita2d_texture *Texture_LoadImageBilinear(SceUChar8 *buffer) {
 	vita2d_texture *texture = vita2d_load_PNG_buffer(buffer);
+
+	if (!texture)
+		return NULL;
+
 	vita2d_texture_set_filters(texture, SCE_GXM_TEXTURE_FILTER_LINEAR, SCE_GXM_TEXTURE_FILTER_LINEAR);
 	return texture;
 }
@@ -71,33 +79,33 @@ void Textures_Load(void) {
 }
 
 void Textures_Free(void) {
-	vita2d_free_texture(radio_off);
-	vita2d_free_texture(radio_on);
+	UI_GpuFreeTexture(&radio_off);
+	UI_GpuFreeTexture(&radio_on);
 
-	vita2d_free_texture(default_artwork_blur);
-	vita2d_free_texture(default_artwork);
+	UI_GpuFreeTexture(&default_artwork_blur);
+	UI_GpuFreeTexture(&default_artwork);
 
-	vita2d_free_texture(icon_back);
-	vita2d_free_texture(icon_dir);
-	vita2d_free_texture(icon_file);
-	vita2d_free_texture(icon_audio);
+	UI_GpuFreeTexture(&icon_back);
+	UI_GpuFreeTexture(&icon_dir);
+	UI_GpuFreeTexture(&icon_file);
+	UI_GpuFreeTexture(&icon_audio);
 
-	vita2d_free_texture(battery_unknown);
-	vita2d_free_texture(battery_low);
+	UI_GpuFreeTexture(&battery_unknown);
+	UI_GpuFreeTexture(&battery_low);
 
-	vita2d_free_texture(battery_full_charging);
-	vita2d_free_texture(battery_90_charging);
-	vita2d_free_texture(battery_80_charging);
-	vita2d_free_texture(battery_60_charging);
-	vita2d_free_texture(battery_50_charging);
-	vita2d_free_texture(battery_30_charging);
-	vita2d_free_texture(battery_20_charging);
+	UI_GpuFreeTexture(&battery_full_charging);
+	UI_GpuFreeTexture(&battery_90_charging);
+	UI_GpuFreeTexture(&battery_80_charging);
+	UI_GpuFreeTexture(&battery_60_charging);
+	UI_GpuFreeTexture(&battery_50_charging);
+	UI_GpuFreeTexture(&battery_30_charging);
+	UI_GpuFreeTexture(&battery_20_charging);
 
-	vita2d_free_texture(battery_full);
-	vita2d_free_texture(battery_90);
-	vita2d_free_texture(battery_80);
-	vita2d_free_texture(battery_60);
-	vita2d_free_texture(battery_50);
-	vita2d_free_texture(battery_30);
-	vita2d_free_texture(battery_20);
+	UI_GpuFreeTexture(&battery_full);
+	UI_GpuFreeTexture(&battery_90);
+	UI_GpuFreeTexture(&battery_80);
+	UI_GpuFreeTexture(&battery_60);
+	UI_GpuFreeTexture(&battery_50);
+	UI_GpuFreeTexture(&battery_30);
+	UI_GpuFreeTexture(&battery_20);
 }

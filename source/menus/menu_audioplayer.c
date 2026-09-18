@@ -15,6 +15,7 @@
 #include "nav_rail.h"
 #include "status_bar.h"
 #include "touch.h"
+#include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -97,7 +98,7 @@ static void Menu_InitMusic(char *path) {
 	length_time_width = 0;
 
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
-	length_time_width = vita2d_font_text_width(font_mono, UI_FONT_SIZE_HINT, length_time);
+	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_HINT, length_time);
 	selection = Music_GetCurrentIndex(path);
 }
 
@@ -108,14 +109,18 @@ static void Music_FreeCurrentTrack(void) {
 	// resets the vertex pool out from under vertices the GPU is still reading.
 	// This used to sit inside the branch below, which meant it only ran when the
 	// outgoing track happened to have cover art.
+	//
+	// It stays here even though UI_GpuFreeTexture synchronises too: that one
+	// only covers the cover-art path, and what has to be retired before the
+	// stall is the whole frame, cover art or not.
 	vita2d_wait_rendering_done();
 
 	free(filename);
 	free(length_time);
 	free(position_time);
+	filename = length_time = position_time = NULL;
 
-	if ((metadata.has_meta) && (metadata.cover_image))
-		vita2d_free_texture(metadata.cover_image);
+	UI_GpuFreeTexture(&metadata.cover_image);
 }
 
 static void Music_HandleNext(SceBool forward, int next_state) {
@@ -243,15 +248,13 @@ static void Menu_DrawRepeatGlyph(float cx, float cy, float size, unsigned int co
 static void Menu_DrawUpNext(void) {
 	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 18 - (2 * UPNEXT_ROW_H) - 22;
 
-	vita2d_font_draw_text(font_mono, x, UI_TextBaselineY(font_mono, UI_FONT_SIZE_BADGE, "A CONTINUACION", y, 20),
-		UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_BADGE, "A CONTINUACION");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, "A CONTINUACION", y, 20), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
 	y += 26;
 
 	int upcoming = count - selection - 1;
 
 	if (upcoming <= 0) {
-		vita2d_font_draw_text(font_ui, x, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, "No hay mas pistas en esta carpeta", y, UPNEXT_ROW_H),
-			UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_BODY, "No hay mas pistas en esta carpeta");
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, "No hay mas pistas en esta carpeta", y, UPNEXT_ROW_H), UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
 		return;
 	}
 
@@ -260,8 +263,7 @@ static void Menu_DrawUpNext(void) {
 		char *name = Utils_Basename(path);
 
 		UI_DrawRoundedRect(x, y + 5, 30, 30, 8, UI_COLOR_SURFACE_2);
-		vita2d_font_draw_text(font_ui, x + 42, UI_TextBaselineY(font_ui, UI_FONT_SIZE_LABEL_SMALL, name, y, UPNEXT_ROW_H),
-			UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_LABEL_SMALL, name);
+		UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, x + 42, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, name, y, UPNEXT_ROW_H), UI_COLOR_TEXT_PRIMARY, name);
 
 		y += UPNEXT_ROW_H;
 	}
@@ -355,19 +357,17 @@ static void Menu_RunNowPlayingLoop(void) {
 		const char *artist = Music_GetDisplayArtist();
 		float info_y = cover_y + COVER_SIZE + 20;
 
-		vita2d_font_draw_text(font_ui, LEFT_PANEL_X, UI_TextBaselineY(font_ui, UI_FONT_SIZE_DISPLAY, title, info_y, 26),
-			UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_DISPLAY, title);
+		UI_DrawText(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, title, info_y, 26), UI_COLOR_TEXT_PRIMARY, title);
 		info_y += 26;
 
 		if (artist[0] != '\0') {
-			vita2d_font_draw_text(font_ui, LEFT_PANEL_X, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, artist, info_y, 20),
-				UI_COLOR_TEXT_SECONDARY, UI_FONT_SIZE_BODY, artist);
+			UI_DrawText(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, artist, info_y, 20), UI_COLOR_TEXT_SECONDARY, artist);
 			info_y += 20;
 		}
 
 		const char *badge_label; unsigned int badge_color, badge_wash;
 		if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
-			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_FONT_SIZE_BADGE, badge_label, badge_wash, badge_color, badge_color);
+			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
 
 		// Seek bar
 		SceUInt64 length = Audio_GetLength();
@@ -377,10 +377,8 @@ static void Menu_RunNowPlayingLoop(void) {
 		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
 
 		Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
-		vita2d_font_draw_text(font_mono, RIGHT_PANEL_X, UI_TextBaselineY(font_mono, UI_FONT_SIZE_HINT, position_time, SEEK_Y + 10, 20),
-			UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_HINT, position_time);
-		vita2d_font_draw_text(font_mono, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(font_mono, UI_FONT_SIZE_HINT, length_time, SEEK_Y + 10, 20),
-			UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_HINT, length_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, position_time, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, position_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, length_time, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, length_time);
 
 		Menu_DrawTransportControls();
 		Menu_DrawUpNext();
@@ -389,6 +387,7 @@ static void Menu_RunNowPlayingLoop(void) {
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_NOW_PLAYING);
+		UI_Debug_Draw();
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
@@ -408,6 +407,7 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		Utils_ReadControls();
 		Touch_Update();
+		UI_Debug_Update();
 
 		if (tapped == UI_SCREEN_FOLDERS) {
 			Touch_Reset();

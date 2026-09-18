@@ -15,7 +15,11 @@ set(VITA_APP_NAME "Eleven Music Player")
 set(VITA_TITLEID  "ELEVENMPV")
 set(VITA_VERSION  "02.10")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall -Werror -fcommon")
+# -g rides along with -O3: it emits DWARF without changing the generated code,
+# which is what lets vita-parse-core resolve function names and line numbers out
+# of a psp2core dump. Both GPU crashes during vectorize-ui-controls were located
+# by hand for want of it.
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -Wall -Werror -fcommon")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(VITA_MKSFOEX_FLAGS "${VITA_MKSFOEX_FLAGS} -d PARENTAL_LEVEL=1")
 
@@ -66,6 +70,7 @@ add_executable(${PROJECT_NAME}
   source/status_bar.c
   source/textures.c
   source/touch.c
+  source/ui_gpu.c
   source/ui_theme.c
   source/utils.c
   source/audio/audio.c
@@ -110,6 +115,7 @@ target_link_libraries(${PROJECT_NAME}
   ScePower_stub
   SceRtc_stub
   SceShellSvc_stub
+  SceSysmem_stub
   SceSysmodule_stub
   SceTouch_stub
 )

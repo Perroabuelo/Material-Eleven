@@ -218,15 +218,15 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	if (has_badge)
 		icon = icon_audio;
 
-	vita2d_draw_texture(icon, icon_x + (ROW_ICON_SIZE - vita2d_texture_get_width(icon)) / 2,
-		icon_y + (ROW_ICON_SIZE - vita2d_texture_get_height(icon)) / 2);
+	if (icon)
+		vita2d_draw_texture(icon, icon_x + (ROW_ICON_SIZE - vita2d_texture_get_width(icon)) / 2,
+			icon_y + (ROW_ICON_SIZE - vita2d_texture_get_height(icon)) / 2);
 
 	const char *name = is_parent ? "Carpeta superior" : file->name;
 	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;
 	float title_y = y + 8;
 
-	vita2d_font_draw_text(font_ui, text_x, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, name, title_y, 20),
-		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_BODY, name);
+	UI_DrawText(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, name, title_y, 20), UI_COLOR_TEXT_PRIMARY, name);
 
 	if (!is_parent) {
 		char subtitle[32];
@@ -235,12 +235,11 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		else
 			Dirbrowse_FormatSize(subtitle, sizeof(subtitle), file->size);
 
-		vita2d_font_draw_text(font_mono, text_x, UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, subtitle, title_y + 18, 16),
-			UI_COLOR_TEXT_TERTIARY, UI_FONT_SIZE_LABEL_SMALL, subtitle);
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, subtitle, title_y + 18, 16), UI_COLOR_TEXT_TERTIARY, subtitle);
 	}
 
 	if (has_badge)
-		UI_DrawBadge(960 - 26 - 60, y + (ROW_H - 22) / 2, UI_FONT_SIZE_BADGE, badge_label, badge_wash, badge_color, badge_color);
+		UI_DrawBadge(960 - 26 - 60, y + (ROW_H - 22) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
 }
 
 void Dirbrowse_DisplayFiles(void) {
@@ -257,8 +256,7 @@ void Dirbrowse_DisplayFiles(void) {
 			track_count++;
 	}
 	snprintf(caption, sizeof(caption), "%d CARPETAS . %d PISTAS", folder_count, track_count);
-	vita2d_font_draw_text(font_mono, LIST_X + 22, UI_TextBaselineY(font_mono, UI_FONT_SIZE_BADGE, caption, 60, 24),
-		UI_COLOR_TEXT_MUTED, UI_FONT_SIZE_BADGE, caption);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, caption, 60, 24), UI_COLOR_TEXT_MUTED, caption);
 
 	int printed = 0;
 

@@ -9,6 +9,7 @@
 #include "nav_rail.h"
 #include "status_bar.h"
 #include "touch.h"
+#include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -83,25 +84,22 @@ static void Menu_DrawTopBar(void) {
 
 	const char *device_label = root_path;
 	float chip_pad = 12.0f;
-	int chip_text_w = vita2d_font_text_width(font_mono, UI_FONT_SIZE_LABEL_SMALL, device_label);
+	int chip_text_w = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL_SMALL, device_label);
 	float chip_x = CONTENT_X + 22, chip_h = 34, chip_y = (TOPBAR_H - chip_h) / 2, chip_w = chip_text_w + chip_pad * 2;
 
 	UI_DrawRoundedRect(chip_x, chip_y, chip_w, chip_h, 10, UI_COLOR_SURFACE);
-	vita2d_font_draw_text(font_mono, chip_x + chip_pad, UI_TextBaselineY(font_mono, UI_FONT_SIZE_LABEL_SMALL, device_label, chip_y, chip_h),
-		UI_COLOR_TRACKER, UI_FONT_SIZE_LABEL_SMALL, device_label);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, chip_x + chip_pad, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, device_label, chip_y, chip_h), UI_COLOR_TRACKER, device_label);
 
 	const char *relative = cwd + strlen(root_path);
 	if (relative[0] != '\0')
-		vita2d_font_draw_text(font_ui, chip_x + chip_w + 14, UI_TextBaselineY(font_ui, UI_FONT_SIZE_BODY, relative, 0, TOPBAR_H),
-			UI_COLOR_TEXT_SECONDARY, UI_FONT_SIZE_BODY, relative);
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, chip_x + chip_w + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, relative, 0, TOPBAR_H), UI_COLOR_TEXT_SECONDARY, relative);
 
 	float fx = Menu_FilterBoxX(), fy = Menu_FilterBoxY();
 	UI_DrawPill(fx, fy, FILTER_W, FILTER_H, UI_COLOR_SURFACE);
 
 	const char *filter_text = Dirbrowse_HasFilter() ? Dirbrowse_GetFilter() : "Buscar en esta carpeta";
 	unsigned int filter_color = Dirbrowse_HasFilter() ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED;
-	vita2d_font_draw_text(font_ui, fx + 14, UI_TextBaselineY(font_ui, UI_FONT_SIZE_LABEL_SMALL, filter_text, fy, FILTER_H),
-		filter_color, UI_FONT_SIZE_LABEL_SMALL, filter_text);
+	UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, fx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, filter_text, fy, FILTER_H), filter_color, filter_text);
 }
 
 static float Menu_MiniPlayerY(void) { return 544 - UI_HINT_BAR_HEIGHT - MINI_PLAYER_H; }
@@ -125,11 +123,9 @@ static void Menu_DrawMiniPlayer(void) {
 	const char *artist = Music_GetDisplayArtist();
 	float text_x = cover_x + cover_size + 14;
 
-	vita2d_font_draw_text(font_ui, text_x, UI_TextBaselineY(font_ui, UI_FONT_SIZE_LABEL_SMALL, title, y + 6, 20),
-		UI_COLOR_TEXT_PRIMARY, UI_FONT_SIZE_LABEL_SMALL, title);
+	UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, title, y + 6, 20), UI_COLOR_TEXT_PRIMARY, title);
 	if (artist[0] != '\0')
-		vita2d_font_draw_text(font_mono, text_x, UI_TextBaselineY(font_mono, UI_FONT_SIZE_BADGE, artist, y + 26, 18),
-			UI_COLOR_TEXT_SECONDARY, UI_FONT_SIZE_BADGE, artist);
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, artist, y + 26, 18), UI_COLOR_TEXT_SECONDARY, artist);
 
 	float next_x = 960 - 22 - 30;
 	float play_r = 19;
@@ -219,12 +215,14 @@ void Menu_DisplayFiles(void) {
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
+		UI_Debug_Draw();
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 
 		Utils_ReadControls();
 		Touch_Update();
+		UI_Debug_Update();
 
 		if (tapped == UI_SCREEN_SETTINGS) {
 			Menu_DisplaySettings();

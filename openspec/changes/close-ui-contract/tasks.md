@@ -118,6 +118,26 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 5.7 PPH etapa 5 | **superado** | Protocolo completo con contenido coreano en el medio. Sin volcado, la interfaz siguió respondiendo. |
 | glitch al cambiar de canción | **en atribución** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Pendiente de confirmar compilando `341709b` (el commit previo a la etapa 1) y comparando. |
 
+## El crasheo que motivo el change: confirmado por comparacion directa
+
+Se compilo `341709b` —el commit inmediatamente anterior a la etapa 1— y se probo
+en la consola junto al arbol actual. **El baseline crashea al cambiar de cancion
+repetidamente**, con el apagado duro de la consola. El arbol actual paso ese
+mismo caso en dos PPH completos.
+
+El detalle que lo hace concluyente: `341709b` **ya contiene** el arreglo de
+`f3d908e`, y los tres commits entre ambos (`910d3ac`, `69ac7c1`, `77fcc0a`)
+tocan unicamente documentacion y archivos de seguimiento, ningun fuente. Es
+decir, el arreglo que en su momento se dio por suficiente para el segundo
+crasheo **no lo era**: la carrera seguia viva y el cambio repetido de track la
+sigue disparando.
+
+Lo que la cierra es el punto unico de destruccion de la etapa 1, que sincroniza
+siempre y sin condiciones, y que ademas llevo las 24 liberaciones de textura y
+las 3 de tipografia por el mismo camino, cuando antes corrian sin sincronizar.
+Es la razon de ser del change, y queda demostrada por comparacion en hardware en
+vez de por argumento.
+
 ## Cobertura real de las tipografías propias
 
 Leyendo el `cmap` de los dos archivos de `res/` directamente. Esto responde, sin

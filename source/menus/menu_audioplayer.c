@@ -10,6 +10,7 @@
 #include "common.h"
 #include "config.h"
 #include "fs.h"
+#include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
@@ -100,6 +101,22 @@ static void Menu_InitMusic(char *path) {
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
 	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, length_time);
 	selection = Music_GetCurrentIndex(path);
+
+	// The fallback rasterises each glyph the first time it is asked for, and a
+	// CJK title brings a dozen new ones at once - enough to show as a hitch on
+	// the first frame that draws it, which is what testing turned up when moving
+	// from a Latin track to a Korean one.
+	//
+	// Measuring runs the same path drawing does: vita2d_pvf_text_width calls
+	// generic_pvf_draw_text, and that is the only function that reaches
+	// scePvfGetCharGlyphImage and texture_atlas_insert. So measuring here fills
+	// the atlas ahead of time. It costs nothing to repeat for an already-cached
+	// glyph, the atlas is keyed by glyph index so one pass covers every size the
+	// strings are drawn at, and this runs between frames inside the stall a
+	// track change already has - the work lands where the user is already
+	// waiting rather than on the first frame they look at.
+	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayTitle());
+	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayArtist());
 }
 
 static void Music_FreeCurrentTrack(void) {

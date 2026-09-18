@@ -54,7 +54,7 @@
 
 ## 5. Cobertura de glifos no latinos
 
-- [ ] 5.1 Comprobar en hardware qué escrituras cubren las tipografías del sistema de la consola, dejando registrado el resultado; si alguna de las esperadas no estuviera cubierta, acotar el alcance de esta etapa a lo que la consola sí representa antes de seguir
+- [x] 5.1 Comprobar en hardware qué escrituras cubren las tipografías del sistema de la consola, dejando registrado el resultado; si alguna de las esperadas no estuviera cubierta, acotar el alcance de esta etapa a lo que la consola sí representa antes de seguir
 - [ ] 5.2 Cargar el respaldo del sistema únicamente en los tamaños donde aparece contenido del usuario, a los píxeles exactos del token y con factor de escala neutro; verificar que el texto latino dibujado con el respaldo mide lo mismo que con la tipografía propia
 - [ ] 5.3 Implementar la partición de la cadena por rango de codepoint y el dibujo por tramos, avanzando la posición con el ancho que informa cada motor; verificar con un nombre que mezcla escrituras latina y no latina que la línea se dibuja completa y sin huecos entre tramos
 - [ ] 5.4 Verificar con archivos cuyos nombres estén en japonés, chino y cirílico que aparecen dibujados en la lista de carpetas, en el título y en el artista, en lugar de quedar en blanco
@@ -106,7 +106,8 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 4.5 purga de recursos | implementado | Fuera 16 PNG de batería, 4 de íconos, 2 de radio, 2 de carátula por defecto y `Roboto-Regular.ttf` (se cargaba en cada arranque y no lo dibujaba nadie). `source/textures.c`, `include/textures.h` y la maquinaria `ADD_RESOURCES` quedaron sin contenido y se eliminaron. El .vpk pasa de 2 885 058 a 1 981 814 bytes, y ya no se reservan 24 texturas ni un handle de fuente al arrancar. Pendiente de consola: confirmar la mejora de memoria libre contra la línea base. |
 | 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
 | 4.7 PPH etapa 4 | **superado** | Misma pasada. Sin volcado. El cambio repetido de track alternando con y sin carátula embebida es el caso exacto de `f3d908e`, y no se reprodujo. |
-| 5.x cobertura no latina | **bloqueado** | Dos bloqueos, uno de proceso y uno verificado contra la biblioteca. Ver "Bloqueo de la etapa 5" abajo. |
+| 5.1 cobertura del firmware | **verificado en consola** | La sonda carga el PVF del sistema (cabecera `sistema x1.0`) y **se dibujaron las cinco filas**: latín, cirílico, coreano, japonés y chino. La consola representa todo lo esperado, así que no hay que acotar el alcance de la etapa por cobertura. El despacho multi-fuente por predicado de codepoint también funciona: un solo `vita2d_load_system_pvf` con cuatro configs resolvió las cuatro escrituras. |
+| 5.2-5.7 respaldo no latino | **bloqueo reducido** | Queda una sola pregunta abierta, no cuatro opciones. Ver abajo. |
 
 ## Cobertura real de las tipografías propias
 
@@ -174,8 +175,34 @@ pide cargarlo "a los píxeles exactos del token y con factor de escala neutro":
 con escala neutra sólo se puede dibujar un token de 18 px, y la escala nueva no
 tiene ninguno (15, 17, 19, 22, 30).
 
-**Por qué no se resolvió sobre la marcha.** Toda salida es una excepción a algo
-ya acordado, y elegir una es decisión del usuario, no del implementador:
+**Estado tras medir en consola.** De los dos bloqueos, el primero se cerró: la
+tarea 5.1 está verificada y la consola cubre las cinco escrituras. El segundo se
+redujo mucho al medir la escala en hardware:
+
+- a escala neutra el respaldo se ve nítido;
+- a x1.67, la escala que pide el token de 30 px, se ve muy borroso.
+
+El PVF rasteriza cerca de 18 px, así que los tokens donde aparece contenido de
+usuario quedan a x0.83 (badge), x0.94 (label) y x1.06 (body) — dentro del 6% del
+tamaño nativo. **El único tamaño lejano es el título de Now Playing, a x1.67.**
+Falta confirmar la escalera completa con la sonda v2, pero si se confirma, la
+decisión ya no es entre las cuatro opciones de abajo: el respaldo sirve en todos
+los sitios de contenido de usuario salvo una línea, y lo único a decidir es qué
+hacer con esa línea (bajarla a 19 px cuando el título trae caracteres no
+latinos, o aceptarla borrosa).
+
+**Dos correcciones al diseño que la medición obliga:**
+
+- `design.md` dice que "la regla de un handle por tamaño aplica igual a ambos
+  motores". No aplica: como `scePvfSetCharSize` está fijo en la biblioteca,
+  varios handles de PVF serían atlas idénticos de 18 px. **Va un solo handle**,
+  dibujado a la escala de cada token.
+- `design.md` dice partir la cadena "por rango de codepoint". El cirílico está
+  cubierto a medias por la tipografía propia (40.6% / 65.6%), así que la
+  partición tiene que decidir **por codepoint**, no por rango.
+
+**Las cuatro opciones originales, que la medición dejó obsoletas salvo como
+registro:**
 
 | Salida | Qué cuesta |
 |---|---|

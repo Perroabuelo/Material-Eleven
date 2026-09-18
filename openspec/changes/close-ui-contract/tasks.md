@@ -106,3 +106,49 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 4.5 purga de recursos | implementado | Fuera 16 PNG de batería, 4 de íconos, 2 de radio, 2 de carátula por defecto y `Roboto-Regular.ttf` (se cargaba en cada arranque y no lo dibujaba nadie). `source/textures.c`, `include/textures.h` y la maquinaria `ADD_RESOURCES` quedaron sin contenido y se eliminaron. El .vpk pasa de 2 885 058 a 1 981 814 bytes, y ya no se reservan 24 texturas ni un handle de fuente al arrancar. Pendiente de consola: confirmar la mejora de memoria libre contra la línea base. |
 | 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
 | 4.7 PPH etapa 4 | pendiente de consola | |
+| 5.x cobertura no latina | **bloqueado** | Dos bloqueos, uno de proceso y uno verificado contra la biblioteca. Ver "Bloqueo de la etapa 5" abajo. |
+
+## Bloqueo de la etapa 5
+
+La etapa 5 no se inició. Hay dos bloqueos y el segundo invalida el mecanismo que
+`design.md` prescribe.
+
+**1. La tarea 5.1 es una precondición de hardware, no un cierre.** A diferencia
+de las etapas 1 a 4, donde las pruebas en consola van al final, la etapa 5 abre
+con "comprobar en hardware qué escrituras cubren las tipografías del sistema...
+**si alguna de las esperadas no estuviera cubierta, acotar el alcance de esta
+etapa antes de seguir**". El alcance del resto de la etapa depende de ese
+resultado.
+
+**2. El tamaño del respaldo del sistema no se puede elegir.** Desensamblando
+`libvita2d.a`:
+
+- `vita2d_load_pvf_pre` llama a `scePvfSetEM(0.0555556)` y a
+  `scePvfSetResolution(128.0)`.
+- `vita2d_load_system_pvf` llama después a `scePvfSetCharSize` con la constante
+  `0x41220000`, es decir **10.125, escrita en el código de la biblioteca**. La
+  función no recibe ningún parámetro de tamaño.
+- `vita2d_load_custom_pvf` no llama a `scePvfSetCharSize` en absoluto.
+- `generic_pvf_draw_text` usa el mismo par `texture_atlas_get` /
+  `texture_atlas_insert`, así que el atlas del PVF es tan ciego al tamaño como
+  el de `vita2d_font`.
+
+De ahí que **todo handle de PVF del sistema rasterice al mismo tamaño**, que a
+128 ppp sale 10.125 x 128 / 72 = 18 px (la conversión es una derivación; el dato
+firme es que el tamaño es fijo e igual para todos los handles). La tarea 5.2
+pide cargarlo "a los píxeles exactos del token y con factor de escala neutro":
+con escala neutra sólo se puede dibujar un token de 18 px, y la escala nueva no
+tiene ninguno (15, 17, 19, 22, 30).
+
+**Por qué no se resolvió sobre la marcha.** Toda salida es una excepción a algo
+ya acordado, y elegir una es decisión del usuario, no del implementador:
+
+| Salida | Qué cuesta |
+|---|---|
+| Dibujar el respaldo con escala no neutra | Contradice el primer requirement de `ui/typography`: un glifo rasterizado a 18 px se reescalaría a 30 px en el título, que es exactamente el defecto que este change existe para eliminar. Afecta sólo al texto no latino. |
+| Mover `UI_TS_BODY` de 19 a 18 px | El nombre de archivo y el artista quedarían con escala neutra, pero el título (30 px) seguiría reescalado, y toca la escala recién acordada en 3.1. |
+| Acotar la cobertura a los tamaños que 18 px sirve bien | Cumple el requirement de nitidez y recorta el de cobertura: el título no latino quedaría en blanco. |
+| Empaquetar una tipografía no latina propia | Resuelve ambos, pero son varios MB de recurso y está fuera del alcance acordado en `proposal.md`. |
+
+Vendorizar y parchear `vita2d_font` ya fue evaluado y descartado en `design.md`,
+y este hallazgo no cambia esa evaluación.

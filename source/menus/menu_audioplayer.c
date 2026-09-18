@@ -98,7 +98,7 @@ static void Menu_InitMusic(char *path) {
 	length_time_width = 0;
 
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
-	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_HINT, length_time);
+	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, length_time);
 	selection = Music_GetCurrentIndex(path);
 }
 
@@ -181,7 +181,7 @@ void Music_Next(void) {
 // ---- Now Playing rendering ----
 
 #define CONTENT_X       (UI_RAIL_WIDTH)
-#define STATUS_H        28
+#define STATUS_H        32
 #define LEFT_PANEL_X     (CONTENT_X + 32)
 #define LEFT_PANEL_W     372
 #define COVER_SIZE       258
@@ -192,16 +192,19 @@ void Music_Next(void) {
 #define SIDE_BTN_SIZE    44
 #define SIDE_BTN_GAP     26
 #define TOGGLE_ICON_SIZE 34
-#define TOGGLE_ICON_GAP  26
+// Wide enough that the shuffle and repeat touch areas, once grown to
+// UI_TOUCH_MIN, clear the skip buttons beside them; at 26 they overlapped by a
+// pixel and the skip button, tested first, swallowed the edge of the toggle.
+#define TOGGLE_ICON_GAP  30
 #define SEEK_Y           220
 #define SEEK_H           5
-#define UPNEXT_ROW_H     40
+#define UPNEXT_ROW_H     48
 
 // Glyph boxes for the vector transport icons (drawn, not rescaled textures),
 // each comfortably inside the control it sits in.
-#define PLAY_GLYPH_SIZE   30
-#define SKIP_GLYPH_SIZE   28
-#define STATE_GLYPH_SIZE  22
+#define PLAY_GLYPH_SIZE   32
+#define SKIP_GLYPH_SIZE   30
+#define STATE_GLYPH_SIZE  24
 
 // Shuffle: two paths that cross, each ending in a right-pointing arrow head.
 static void Menu_DrawShuffleGlyph(float cx, float cy, float size, unsigned int color) {
@@ -246,15 +249,15 @@ static void Menu_DrawRepeatGlyph(float cx, float cy, float size, unsigned int co
 }
 
 static void Menu_DrawUpNext(void) {
-	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 18 - (2 * UPNEXT_ROW_H) - 22;
+	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 14 - (2 * UPNEXT_ROW_H) - 30;
 
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 20), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
-	y += 26;
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
+	y += 30;
 
 	int upcoming = count - selection - 1;
 
 	if (upcoming <= 0) {
-		UI_DrawText(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UPNEXT_ROW_H), UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UPNEXT_ROW_H), RIGHT_PANEL_R - x, UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
 		return;
 	}
 
@@ -262,8 +265,8 @@ static void Menu_DrawUpNext(void) {
 		char *path = playlist[selection + 1 + i];
 		char *name = Utils_Basename(path);
 
-		UI_DrawRoundedRect(x, y + 5, 30, 30, 8, UI_COLOR_SURFACE_2);
-		UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, x + 42, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, y, UPNEXT_ROW_H), UI_COLOR_TEXT_PRIMARY, name);
+		UI_DrawRoundedRect(x, y + 7, 34, 34, 9, UI_COLOR_SURFACE_2);
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, x + 48, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, UPNEXT_ROW_H), RIGHT_PANEL_R - (x + 48), UI_COLOR_TEXT_PRIMARY, name);
 
 		y += UPNEXT_ROW_H;
 	}
@@ -306,29 +309,29 @@ static SceBool Menu_HandleTransportTouch(void) {
 	float repeat_x = next_x + SIDE_BTN_SIZE + TOGGLE_ICON_GAP;
 	float toggle_y = TRANSPORT_CY - TOGGLE_ICON_SIZE / 2;
 
-	if (Touch_Position(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, cx + PLAY_BTN_R, TRANSPORT_CY + PLAY_BTN_R)) {
+	if (UI_TouchTarget(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2)) {
 		Audio_Pause();
 		return SCE_TRUE;
 	}
 
-	if (Touch_Position(prev_x, side_y, prev_x + SIDE_BTN_SIZE, side_y + SIDE_BTN_SIZE)) {
+	if (UI_TouchTarget(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
 		if (count != 0)
 			Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
 		return SCE_TRUE;
 	}
 
-	if (Touch_Position(next_x, side_y, next_x + SIDE_BTN_SIZE, side_y + SIDE_BTN_SIZE)) {
+	if (UI_TouchTarget(next_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
 		if (count != 0)
 			Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
 		return SCE_TRUE;
 	}
 
-	if (Touch_Position(shuffle_x, toggle_y, shuffle_x + TOGGLE_ICON_SIZE, toggle_y + TOGGLE_ICON_SIZE)) {
+	if (UI_TouchTarget(shuffle_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
 		state = (state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE;
 		return SCE_TRUE;
 	}
 
-	if (Touch_Position(repeat_x, toggle_y, repeat_x + TOGGLE_ICON_SIZE, toggle_y + TOGGLE_ICON_SIZE)) {
+	if (UI_TouchTarget(repeat_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
 		state = (state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT;
 		return SCE_TRUE;
 	}
@@ -346,7 +349,7 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		// Cover art panel (see PR notes: vita2d has no texture clip/stencil,
 		// so the artwork itself is drawn as a plain rect, not rounded).
-		float cover_y = STATUS_H + 26;
+		float cover_y = STATUS_H + 22;
 		if ((metadata.has_meta) && (metadata.cover_image))
 			vita2d_draw_texture_scale(metadata.cover_image, LEFT_PANEL_X, cover_y,
 				(float)COVER_SIZE / vita2d_texture_get_width(metadata.cover_image), (float)COVER_SIZE / vita2d_texture_get_height(metadata.cover_image));
@@ -357,12 +360,12 @@ static void Menu_RunNowPlayingLoop(void) {
 		const char *artist = Music_GetDisplayArtist();
 		float info_y = cover_y + COVER_SIZE + 20;
 
-		UI_DrawText(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, info_y, 26), UI_COLOR_TEXT_PRIMARY, title);
-		info_y += 26;
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, info_y, 38), LEFT_PANEL_W, UI_COLOR_TEXT_PRIMARY, title);
+		info_y += 38;
 
 		if (artist[0] != '\0') {
-			UI_DrawText(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 20), UI_COLOR_TEXT_SECONDARY, artist);
-			info_y += 20;
+			UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 26), LEFT_PANEL_W, UI_COLOR_TEXT_SECONDARY, artist);
+			info_y += 26;
 		}
 
 		const char *badge_label; unsigned int badge_color, badge_wash;
@@ -377,8 +380,8 @@ static void Menu_RunNowPlayingLoop(void) {
 		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
 
 		Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
-		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, position_time);
-		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, length_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, position_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, length_time);
 
 		Menu_DrawTransportControls();
 		Menu_DrawUpNext();

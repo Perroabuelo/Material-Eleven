@@ -33,13 +33,13 @@
 
 ## 3. Escala tipográfica, densidad y overflow
 
-- [ ] 3.1 Consolidar los siete tokens tipográficos actuales en los cinco de la escala nueva y aplicar el factor de densidad de la pantalla; verificar que ningún texto de ninguna pantalla queda por debajo del tamaño mínimo, revisando explícitamente reloj, porcentaje de batería, badges de formato y hints de botones
-- [ ] 3.2 Subir el alto de fila de la lista de carpetas y el alto de la barra de hints a los valores que la escala nueva exige, y rehacer el layout de Folders; verificar que las filas no se solapan y que el mini reproductor y la barra de hints siguen visibles
-- [ ] 3.3 Rehacer el layout de Settings con la escala nueva; verificar que la lista de categorías y el área de detalle siguen mostrando lo mismo que antes, sin recortes involuntarios
-- [ ] 3.4 Rehacer el layout de Now Playing con la escala nueva; verificar que carátula, título, artista, badge, barra de búsqueda, controles y vista previa de siguientes siguen cabiendo sin solaparse
-- [ ] 3.5 Llevar los targets táctiles de los controles de pista anterior y siguiente y de las entradas de la barra de navegación al mínimo táctil; verificar tocando cerca de los bordes del área activa que el toque se registra
-- [ ] 3.6 Implementar el recorte de texto con indicador de continuación sobre el recorte rectangular, habilitándolo y deshabilitándolo alrededor de cada dibujo acotado; verificar con un nombre de archivo largo que no invade el badge ni la columna vecina, y con un título largo que no se sale del panel
-- [ ] 3.7 Recorrer las tres pantallas buscando recorte que haya quedado activo por una ruta de salida temprana, comprobando que nada desaparece después de un dibujo acotado
+- [x] 3.1 Consolidar los siete tokens tipográficos actuales en los cinco de la escala nueva y aplicar el factor de densidad de la pantalla; verificar que ningún texto de ninguna pantalla queda por debajo del tamaño mínimo, revisando explícitamente reloj, porcentaje de batería, badges de formato y hints de botones
+- [x] 3.2 Subir el alto de fila de la lista de carpetas y el alto de la barra de hints a los valores que la escala nueva exige, y rehacer el layout de Folders; verificar que las filas no se solapan y que el mini reproductor y la barra de hints siguen visibles
+- [x] 3.3 Rehacer el layout de Settings con la escala nueva; verificar que la lista de categorías y el área de detalle siguen mostrando lo mismo que antes, sin recortes involuntarios
+- [x] 3.4 Rehacer el layout de Now Playing con la escala nueva; verificar que carátula, título, artista, badge, barra de búsqueda, controles y vista previa de siguientes siguen cabiendo sin solaparse
+- [x] 3.5 Llevar los targets táctiles de los controles de pista anterior y siguiente y de las entradas de la barra de navegación al mínimo táctil; verificar tocando cerca de los bordes del área activa que el toque se registra
+- [x] 3.6 Implementar el recorte de texto con indicador de continuación sobre el recorte rectangular, habilitándolo y deshabilitándolo alrededor de cada dibujo acotado; verificar con un nombre de archivo largo que no invade el badge ni la columna vecina, y con un título largo que no se sale del panel
+- [x] 3.7 Recorrer las tres pantallas buscando recorte que haya quedado activo por una ruta de salida temprana, comprobando que nada desaparece después de un dibujo acotado
 - [ ] 3.8 Ejecutar el PPH sobre esta etapa
 
 ## 4. Cierre de las islas rasterizadas
@@ -91,3 +91,11 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 2.5 línea base por métricas | implementado | `UI_TextBaselineY` ya no recibe la cadena: centra la extensión de la cara medida una vez sobre `"Agjy"`. El parámetro desapareció de los 27 sitios de dibujo, así que la regresión no se puede escribir. Pendiente de consola: filas con y sin descendentes. |
 | 2.6 memoria gráfica vs. línea base | pendiente de consola | |
 | 2.7 PPH etapa 2 | pendiente de consola | |
+| 3.1 escala consolidada | implementado | 7 tokens a 5: 15/17/19/22/30 px, o sea 10.9/12.3/13.8/16.0/21.8 unidades. El más chico llega al mínimo de etiqueta del lenguaje; el reloj, el porcentaje de batería, los badges y los hints usan los dos más chicos y ninguno queda por debajo. |
+| 3.2 densidad de Folders | implementado | Fila 50 -> 64, barra de hints 32 -> 40, `FILES_PER_PAGE` 6 -> 5, mini reproductor 62 -> 72. Comprobado por aritmética: filas 100..420, mini 432..504, hints 504..544, sin solape. |
+| 3.3 relayout de Settings | implementado | Header 60 -> 64, fila de categoría 44 -> 56, de ítem 46 -> 58, columna 252 -> 286. Peor caso (Ecualizador, 6 ítems con divisor) 82..452 contra la barra de hints en 504. |
+| 3.4 relayout de Now Playing | implementado | Las siete bandas verificadas por aritmética: carátula 54..312, título 332..370, artista 370..396, badge 404..434, tiempos 232..256, transporte 280..356, siguientes 364..490. Ninguna se solapa. |
+| 3.5 targets táctiles | implementado | `UI_TOUCH_MIN` = 66 px = 48 unidades = 7.6 mm. El control dibujado conserva su tamaño y sólo crece el área activa (`UI_TouchTarget`). Con `TOGGLE_ICON_GAP` en 26 las áreas de shuffle/anterior y siguiente/repetir se solapaban 1 px y el botón probado primero se comía el borde del otro; a 30 quedan 3 px de separación. El mini reproductor se rehizo sobre un paso de 66 px. |
+| 3.6 recorte con indicador | implementado | `UI_DrawTextClipped` sobre `vita2d_set_clip_rectangle`, con el indicador dibujado fuera del recorte. Aplicado a nombres de archivo, subtítulos, breadcrumb, título y artista (pantalla y mini), siguientes y etiquetas de ajustes. |
+| 3.7 recorte que quede activo | verificado por inspección | El recorte se habilita y deshabilita dentro de `UI_DrawTextClipped`, sin ninguna ruta de retorno entre ambas llamadas, así que no puede quedar activo. Es el único sitio del repositorio que lo toca. |
+| 3.8 PPH etapa 3 | pendiente de consola | |

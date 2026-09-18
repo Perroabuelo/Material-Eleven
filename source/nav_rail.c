@@ -9,7 +9,7 @@
 #define RAIL_BUTTON_RADIUS    16
 #define RAIL_SETTINGS_SIZE    40
 #define RAIL_TOP_PAD          18
-#define RAIL_GAP              22
+#define RAIL_GAP              26
 // Drawn at its final size - no 28px texture rescaled down to 19px any more.
 #define RAIL_ICON_SIZE        22
 #define RAIL_GEAR_TEETH       8
@@ -100,7 +100,8 @@ UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
 		NavRail_DrawIcon(b->screen, b->x + b->size / 2.0f, b->y + b->size / 2.0f,
 			is_active ? ui_color_accent : UI_COLOR_TEXT_TERTIARY);
 
-		if (Touch_Position(b->x, b->y, b->x + b->size, b->y + b->size))
+		// The drawn button keeps its size; only what answers a touch grows.
+		if (UI_TouchTarget(b->x, b->y, b->size, b->size))
 			tapped = b->screen;
 	}
 
@@ -112,13 +113,13 @@ void NavRail_DrawHintBar(float y, const char **segments, int count) {
 	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, 1, UI_COLOR_HAIRLINE);
 
 	float x = UI_RAIL_WIDTH + 22;
-	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, y, UI_HINT_BAR_HEIGHT);
+	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, UI_HINT_BAR_HEIGHT);
 
 	for (int i = 0; i < count; i++) {
 		if (!segments[i])
 			continue;
 
-		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, x, baseline, UI_COLOR_TEXT_SECONDARY, segments[i]);
-		x += UI_TextWidth(UI_FACE_MONO, UI_TS_HINT, segments[i]) + 26;
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, baseline, UI_COLOR_TEXT_SECONDARY, segments[i]);
+		x += UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, segments[i]) + 26;
 	}
 }

@@ -192,8 +192,12 @@ File *Dirbrowse_GetFileIndex(int index) {
 // ---- Rendering ----
 
 #define LIST_X       (UI_RAIL_WIDTH)
-#define ROW_H        50
-#define ROW_ICON_SIZE 32
+#define ROW_H        64
+#define ROW_ICON_SIZE 36
+#define ROW_LIST_TOP 100
+// Right edge a name may reach before the format badge starts.
+#define ROW_BADGE_W   74
+#define ROW_RIGHT_PAD 26
 
 static void Dirbrowse_FormatSize(char *buf, int buf_size, SceOff bytes) {
 	if (bytes >= 1024 * 1024)
@@ -209,7 +213,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		UI_DrawRowHighlight(LIST_X + 10, y, 960 - LIST_X - 20, ROW_H);
 
 	float icon_x = LIST_X + 22, icon_y = y + (ROW_H - ROW_ICON_SIZE) / 2;
-	UI_DrawRoundedRect(icon_x, icon_y, ROW_ICON_SIZE, ROW_ICON_SIZE, 9, UI_COLOR_SURFACE_2);
+	UI_DrawRoundedRect(icon_x, icon_y, ROW_ICON_SIZE, ROW_ICON_SIZE, 10, UI_COLOR_SURFACE_2);
 
 	vita2d_texture *icon = file->is_dir ? icon_dir : icon_file;
 	SceBool is_parent = !strcmp(file->name, "..");
@@ -224,9 +228,12 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 
 	const char *name = is_parent ? "Carpeta superior" : file->name;
 	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;
-	float title_y = y + 8;
+	float title_y = y + 10;
+	// A name stops before the badge when the row has one and before the row's
+	// right edge otherwise, instead of running through either.
+	float name_w = (has_badge ? (960 - ROW_RIGHT_PAD - ROW_BADGE_W - 16) : (960 - ROW_RIGHT_PAD)) - text_x;
 
-	UI_DrawText(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, title_y, 20), UI_COLOR_TEXT_PRIMARY, name);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, title_y, 24), name_w, UI_COLOR_TEXT_PRIMARY, name);
 
 	if (!is_parent) {
 		char subtitle[32];
@@ -235,11 +242,11 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		else
 			Dirbrowse_FormatSize(subtitle, sizeof(subtitle), file->size);
 
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, title_y + 18, 16), UI_COLOR_TEXT_TERTIARY, subtitle);
+		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_LABEL, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, title_y + 26, 20), name_w, UI_COLOR_TEXT_TERTIARY, subtitle);
 	}
 
 	if (has_badge)
-		UI_DrawBadge(960 - 26 - 60, y + (ROW_H - 22) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
+		UI_DrawBadge(960 - ROW_RIGHT_PAD - ROW_BADGE_W, y + (ROW_H - 30) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
 }
 
 void Dirbrowse_DisplayFiles(void) {
@@ -256,7 +263,7 @@ void Dirbrowse_DisplayFiles(void) {
 			track_count++;
 	}
 	snprintf(caption, sizeof(caption), "%d CARPETAS . %d PISTAS", folder_count, track_count);
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 60, 24), UI_COLOR_TEXT_MUTED, caption);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 66, 26), UI_COLOR_TEXT_MUTED, caption);
 
 	int printed = 0;
 
@@ -266,7 +273,7 @@ void Dirbrowse_DisplayFiles(void) {
 
 		if (position < FILES_PER_PAGE || idx > (position - FILES_PER_PAGE)) {
 			File *file = Dirbrowse_GetFileIndex(idx);
-			Dirbrowse_DrawRow(file, 92 + (ROW_H * printed), idx == position);
+			Dirbrowse_DrawRow(file, ROW_LIST_TOP + (ROW_H * printed), idx == position);
 			printed++;
 		}
 	}

@@ -13,7 +13,10 @@
 
 #define MAX_FILES 1024
 
-#define FILES_PER_PAGE 6
+// Five rows, not six: at 19 px body text a row needs 64 px, and six of those no
+// longer clear the mini player. Trading a row for legibility is the explicit
+// call of openspec/changes/close-ui-contract.
+#define FILES_PER_PAGE 5
 
 extern vita2d_font *font;
 extern enum SceCtrlButtons SCE_CTRL_ENTER, SCE_CTRL_CANCEL;

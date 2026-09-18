@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "common.h"
+#include "touch.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 
@@ -49,14 +50,14 @@ unsigned int ui_color_accent_wash = RGBA8(0xFF, 0x91, 0x66, UI_ACCENT_WASH_ALPHA
 
 // ---- Text ----
 
+// Device pixels per token. Each is its unit value times the 1.379 px per
+// density-independent unit this panel works out to; see UI_TextSize.
 const unsigned int ui_text_px[UI_TS_COUNT] = {
-	[UI_TS_BADGE] = 11,
-	[UI_TS_LABEL_SMALL] = 12,
-	[UI_TS_HINT] = 13,
-	[UI_TS_BODY] = 14,
-	[UI_TS_TITLE] = 16,
-	[UI_TS_TITLE_LARGE] = 19,
-	[UI_TS_DISPLAY] = 22,
+	[UI_TS_BADGE] = 15,   // 10.9 units - the language's minimum label size
+	[UI_TS_LABEL] = 17,   // 12.3
+	[UI_TS_BODY] = 19,    // 13.8
+	[UI_TS_TITLE] = 22,   // 16.0
+	[UI_TS_DISPLAY] = 30, // 21.8
 };
 
 static const char *const ui_face_file[UI_FACE_COUNT] = {
@@ -77,16 +78,14 @@ static const char *const ui_face_file[UI_FACE_COUNT] = {
 // ADDING IT TO THIS TABLE, or that text draws nothing at all.
 static const SceBool ui_face_uses[UI_FACE_COUNT][UI_TS_COUNT] = {
 	[UI_FACE_UI] = {
-		[UI_TS_LABEL_SMALL] = SCE_TRUE,
+		[UI_TS_LABEL] = SCE_TRUE,
 		[UI_TS_BODY] = SCE_TRUE,
 		[UI_TS_TITLE] = SCE_TRUE,
-		[UI_TS_TITLE_LARGE] = SCE_TRUE,
 		[UI_TS_DISPLAY] = SCE_TRUE,
 	},
 	[UI_FACE_MONO] = {
 		[UI_TS_BADGE] = SCE_TRUE,
-		[UI_TS_LABEL_SMALL] = SCE_TRUE,
-		[UI_TS_HINT] = SCE_TRUE,
+		[UI_TS_LABEL] = SCE_TRUE,
 	},
 };
 
@@ -183,6 +182,50 @@ int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
 	extent = ui_face_extent[face][ts];
 
 	return (int)(box_top + ((box_h - extent) / 2) + extent);
+}
+
+// Drawn after the clipped run, outside the clip, so it is always fully visible.
+#define UI_ELLIPSIS "..."
+
+void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y, float max_w,
+	unsigned int color, const char *text) {
+	int extent, ellipsis_w;
+	float run_w;
+
+	if (!text || max_w <= 0.0f)
+		return;
+
+	if (UI_TextWidth(face, ts, text) <= (int)max_w) {
+		UI_DrawText(face, ts, x, baseline_y, color, text);
+		return;
+	}
+
+	extent = ui_face_extent[face][ts];
+	ellipsis_w = UI_TextWidth(face, ts, UI_ELLIPSIS);
+	run_w = max_w - (float)ellipsis_w;
+
+	// Too narrow to show anything plus the indicator: the indicator alone says
+	// more than a single cut-off letter would.
+	if (run_w <= 0.0f) {
+		UI_DrawText(face, ts, x, baseline_y, color, UI_ELLIPSIS);
+		return;
+	}
+
+	// The band is the face's extent either side of the baseline, which covers
+	// ascenders and descenders at this size with room to spare.
+	vita2d_set_clip_rectangle((int)x, (int)(baseline_y - extent), (int)(x + run_w), (int)(baseline_y + extent));
+	vita2d_enable_clipping();
+	UI_DrawText(face, ts, x, baseline_y, color, text);
+	vita2d_disable_clipping();
+
+	UI_DrawText(face, ts, x + run_w, baseline_y, color, UI_ELLIPSIS);
+}
+
+SceBool UI_TouchTarget(float x, float y, float w, float h) {
+	float grow_x = (w < UI_TOUCH_MIN) ? ((UI_TOUCH_MIN - w) / 2.0f) : 0.0f;
+	float grow_y = (h < UI_TOUCH_MIN) ? ((UI_TOUCH_MIN - h) / 2.0f) : 0.0f;
+
+	return Touch_Position(x - grow_x, y - grow_y, x + w + grow_x, y + h + grow_y) ? SCE_TRUE : SCE_FALSE;
 }
 
 static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int color) {

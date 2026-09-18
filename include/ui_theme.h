@@ -20,14 +20,21 @@ typedef enum {
 	UI_FACE_COUNT
 } UI_Face;
 
+// Five sizes, derived from the panel rather than copied from the mockups. The
+// console is 960x544 across 5 inches, about 220.7 ppp, so one density-
+// independent unit of the design language this skin imitates is 1.379 px. The
+// mockups were reviewed in a desktop browser, where that canvas spans some
+// 25 cm instead of 11, and their pixel values were taken into the code as-is:
+// the old scale of 11-22 px came out at 8 to 16 units, with its two smallest
+// steps below the language's own minimum label size. These five are that scale
+// corrected and consolidated - seven steps of hierarchy is more than 960x544
+// can express anyway.
 typedef enum {
-	UI_TS_BADGE = 0,
-	UI_TS_LABEL_SMALL,
-	UI_TS_HINT,
-	UI_TS_BODY,
-	UI_TS_TITLE,
-	UI_TS_TITLE_LARGE,
-	UI_TS_DISPLAY,
+	UI_TS_BADGE = 0, // 15 px - badges, clock, battery, small mono
+	UI_TS_LABEL,     // 17 px - labels, button hints, secondary rows
+	UI_TS_BODY,      // 19 px - list entries, settings items
+	UI_TS_TITLE,     // 22 px - screen and section headers
+	UI_TS_DISPLAY,   // 30 px - the now-playing track title
 	UI_TS_COUNT
 } UI_TextSize;
 
@@ -37,6 +44,15 @@ void UI_DrawText(UI_Face face, UI_TextSize ts, float x, float baseline_y, unsign
 int UI_TextWidth(UI_Face face, UI_TextSize ts, const char *text);
 int UI_TextHeight(UI_Face face, UI_TextSize ts, const char *text);
 void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_w, int *out_h);
+
+// Draws `text` from `x`, never spilling past `x + max_w`. Text that does not
+// fit is cut off at a rectangular clip and followed by a continuation
+// indicator, so a long file name stops short of the badge beside it instead of
+// running through it. Clipping is enabled and disabled inside this one call:
+// nothing can leave it switched on by returning early, which would make
+// whatever drew next disappear.
+void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y, float max_w,
+	unsigned int color, const char *text);
 
 // The interface accent and its low-alpha wash. Unlike the rest of the palette
 // these are runtime values, shared by every screen and by the nav rail: they
@@ -75,7 +91,19 @@ extern unsigned int ui_color_accent_wash;
 
 // Shared layout constants.
 #define UI_RAIL_WIDTH      76
-#define UI_HINT_BAR_HEIGHT 32
+#define UI_HINT_BAR_HEIGHT 40
+
+// Minimum touch target: 48 density-independent units, which at 1.379 px per
+// unit is 66 px, or 7.6 mm on the panel. The old 44 and 40 px targets were
+// 5.1 and 4.6 mm - the same mockup-pixel mistake the type scale had. The drawn
+// control keeps its own size; only the area that answers a touch grows, which
+// is what UI_TouchTarget is for.
+#define UI_TOUCH_MIN 66
+
+// True when the current touch falls inside [x, x+w) x [y, y+h) after that box
+// has been grown about its own centre to at least UI_TOUCH_MIN on each axis.
+// A box already that big is hit-tested unchanged.
+SceBool UI_TouchTarget(float x, float y, float w, float h);
 
 // Nominal pixel size behind each UI_TextSize token, indexed by the enum.
 // Draw sites name the token, never the number.

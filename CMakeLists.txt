@@ -23,29 +23,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -g -Wall -Werror -fcommon")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 set(VITA_MKSFOEX_FLAGS "${VITA_MKSFOEX_FLAGS} -d PARENTAL_LEVEL=1")
 
-FUNCTION(ADD_RESOURCES out_var)
-  SET(result)
-  FOREACH(in_f ${ARGN})
-    SET(out_f "${CMAKE_CURRENT_BINARY_DIR}/${in_f}.o")
-    GET_FILENAME_COMPONENT(out_dir ${out_f} DIRECTORY)
-    ADD_CUSTOM_COMMAND(OUTPUT ${out_f}
-      COMMAND ${CMAKE_COMMAND} -E make_directory ${out_dir}
-      COMMAND ${CMAKE_LINKER} -r -b binary -o ${out_f} ${in_f}
-      DEPENDS ${in_f}
-      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-      COMMENT "Building resource ${out_f}"
-      VERBATIM
-      )
-    LIST(APPEND result ${out_f})
-  ENDFOREACH()
-  SET(${out_var} "${result}" PARENT_SCOPE)
-ENDFUNCTION()
-
-file(GLOB res_files RELATIVE
-  ${CMAKE_SOURCE_DIR}
-  res/*.png
-)
-add_resources(elevenmp_res ${res_files})
+# No PNG is linked into the binary any more: every icon and indicator is drawn
+# as geometry, and cover art comes from the track being played. The machinery
+# that embedded res/*.png went with them.
 
 include_directories(
   libs/include
@@ -60,7 +40,6 @@ link_directories(
 )
 
 add_executable(${PROJECT_NAME}
-  ${elevenmp_res}
   source/common.c
   source/config.c
   source/dirbrowse.c
@@ -68,7 +47,6 @@ add_executable(${PROJECT_NAME}
   source/main.c
   source/nav_rail.c
   source/status_bar.c
-  source/textures.c
   source/touch.c
   source/ui_gpu.c
   source/ui_theme.c
@@ -128,7 +106,6 @@ vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   FILE sce_sys/livearea/contents/bg.png sce_sys/livearea/contents/bg.png
   FILE sce_sys/livearea/contents/startup.png sce_sys/livearea/contents/startup.png
   FILE sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
-  FILE res/Roboto-Regular.ttf Roboto-Regular.ttf
   FILE res/Manrope.ttf Manrope.ttf
   FILE res/IBMPlexMono-Medium.ttf IBMPlexMono-Medium.ttf
 )

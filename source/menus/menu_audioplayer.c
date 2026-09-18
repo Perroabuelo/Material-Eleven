@@ -347,8 +347,10 @@ static void Menu_RunNowPlayingLoop(void) {
 		vita2d_draw_rectangle(CONTENT_X, STATUS_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 		StatusBar_Display();
 
-		// Cover art panel (see PR notes: vita2d has no texture clip/stencil,
-		// so the artwork itself is drawn as a plain rect, not rounded).
+		// Cover art panel. vita2d does offer rectangular clipping, and the
+		// text overflow policy uses it; what it has no equivalent for is a
+		// stencil or an arbitrary-shape clip, so the artwork is still drawn as
+		// a plain rect rather than one with rounded corners.
 		float cover_y = STATUS_H + 22;
 		if ((metadata.has_meta) && (metadata.cover_image))
 			vita2d_draw_texture_scale(metadata.cover_image, LEFT_PANEL_X, cover_y,

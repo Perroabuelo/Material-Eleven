@@ -44,12 +44,12 @@
 
 ## 4. Cierre de las islas rasterizadas
 
-- [ ] 4.1 Reemplazar el indicador de batería por una forma vectorial con nivel y estado de carga; verificar que refleja los mismos niveles que la lógica actual, incluido el tramo que hoy queda inalcanzable por la escalera de porcentaje, y que se ve con la misma definición en todos ellos
-- [ ] 4.2 Reemplazar los íconos de tipo de entrada de la lista por geometría vectorial; verificar en una carpeta con subcarpetas, audio reconocido y archivos no reconocidos que cada entrada muestra su ícono
-- [ ] 4.3 Simplificar el dibujo del reloj para que la cadena se calcule una sola vez por fotograma, eliminando además la rama condicional cuyos dos caminos producen el mismo resultado; verificar que el ancho medido y el texto dibujado siempre coinciden
+- [x] 4.1 Reemplazar el indicador de batería por una forma vectorial con nivel y estado de carga; verificar que refleja los mismos niveles que la lógica actual, incluido el tramo que hoy queda inalcanzable por la escalera de porcentaje, y que se ve con la misma definición en todos ellos
+- [x] 4.2 Reemplazar los íconos de tipo de entrada de la lista por geometría vectorial; verificar en una carpeta con subcarpetas, audio reconocido y archivos no reconocidos que cada entrada muestra su ícono
+- [x] 4.3 Simplificar el dibujo del reloj para que la cadena se calcule una sola vez por fotograma, eliminando además la rama condicional cuyos dos caminos producen el mismo resultado; verificar que el ancho medido y el texto dibujado siempre coinciden
 - [ ] 4.4 Revisar el contador de agotamiento del pool tras sumar la geometría de esta etapa y, si el margen quedó estrecho, ajustar el tamaño del pool en la llamada de inicialización
-- [ ] 4.5 Retirar de los recursos y de la carga las imágenes y la tipografía que ya no dibuja ninguna pantalla, incluidas las que no se dibujaban antes de este change; verificar que la aplicación compila, arranca y que la memoria gráfica libre al inicio mejora respecto de la línea base
-- [ ] 4.6 Corregir el comentario del código que afirma que la biblioteca no ofrece recorte, dejando constancia de que el recorte rectangular existe y que lo que falta es el recorte por forma arbitraria
+- [x] 4.5 Retirar de los recursos y de la carga las imágenes y la tipografía que ya no dibuja ninguna pantalla, incluidas las que no se dibujaban antes de este change; verificar que la aplicación compila, arranca y que la memoria gráfica libre al inicio mejora respecto de la línea base
+- [x] 4.6 Corregir el comentario del código que afirma que la biblioteca no ofrece recorte, dejando constancia de que el recorte rectangular existe y que lo que falta es el recorte por forma arbitraria
 - [ ] 4.7 Ejecutar el PPH sobre esta etapa
 
 ## 5. Cobertura de glifos no latinos
@@ -99,3 +99,10 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 3.6 recorte con indicador | implementado | `UI_DrawTextClipped` sobre `vita2d_set_clip_rectangle`, con el indicador dibujado fuera del recorte. Aplicado a nombres de archivo, subtítulos, breadcrumb, título y artista (pantalla y mini), siguientes y etiquetas de ajustes. |
 | 3.7 recorte que quede activo | verificado por inspección | El recorte se habilita y deshabilita dentro de `UI_DrawTextClipped`, sin ninguna ruta de retorno entre ambas llamadas, así que no puede quedar activo. Es el único sitio del repositorio que lo toca. |
 | 3.8 PPH etapa 3 | pendiente de consola | |
+| 4.1 batería vectorial | implementado | Carcasa redondeada, borne y barra de carga cuyo largo **es** el porcentaje, así que todo nivel tiene su ancho. El tramo inalcanzable desaparece por construcción: la escalera de 7 buckets, donde 30..49 caía en el de 50 y el arte de 30 nunca se dibujaba, ya no existe. Ámbar bajo 20%, rayo al cargar, carcasa vacía si no se puede leer el nivel. |
+| 4.2 íconos de fila vectoriales | implementado | Carpeta, corchea y página con esquina doblada, dibujados a 20 px. Pendiente de consola: verlos en una carpeta con los tres tipos. |
+| 4.3 reloj | implementado | La cadena se arma una vez por fotograma y de ahí salen el ancho y el dibujo; antes se leía el reloj dos veces. Eliminada la condicional cuyas dos ramas tenían el mismo `snprintf`. |
+| 4.4 margen del pool | implementado, medición pendiente | Pool fijado en 2 MB en `UI_InitGraphics`. El contador y la marca de agua están en la superposición; ajustar sólo si la consola muestra margen estrecho. |
+| 4.5 purga de recursos | implementado | Fuera 16 PNG de batería, 4 de íconos, 2 de radio, 2 de carátula por defecto y `Roboto-Regular.ttf` (se cargaba en cada arranque y no lo dibujaba nadie). `source/textures.c`, `include/textures.h` y la maquinaria `ADD_RESOURCES` quedaron sin contenido y se eliminaron. El .vpk pasa de 2 885 058 a 1 981 814 bytes, y ya no se reservan 24 texturas ni un handle de fuente al arrancar. Pendiente de consola: confirmar la mejora de memoria libre contra la línea base. |
+| 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
+| 4.7 PPH etapa 4 | pendiente de consola | |

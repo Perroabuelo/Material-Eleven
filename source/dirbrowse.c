@@ -10,7 +10,6 @@
 #include "dirbrowse.h"
 #include "fs.h"
 #include "menu_audioplayer.h"
-#include "textures.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -208,6 +207,59 @@ static void Dirbrowse_FormatSize(char *buf, int buf_size, SceOff bytes) {
 		snprintf(buf, buf_size, "%d B", (int)bytes);
 }
 
+// Row type icons, drawn as geometry at the size the row wants rather than as
+// PNGs rescaled into it. `size` is the glyph box, centred on (cx, cy).
+typedef enum {
+	ROW_ICON_DIR,
+	ROW_ICON_AUDIO,
+	ROW_ICON_FILE
+} Dirbrowse_RowIcon;
+
+#define ROW_GLYPH_SIZE 20
+
+// Folder: a solid body with the raised tab along its top left.
+static void Dirbrowse_DrawFolderGlyph(float cx, float cy, float size, unsigned int color) {
+	float w = size, h = size * 0.78f;
+	float x = cx - w / 2.0f, y = cy - h / 2.0f;
+	float tab_h = h * 0.18f;
+
+	UI_DrawQuad(x, y + tab_h, x + w * 0.34f, y + tab_h, x + w * 0.42f, y, x, y, color);
+	UI_DrawRoundedRect(x, y + tab_h, w, h - tab_h, 3, color);
+}
+
+// Audio: a quaver - filled note head with a stem and a flag.
+static void Dirbrowse_DrawAudioGlyph(float cx, float cy, float size, unsigned int color) {
+	float x = cx - size / 2.0f, y = cy - size / 2.0f;
+	float head_r = size * 0.19f;
+	float head_cx = x + size * 0.30f, head_cy = y + size * 0.74f;
+	float stem_x = head_cx + head_r * 0.92f;
+
+	vita2d_draw_fill_circle(head_cx, head_cy, head_r, color);
+	UI_DrawStroke(stem_x, head_cy, stem_x, y + size * 0.14f, size * 0.10f, color);
+	UI_DrawStroke(stem_x, y + size * 0.14f, x + size * 0.82f, y + size * 0.30f, size * 0.10f, color);
+}
+
+// File: a page with the top right corner turned down.
+static void Dirbrowse_DrawFileGlyph(float cx, float cy, float size, unsigned int color) {
+	float w = size * 0.76f, h = size * 0.92f;
+	float x = cx - w / 2.0f, y = cy - h / 2.0f;
+	float fold = w * 0.36f;
+
+	// The page is a pentagon - the corner is cut away rather than drawn over,
+	// so the icon chip behind it shows through as the fold. Two pieces, because
+	// the quad helper takes four points.
+	UI_DrawQuad(x, y, x + w - fold, y, x + w, y + fold, x + w, y + h, color);
+	UI_DrawTriangle(x + w, y + h, x, y + h, x, y, color);
+}
+
+static void Dirbrowse_DrawRowIcon(Dirbrowse_RowIcon icon, float cx, float cy, unsigned int color) {
+	switch (icon) {
+		case ROW_ICON_DIR: Dirbrowse_DrawFolderGlyph(cx, cy, ROW_GLYPH_SIZE, color); break;
+		case ROW_ICON_AUDIO: Dirbrowse_DrawAudioGlyph(cx, cy, ROW_GLYPH_SIZE, color); break;
+		case ROW_ICON_FILE: Dirbrowse_DrawFileGlyph(cx, cy, ROW_GLYPH_SIZE, color); break;
+	}
+}
+
 static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	if (selected)
 		UI_DrawRowHighlight(LIST_X + 10, y, 960 - LIST_X - 20, ROW_H);
@@ -215,16 +267,13 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	float icon_x = LIST_X + 22, icon_y = y + (ROW_H - ROW_ICON_SIZE) / 2;
 	UI_DrawRoundedRect(icon_x, icon_y, ROW_ICON_SIZE, ROW_ICON_SIZE, 10, UI_COLOR_SURFACE_2);
 
-	vita2d_texture *icon = file->is_dir ? icon_dir : icon_file;
 	SceBool is_parent = !strcmp(file->name, "..");
 	const char *badge_label = NULL; unsigned int badge_color = 0, badge_wash = 0;
 	SceBool has_badge = (!file->is_dir) && UI_GetFormatBadge(file->ext, &badge_label, &badge_color, &badge_wash);
-	if (has_badge)
-		icon = icon_audio;
 
-	if (icon)
-		vita2d_draw_texture(icon, icon_x + (ROW_ICON_SIZE - vita2d_texture_get_width(icon)) / 2,
-			icon_y + (ROW_ICON_SIZE - vita2d_texture_get_height(icon)) / 2);
+	Dirbrowse_DrawRowIcon(file->is_dir ? ROW_ICON_DIR : (has_badge ? ROW_ICON_AUDIO : ROW_ICON_FILE),
+		icon_x + ROW_ICON_SIZE / 2.0f, icon_y + ROW_ICON_SIZE / 2.0f,
+		selected ? ui_color_accent : UI_COLOR_TEXT_TERTIARY);
 
 	const char *name = is_parent ? "Carpeta superior" : file->name;
 	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;

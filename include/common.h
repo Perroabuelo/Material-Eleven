@@ -18,7 +18,6 @@
 // call of openspec/changes/close-ui-contract.
 #define FILES_PER_PAGE 5
 
-extern vita2d_font *font;
 extern enum SceCtrlButtons SCE_CTRL_ENTER, SCE_CTRL_CANCEL;
 extern SceUInt32 pressed;
 extern int position;

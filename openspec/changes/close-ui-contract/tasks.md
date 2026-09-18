@@ -60,7 +60,7 @@
 - [x] 5.4 Verificar con archivos cuyos nombres estén en japonés, chino y cirílico que aparecen dibujados en la lista de carpetas, en el título y en el artista, en lugar de quedar en blanco
 - [x] 5.5 Implementar la cuenta de codepoints no latinos distintos ya dibujados y la recreación del handle de respaldo al cruzar el umbral, pasando por el punto único de destrucción de 1.2 y agendada en un cambio de carpeta, nunca dentro del dibujo de un fotograma
 - [x] 5.6 Probar la recreación cruzando el umbral dos veces seguidas mientras se navega contenido no latino, verificando que los caracteres se siguen dibujando después de cada recreación y que no se genera ningún volcado; esta es la ruta más peligrosa del change y no se da por cerrada sin esta prueba
-- [ ] 5.7 Ejecutar el PPH sobre esta etapa
+- [x] 5.7 Ejecutar el PPH sobre esta etapa
 
 ## 6. Cierre del change
 
@@ -115,7 +115,8 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 5.5 renovación del handle | implementado | Bitmap de 8 KB sobre el BMP para contar codepoints distintos, umbral en 480 sobre los ~600 que entran en la hoja. La renovación pasa por `UI_GpuFreePvf` y se agenda en `Dirbrowse_PopulateFiles`, que siempre corre después de `vita2d_swap_buffers`. |
 | 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `f3d908e`. |
 | tirón al repoblar el atlas | **resuelto por el arreglo de agenda** | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Quedó resuelto al mover la renovación al límite de fotograma: como el atlas nunca se acerca a llenarse, los inserts no se degradan y no quedan glifos reintentándose. Confirmado en consola: el glitch ya no ocurre. |
-| 5.7 PPH etapa 5 | pendiente de consola | |
+| 5.7 PPH etapa 5 | **superado** | Protocolo completo con contenido coreano en el medio. Sin volcado, la interfaz siguió respondiendo. |
+| glitch al cambiar de canción | **en atribución** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Pendiente de confirmar compilando `341709b` (el commit previo a la etapa 1) y comparando. |
 
 ## Cobertura real de las tipografías propias
 

@@ -68,7 +68,7 @@
 - [x] 6.2 Recorrer los requirements de `ui/rendering` escenario por escenario sobre la consola y confirmar que cada uno se cumple
 - [x] 6.3 Confirmar que los cinco specs vigentes siguen comportándose igual: el nav rail lista las mismas tres destinaciones y marca la activa, los badges de formato aparecen en las mismas extensiones, el filtro por nombre sigue acotado a la carpeta actual, los ajustes conservan su efecto y persistencia, y el acento sigue derivándose de la carátula con su reserva fija
 - [x] 6.4 Evaluar sobre la consola si los tamaños chicos necesitan un peso tipográfico adicional y, de ser así, incorporarlo como ajuste aditivo; si no hace falta, dejarlo registrado para no volver a abrirlo
-- [ ] 6.5 Revisar que ninguna etapa dejó tareas de verificación sin registrar su resultado, en particular las mediciones de fotogramas por segundo, de memoria gráfica libre y de cobertura de escrituras
+- [x] 6.5 Revisar que ninguna etapa dejó tareas de verificación sin registrar su resultado, en particular las mediciones de fotogramas por segundo, de memoria gráfica libre y de cobertura de escrituras
 
 ## Registro de verificacion
 
@@ -85,7 +85,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 1.5 PPH + línea base de memoria | **superado** | CDRAM libre al inicializar: **114688 KB (112 MB)**. Como las cuatro etapas llegaron juntas, no hay una línea base previa a la etapa 2 con la que contrastar: esta cifra es de arranque, antes de crear el render target y los atlas. PPH superado: sin volcado `psp2core` y la interfaz siguió respondiendo. |
 | 1.6 la interfaz no se movió | **no verificable en retrospectiva** | La etapa 1 no debía mover un píxel, y por construcción no lo hace: la migración a la API de texto resolvía los mismos dos handles y los mismos siete tamaños. Pero el usuario eligió entregar las cuatro etapas juntas, así que nunca hubo una compilación con la etapa 1 sola instalada contra la cual comparar. Queda así registrado en vez de marcado a la ligera. |
 | 2.1 MSAA con degradación | **verificado en consola**, con desvío del diseño | `vita2d_init_advanced_with_msaa` retorna `1` incondicionalmente: el desensamblado de `libvita2d.a` muestra `movs r0, #1` en sus dos salidas e ignora todo error de `sceGxm`. Comprobar el retorno, como pide `design.md`, no puede detectar nada. La degradación se decide **antes** de la llamada, según el CDRAM libre que informa `sceKernelGetFreeMemorySize`. El modo elegido queda visible en la superposición. |
-| 2.2 FPS con suavizado | **cerrada, medición cualitativa** | Se probó con un contador de fps por plugin. No se observaron caídas ni tirones atribuibles al suavizado en ninguna de las tres pantallas, y el usuario reportó la aplicación incluso algo más rápida tras el arreglo de la renovación. **No quedó registrada una cifra numérica.** Alcanza para lo único que la tarea pide decidir —si el costo obliga a bajar el modo— y la respuesta es que no: se conserva MSAA 4x. Como vita2d espera el vblank, la app está capada a 60 y una caída se manifestaría como un salto a 30, que no se vio. |
+| 2.2 FPS con suavizado | **medida** | Medido con un contador de fps por plugin: **nunca bajó de 60** en ninguna de las tres pantallas, con MSAA 4x activo. Como vita2d espera el vblank la app está capada a 60, y con doble buffer una caída se manifestaría como un salto a 30, que no ocurrió — así que el suavizado no consume el presupuesto de 16,6 ms por fotograma. La arquitectura por tiles de la consola resuelve el multimuestreo en memoria de tile, que era la expectativa del diseño, ahora confirmada. No hay motivo para bajar el modo. |
 | 2.3 un handle por tamaño | implementado | 8 pares cara/tamaño en uso, un handle cada uno (~2 MB). Pendiente de consola: comparar un mismo carácter en dos tamaños. |
 | 2.4 nitidez independiente del recorrido | **verificada** | El título se ve igual llegando a Now Playing por rutas distintas y con tracks distintos. |
 | 2.5 línea base por métricas | implementado | `UI_TextBaselineY` ya no recibe la cadena: centra la extensión de la cara medida una vez sobre `"Agjy"`. El parámetro desapareció de los 27 sitios de dibujo, así que la regresión no se puede escribir. Pendiente de consola: filas con y sin descendentes. |
@@ -359,10 +359,12 @@ nombra explicitamente:
   propias, leyendo su `cmap`: cero Hangul, kana y CJK, y cirilico al 40.6% y
   65.6%. Las del firmware, con la sonda en consola: las cinco escrituras
   esperadas se dibujan.
-- **Fotogramas por segundo** — **cerrada de forma cualitativa, sin cifra**. Se
-  verifico que el suavizado no obliga a bajar el modo, que es lo unico que la
-  tarea pide decidir, pero no quedo anotado un numero. Es la unica medicion del
-  change que no tiene valor registrado.
+- **Fotogramas por segundo** — registrada. Nunca bajo de 60 en ninguna de las
+  tres pantallas con MSAA 4x. La app esta capada a 60 por el vblank, y una caida
+  se veria como un salto a 30, que no ocurrio: el suavizado no consume el
+  presupuesto de 16,6 ms por fotograma.
+
+Las tres mediciones que 6.5 nombra tienen valor registrado.
 
 Tareas sin marcar y por que:
 

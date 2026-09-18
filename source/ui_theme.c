@@ -1,6 +1,11 @@
 #include <math.h>
 #include <string.h>
 
+#include <psp2/pvf.h>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #include "common.h"
 #include "touch.h"
 #include "ui_gpu.h"
@@ -107,7 +112,234 @@ static vita2d_font *UI_FontFor(UI_Face face, UI_TextSize ts) {
 	return ui_font[face][ts];
 }
 
+// ---- Non-Latin fallback ----
+//
+// See ui_theme.h for why this exists. Two engines, one string: runs our own
+// face covers are drawn with it, runs it does not are drawn with the console's
+// fonts, and the position advances by whatever each engine reports.
+
+// One handle, not one per size. design.md expected the per-size rule to apply
+// to this engine too, but vita2d_load_system_pvf calls scePvfSetCharSize with a
+// constant, so every handle it returns would be the same 18 px atlas. Several
+// would cost memory and buy nothing.
+static vita2d_pvf *ui_fallback = NULL;
+
+// The console reports Latin, Korean, Japanese and Chinese, each picked by its
+// own predicate, so dispatch is per codepoint rather than per block. That
+// matters because our own Cyrillic coverage is partial, not absent.
+static int UI_FallbackGroupLatin(unsigned int c) { return c < 0x0500; }
+static int UI_FallbackGroupHangul(unsigned int c) {
+	return (c >= 0x1100 && c <= 0x11FF) || (c >= 0x3130 && c <= 0x318F) || (c >= 0xAC00 && c <= 0xD7A3);
+}
+static int UI_FallbackGroupKana(unsigned int c) { return (c >= 0x3040 && c <= 0x30FF) || (c >= 0x31F0 && c <= 0x31FF); }
+static int UI_FallbackGroupHan(unsigned int c) {
+	return (c >= 0x3400 && c <= 0x4DBF) || (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0xF900 && c <= 0xFAFF);
+}
+
+static const vita2d_system_pvf_config ui_fallback_configs[] = {
+	{ SCE_PVF_LANGUAGE_LATIN, UI_FallbackGroupLatin },
+	{ SCE_PVF_LANGUAGE_K,     UI_FallbackGroupHangul },
+	{ SCE_PVF_LANGUAGE_J,     UI_FallbackGroupKana },
+	{ SCE_PVF_LANGUAGE_C,     UI_FallbackGroupHan },
+};
+#define UI_FALLBACK_CONFIG_COUNT ((int)(sizeof(ui_fallback_configs) / sizeof(ui_fallback_configs[0])))
+
+// Coverage is asked of FreeType directly rather than assumed from a range. A
+// face opened here is never drawn with - vita2d owns the handles that draw -
+// it exists only to answer FT_Get_Char_Index.
+static FT_Library ui_ft = NULL;
+static FT_Face ui_ft_face[UI_FACE_COUNT];
+
+// Distinct uncovered codepoints drawn so far, as a bitmap over the BMP: 8 KB
+// for an exact count, against a hash table that would need tuning. The atlas
+// holds roughly six hundred full-width glyphs, so the threshold sits below that
+// with room for the sheet's packing overhead.
+#define UI_FALLBACK_SEEN_BITS 0x10000
+#define UI_FALLBACK_RENEW_AT  480
+
+static unsigned char ui_fallback_seen[UI_FALLBACK_SEEN_BITS / 8];
+static int ui_fallback_seen_count = 0;
+static int ui_fallback_renewals = 0;
+static SceBool ui_fallback_needs_renew = SCE_FALSE;
+
+static void UI_FallbackLoad(void) {
+	ui_fallback = vita2d_load_system_pvf(UI_FALLBACK_CONFIG_COUNT, ui_fallback_configs);
+	memset(ui_fallback_seen, 0, sizeof(ui_fallback_seen));
+	ui_fallback_seen_count = 0;
+	ui_fallback_needs_renew = SCE_FALSE;
+}
+
+void UI_Theme_RenewFallbackIfNeeded(void) {
+	if (!ui_fallback_needs_renew)
+		return;
+
+	// Through the single destruction point, which waits for pending rendering
+	// before it frees. Callers guarantee this runs between frames.
+	UI_GpuFreePvf(&ui_fallback);
+	UI_FallbackLoad();
+	ui_fallback_renewals++;
+}
+
+static void UI_FallbackNoteCodepoint(unsigned int cp) {
+	unsigned int idx, bit;
+
+	if (cp >= UI_FALLBACK_SEEN_BITS)
+		return;
+
+	idx = cp >> 3;
+	bit = 1u << (cp & 7);
+
+	if (ui_fallback_seen[idx] & bit)
+		return;
+
+	ui_fallback_seen[idx] |= bit;
+	if (++ui_fallback_seen_count >= UI_FALLBACK_RENEW_AT)
+		ui_fallback_needs_renew = SCE_TRUE;
+}
+
+// Minimal UTF-8 walk. Returns the next position, or NULL at the end. A
+// malformed byte is reported as U+FFFD and consumed, so a tag truncated
+// mid-sequence cannot spin the caller.
+static const char *UI_Utf8Next(const char *s, unsigned int *out_cp) {
+	unsigned char c = (unsigned char)*s;
+	unsigned int cp;
+	int extra;
+
+	if (!c)
+		return NULL;
+
+	if (c < 0x80) { cp = c; extra = 0; }
+	else if ((c & 0xE0) == 0xC0) { cp = c & 0x1F; extra = 1; }
+	else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; extra = 2; }
+	else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; extra = 3; }
+	else { *out_cp = 0xFFFD; return s + 1; }
+
+	for (int i = 1; i <= extra; i++) {
+		unsigned char cc = (unsigned char)s[i];
+
+		if ((cc & 0xC0) != 0x80) { *out_cp = 0xFFFD; return s + i; }
+		cp = (cp << 6) | (cc & 0x3F);
+	}
+
+	*out_cp = cp;
+	return s + extra + 1;
+}
+
+static SceBool UI_FaceCovers(UI_Face face, unsigned int cp) {
+	if (face < 0 || face >= UI_FACE_COUNT || !ui_ft_face[face])
+		return SCE_TRUE; // cannot ask: let our own face try, and say so in the overlay
+
+	return FT_Get_Char_Index(ui_ft_face[face], cp) != 0 ? SCE_TRUE : SCE_FALSE;
+}
+
+SceBool UI_Theme_FallbackStatus(int *out_seen, int *out_renewals, SceBool *out_can_query) {
+	SceBool can_query = SCE_FALSE;
+
+	for (int f = 0; f < UI_FACE_COUNT; f++) {
+		if (ui_ft_face[f])
+			can_query = SCE_TRUE;
+	}
+
+	if (out_seen)
+		*out_seen = ui_fallback_seen_count;
+	if (out_renewals)
+		*out_renewals = ui_fallback_renewals;
+	if (out_can_query)
+		*out_can_query = can_query;
+
+	return (ui_fallback != NULL && can_query) ? SCE_TRUE : SCE_FALSE;
+}
+
+SceBool UI_TextNeedsFallback(UI_Face face, const char *text) {
+	unsigned int cp;
+
+	if (!text)
+		return SCE_FALSE;
+
+	while ((text = UI_Utf8Next(text, &cp)) != NULL) {
+		if (!UI_FaceCovers(face, cp))
+			return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
+}
+
+// Walks `text`, splitting it wherever the engine has to change, and either
+// draws the runs or just measures them. Drawing and measuring share this one
+// walker so a clipped or right-aligned string cannot be measured by one rule
+// and drawn by another.
+static float UI_TextRuns(UI_Face face, UI_TextSize ts, float x, float baseline_y,
+	unsigned int color, const char *text, SceBool draw) {
+	char run[128];
+	const char *p = text;
+	float pen = x;
+	float scale;
+	vita2d_font *own;
+
+	if (!text)
+		return 0.0f;
+
+	own = UI_FontFor(face, ts);
+	scale = (float)ui_text_px[ts] / UI_PVF_NATIVE_PX;
+
+	while (*p) {
+		const char *next;
+		unsigned int cp;
+		SceBool run_covered;
+		int len = 0;
+
+		next = UI_Utf8Next(p, &cp);
+		if (!next)
+			break;
+
+		run_covered = UI_FaceCovers(face, cp);
+
+		// Gather as much as fits in the buffer while the engine stays the same.
+		while (next && (size_t)(len + (next - p)) < sizeof(run) - 1) {
+			memcpy(run + len, p, (size_t)(next - p));
+			len += (int)(next - p);
+
+			if (!run_covered)
+				UI_FallbackNoteCodepoint(cp);
+
+			p = next;
+			if (!*p)
+				break;
+
+			next = UI_Utf8Next(p, &cp);
+			if (!next || UI_FaceCovers(face, cp) != run_covered)
+				break;
+		}
+		run[len] = '\0';
+
+		if (run_covered) {
+			if (own) {
+				if (draw)
+					vita2d_font_draw_text(own, (int)pen, (int)baseline_y, color, ui_text_px[ts], run);
+				pen += (float)vita2d_font_text_width(own, ui_text_px[ts], run);
+			}
+		}
+		else if (ui_fallback) {
+			if (draw)
+				vita2d_pvf_draw_text(ui_fallback, (int)pen, (int)baseline_y, color, scale, run);
+			pen += (float)vita2d_pvf_text_width(ui_fallback, scale, run);
+		}
+	}
+
+	return pen - x;
+}
+
 void UI_Theme_Load(void) {
+	// One FreeType face per typeface, for coverage queries only.
+	if (FT_Init_FreeType(&ui_ft) == 0) {
+		for (int f = 0; f < UI_FACE_COUNT; f++) {
+			if (FT_New_Face(ui_ft, ui_face_file[f], 0, &ui_ft_face[f]) != 0)
+				ui_ft_face[f] = NULL;
+		}
+	}
+
+	UI_FallbackLoad();
+
 	for (int f = 0; f < UI_FACE_COUNT; f++) {
 		for (int t = 0; t < UI_TS_COUNT; t++) {
 			if (!ui_face_uses[f][t])
@@ -122,28 +354,27 @@ void UI_Theme_Load(void) {
 }
 
 void UI_Theme_Free(void) {
+	UI_GpuFreePvf(&ui_fallback);
+
 	for (int f = UI_FACE_COUNT - 1; f >= 0; f--) {
 		for (int t = UI_TS_COUNT - 1; t >= 0; t--)
 			UI_GpuFreeFont(&ui_font[f][t]);
 	}
+
+	for (int f = 0; f < UI_FACE_COUNT; f++) {
+		if (ui_ft_face[f])
+			FT_Done_Face(ui_ft_face[f]);
+	}
+	if (ui_ft)
+		FT_Done_FreeType(ui_ft);
 }
 
 void UI_DrawText(UI_Face face, UI_TextSize ts, float x, float baseline_y, unsigned int color, const char *text) {
-	vita2d_font *f = UI_FontFor(face, ts);
-
-	if (!f || !text)
-		return;
-
-	vita2d_font_draw_text(f, (int)x, (int)baseline_y, color, ui_text_px[ts], text);
+	UI_TextRuns(face, ts, x, baseline_y, color, text, SCE_TRUE);
 }
 
 int UI_TextWidth(UI_Face face, UI_TextSize ts, const char *text) {
-	vita2d_font *f = UI_FontFor(face, ts);
-
-	if (!f || !text)
-		return 0;
-
-	return vita2d_font_text_width(f, ui_text_px[ts], text);
+	return (int)UI_TextRuns(face, ts, 0.0f, 0.0f, 0, text, SCE_FALSE);
 }
 
 int UI_TextHeight(UI_Face face, UI_TextSize ts, const char *text) {

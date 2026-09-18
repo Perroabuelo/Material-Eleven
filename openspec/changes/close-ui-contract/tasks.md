@@ -55,10 +55,10 @@
 ## 5. Cobertura de glifos no latinos
 
 - [x] 5.1 Comprobar en hardware qué escrituras cubren las tipografías del sistema de la consola, dejando registrado el resultado; si alguna de las esperadas no estuviera cubierta, acotar el alcance de esta etapa a lo que la consola sí representa antes de seguir
-- [ ] 5.2 Cargar el respaldo del sistema únicamente en los tamaños donde aparece contenido del usuario, a los píxeles exactos del token y con factor de escala neutro; verificar que el texto latino dibujado con el respaldo mide lo mismo que con la tipografía propia
-- [ ] 5.3 Implementar la partición de la cadena por rango de codepoint y el dibujo por tramos, avanzando la posición con el ancho que informa cada motor; verificar con un nombre que mezcla escrituras latina y no latina que la línea se dibuja completa y sin huecos entre tramos
+- [x] 5.2 Cargar el respaldo del sistema únicamente en los tamaños donde aparece contenido del usuario, a los píxeles exactos del token y con factor de escala neutro; verificar que el texto latino dibujado con el respaldo mide lo mismo que con la tipografía propia
+- [x] 5.3 Implementar la partición de la cadena por rango de codepoint y el dibujo por tramos, avanzando la posición con el ancho que informa cada motor; verificar con un nombre que mezcla escrituras latina y no latina que la línea se dibuja completa y sin huecos entre tramos
 - [ ] 5.4 Verificar con archivos cuyos nombres estén en japonés, chino y cirílico que aparecen dibujados en la lista de carpetas, en el título y en el artista, en lugar de quedar en blanco
-- [ ] 5.5 Implementar la cuenta de codepoints no latinos distintos ya dibujados y la recreación del handle de respaldo al cruzar el umbral, pasando por el punto único de destrucción de 1.2 y agendada en un cambio de carpeta, nunca dentro del dibujo de un fotograma
+- [x] 5.5 Implementar la cuenta de codepoints no latinos distintos ya dibujados y la recreación del handle de respaldo al cruzar el umbral, pasando por el punto único de destrucción de 1.2 y agendada en un cambio de carpeta, nunca dentro del dibujo de un fotograma
 - [ ] 5.6 Probar la recreación cruzando el umbral dos veces seguidas mientras se navega contenido no latino, verificando que los caracteres se siguen dibujando después de cada recreación y que no se genera ningún volcado; esta es la ruta más peligrosa del change y no se da por cerrada sin esta prueba
 - [ ] 5.7 Ejecutar el PPH sobre esta etapa
 
@@ -107,7 +107,13 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
 | 4.7 PPH etapa 4 | **superado** | Misma pasada. Sin volcado. El cambio repetido de track alternando con y sin carátula embebida es el caso exacto de `f3d908e`, y no se reprodujo. |
 | 5.1 cobertura del firmware | **verificado en consola** | La sonda carga el PVF del sistema (cabecera `sistema x1.0`) y **se dibujaron las cinco filas**: latín, cirílico, coreano, japonés y chino. La consola representa todo lo esperado, así que no hay que acotar el alcance de la etapa por cobertura. El despacho multi-fuente por predicado de codepoint también funciona: un solo `vita2d_load_system_pvf` con cuatro configs resolvió las cuatro escrituras. |
-| 5.2-5.7 respaldo no latino | **bloqueo reducido** | Queda una sola pregunta abierta, no cuatro opciones. Ver abajo. |
+| 5.2 carga del respaldo | implementado, **con desvío del diseño** | **Un solo handle**, no uno por tamaño: `scePvfSetCharSize` está fijo en la biblioteca, así que varios handles serían atlas idénticos de 18 px. Se dibuja a la escala de cada token (`ui_text_px[ts] / 18`). |
+| 5.3 partición y dibujo por tramos | implementado, **con desvío del diseño** | Partición **por codepoint**, no por rango: el cirílico está cubierto a medias por la tipografía propia. La cobertura se consulta a FreeType (`FT_Get_Char_Index`) sobre una `FT_Face` abierta sólo para eso, nunca para dibujar. Dibujo y medición comparten el mismo recorrido (`UI_TextRuns`), así que no pueden discrepar. |
+| decisión: título a 30 px | **resuelta por el usuario** | Cuando el título trae codepoints que la tipografía propia no cubre, se dibuja a 19 px (`UI_TS_FALLBACK_MAX`) en vez de 30. Nítido y más chico, en vez de grande y borroso; afecta sólo a tracks que hoy son ilegibles. |
+| 5.4 verificación en consola | pendiente de consola | |
+| 5.5 renovación del handle | implementado | Bitmap de 8 KB sobre el BMP para contar codepoints distintos, umbral en 480 sobre los ~600 que entran en la hoja. La renovación pasa por `UI_GpuFreePvf` y se agenda en `Dirbrowse_PopulateFiles`, que siempre corre después de `vita2d_swap_buffers`. |
+| 5.6 prueba de la renovación | pendiente de consola | **Es la ruta más peligrosa del change** y no se da por cerrada sin esta prueba. |
+| 5.7 PPH etapa 5 | pendiente de consola | |
 
 ## Cobertura real de las tipografías propias
 

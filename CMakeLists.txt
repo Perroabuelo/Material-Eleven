@@ -32,6 +32,10 @@ include_directories(
   include
   include/audio
   include/menus
+  # FreeType answers "does this face have a glyph for this codepoint", which is
+  # what the non-Latin fallback splits a string on. Our own Cyrillic coverage is
+  # partial, so the question cannot be answered from ranges.
+  ${VITASDK}/arm-vita-eabi/include/freetype2
 )
 
 link_directories(

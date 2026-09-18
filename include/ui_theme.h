@@ -54,6 +54,47 @@ void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_
 void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y, float max_w,
 	unsigned int color, const char *text);
 
+// ---- Non-Latin coverage ----
+//
+// Manrope and IBM Plex Mono carry no Hangul, kana or CJK at all, and only part
+// of Cyrillic - 40.6% and 65.6% of the block. An uncovered codepoint resolves
+// to glyph index 0, and since the atlas is keyed by glyph index every one of
+// them collapses onto the same .notdef and draws as the same repeated shape.
+// So the text calls above split a string into runs of consecutive codepoints
+// one engine can draw, and hand the rest to the console's own fonts. Call sites
+// need do nothing; drawing and measuring go through the same walker so they
+// cannot disagree.
+//
+// The fallback rasterises at one fixed size - vita2d_load_system_pvf hardcodes
+// scePvfSetCharSize - so it is only sharp near that size. Measured on hardware:
+// fine at the badge, label and body tokens, soft from the title token up.
+#define UI_PVF_NATIVE_PX 18.0f
+
+// True when some codepoint in `text` is outside what `face` covers, so the
+// caller can pick a token the fallback can draw sharply. Now Playing uses it to
+// drop a track title from the display token to body when the title is not
+// Latin: a smaller sharp title beats a large soft one.
+SceBool UI_TextNeedsFallback(UI_Face face, const char *text);
+
+// The largest token whose fallback scale still reads well.
+#define UI_TS_FALLBACK_MAX UI_TS_BODY
+
+// The fallback atlas has no eviction, so a long session over CJK content would
+// fill its sheet and start dropping glyphs silently. Once enough distinct
+// uncovered codepoints have been drawn, the handle is marked for renewal; this
+// performs it. It destroys and recreates a GPU resource, which is the exact
+// operation behind the second crash this change was written after, so it must
+// be called between frames and never during one. Folder changes are the chosen
+// moment: there is already a pause there for disk reads.
+void UI_Theme_RenewFallbackIfNeeded(void);
+
+// State of the fallback, for the debug overlay. `out_seen` is how many distinct
+// uncovered codepoints have been drawn, `out_renewals` how many times the
+// handle has been replaced. Returns false when the fallback is not usable at
+// all - either the console gave no font, or FreeType could not open our own
+// faces to ask what they cover, in which case nothing is ever routed to it.
+SceBool UI_Theme_FallbackStatus(int *out_seen, int *out_renewals, SceBool *out_can_query);
+
 // The interface accent and its low-alpha wash. Unlike the rest of the palette
 // these are runtime values, shared by every screen and by the nav rail: they
 // follow the current track's cover art via UI_Theme_SetAccentFromCoverArt, and

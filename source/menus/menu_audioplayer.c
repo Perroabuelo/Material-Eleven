@@ -362,8 +362,15 @@ static void Menu_RunNowPlayingLoop(void) {
 		const char *artist = Music_GetDisplayArtist();
 		float info_y = cover_y + COVER_SIZE + 20;
 
-		UI_DrawTextClipped(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, info_y, 38), LEFT_PANEL_W, UI_COLOR_TEXT_PRIMARY, title);
-		info_y += 38;
+		// The fallback rasterises near 18 px and is soft above the body token,
+		// so a title the app's own face cannot cover is drawn one step down
+		// rather than large and blurry. Only tracks that would otherwise be
+		// unreadable are affected.
+		UI_TextSize title_ts = UI_TextNeedsFallback(UI_FACE_UI, title) ? UI_TS_FALLBACK_MAX : UI_TS_DISPLAY;
+		float title_box = (title_ts == UI_TS_DISPLAY) ? 38.0f : 30.0f;
+
+		UI_DrawTextClipped(UI_FACE_UI, title_ts, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, title_ts, info_y, title_box), LEFT_PANEL_W, UI_COLOR_TEXT_PRIMARY, title);
+		info_y += title_box;
 
 		if (artist[0] != '\0') {
 			UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 26), LEFT_PANEL_W, UI_COLOR_TEXT_SECONDARY, artist);

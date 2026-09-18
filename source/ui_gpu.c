@@ -16,7 +16,7 @@
 #define UI_DEBUG_PANEL_X (UI_RAIL_WIDTH + 10)
 #define UI_DEBUG_PANEL_Y 10
 #define UI_DEBUG_PANEL_W 316
-#define UI_DEBUG_PANEL_H 112
+#define UI_DEBUG_PANEL_H 132
 #define UI_DEBUG_PANEL_PAD 12
 #define UI_DEBUG_LINE_H 20
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
@@ -313,6 +313,18 @@ void UI_Debug_Draw(void) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		pool_exhaustions ? UI_COLOR_TRACKER : UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;
+
+	{
+		int seen = 0, renewals = 0;
+		SceBool can_query = SCE_FALSE;
+		SceBool ok = UI_Theme_FallbackStatus(&seen, &renewals, &can_query);
+
+		snprintf(line, sizeof(line), "RESPALDO %s  glifos %d  renovado %dx",
+			ok ? "ok" : (can_query ? "SIN FUENTE" : "SIN CONSULTA"), seen, renewals);
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+			ok ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TRACKER, line);
+		y += UI_DEBUG_LINE_H;
+	}
 
 	snprintf(line, sizeof(line), "GFX    %s   cdram al init %d KB", graphics_mode, cdram_kb_at_init);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),

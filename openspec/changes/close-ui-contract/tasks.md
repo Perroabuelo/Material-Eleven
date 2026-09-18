@@ -114,7 +114,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | tirón al cambiar de track | **corregido, pendiente de reconfirmar** | Reportado en consola: al pasar de un track latino a uno coreano hay un corte brevísimo. No es la renovación (`renovado 0x`) sino la rasterización de primer uso: un título CJK trae una docena de glifos nuevos que el atlas genera dentro de ese fotograma. `vita2d_pvf_text_width` llama a `generic_pvf_draw_text`, única función que alcanza `scePvfGetCharGlyphImage` y `texture_atlas_insert`, así que **medir puebla el atlas**: se mide el título y el artista en `Menu_InitMusic`, que corre entre fotogramas dentro de la pausa que el cambio de track ya tiene. |
 | 5.5 renovación del handle | implementado | Bitmap de 8 KB sobre el BMP para contar codepoints distintos, umbral en 480 sobre los ~600 que entran en la hoja. La renovación pasa por `UI_GpuFreePvf` y se agenda en `Dirbrowse_PopulateFiles`, que siempre corre después de `vita2d_swap_buffers`. |
 | 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `f3d908e`. |
-| tirón al repoblar el atlas | **caracterizado, no corregido** (ver tambien el renglon siguiente) | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Queda registrado como característica del atlas bajo demanda, no como defecto abierto. |
+| tirón al repoblar el atlas | **resuelto por el arreglo de agenda** | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Quedó resuelto al mover la renovación al límite de fotograma: como el atlas nunca se acerca a llenarse, los inserts no se degradan y no quedan glifos reintentándose. Confirmado en consola: el glitch ya no ocurre. |
 | 5.7 PPH etapa 5 | pendiente de consola | |
 
 ## Cobertura real de las tipografías propias
@@ -242,6 +242,13 @@ en el cambio de carpeta, para esconder su costo en una pausa que ya existe. Pero
 la hoja se puede llenar sin que el usuario salga nunca de la carpeta, que es
 exactamente lo que paso: se cruzo el umbral de 480 y el scroll siguio dentro de
 la misma lista, asi que la renovacion nunca disparo.
+
+**Verificado en consola tras el arreglo:** la renovacion se gatillo **5 veces
+sola**, sin que el usuario saliera de la carpeta; el glitch al cambiar de archivo
+desaparecio, la lentitud no volvio, y la aplicacion corre incluso un poco mas
+rapido que antes. El resto de la interfaz siguio funcionando y se ve
+notoriamente mas nitida, que es el efecto combinado de un atlas por tamano, el
+MSAA 4x y el peso Medium.
 
 La renovacion pasa a evaluarse **en el limite de fotograma**, justo despues de
 `vita2d_swap_buffers`, en los tres bucles de dibujo. Sigue cumpliendo la

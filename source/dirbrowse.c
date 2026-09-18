@@ -56,10 +56,6 @@ static int cmpstringp(const void *p1, const void *p2) {
 int Dirbrowse_PopulateFiles(SceBool refresh) {
 	SceUID dir = 0;
 
-	// Between frames by construction: every caller reaches here from the input
-	// handling that runs after vita2d_end_drawing and vita2d_swap_buffers.
-	UI_Theme_RenewFallbackIfNeeded();
-
 	Dirbrowse_RecursiveFree(files);
 	files = NULL;
 	file_count = 0;

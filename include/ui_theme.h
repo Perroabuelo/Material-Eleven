@@ -79,13 +79,21 @@ SceBool UI_TextNeedsFallback(UI_Face face, const char *text);
 // The largest token whose fallback scale still reads well.
 #define UI_TS_FALLBACK_MAX UI_TS_BODY
 
-// The fallback atlas has no eviction, so a long session over CJK content would
-// fill its sheet and start dropping glyphs silently. Once enough distinct
-// uncovered codepoints have been drawn, the handle is marked for renewal; this
-// performs it. It destroys and recreates a GPU resource, which is the exact
-// operation behind the second crash this change was written after, so it must
-// be called between frames and never during one. Folder changes are the chosen
-// moment: there is already a pause there for disk reads.
+// The fallback atlas has no eviction, so a long session over CJK content fills
+// its 512x512 sheet - about eight hundred glyphs at the size it rasterises. Once
+// full, texture_atlas_insert fails and the draw path keeps calling
+// scePvfGetCharGlyphImage for the glyphs that will not fit, every frame,
+// forever: measured on hardware as a clear slowdown past 758 glyphs. So the
+// handle is marked for renewal well before that and replaced here.
+//
+// This destroys and recreates a GPU resource, the exact operation behind the
+// second crash this change was written after, so it must run between frames and
+// never during one. Every render loop calls it right after vita2d_swap_buffers.
+//
+// design.md scheduled this on a folder change instead, to hide the cost in a
+// pause that already exists. That is not enough on its own: the sheet can fill
+// without the user ever leaving the folder, which is exactly what happened in
+// testing. Checking every frame boundary subsumes it.
 void UI_Theme_RenewFallbackIfNeeded(void);
 
 // State of the fallback, for the debug overlay. `out_seen` is how many distinct

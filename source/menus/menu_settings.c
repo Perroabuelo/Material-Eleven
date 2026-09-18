@@ -242,6 +242,7 @@ void Menu_DisplaySettings(void) {
 		Utils_ReadControls();
 		Touch_Update();
 		UI_Debug_Update();
+		UI_Theme_RenewFallbackIfNeeded();
 
 		if (tapped == UI_SCREEN_FOLDERS) {
 			Menu_DisplayFiles();

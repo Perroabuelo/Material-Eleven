@@ -437,6 +437,7 @@ static void Menu_RunNowPlayingLoop(void) {
 		Utils_ReadControls();
 		Touch_Update();
 		UI_Debug_Update();
+		UI_Theme_RenewFallbackIfNeeded();
 
 		if (tapped == UI_SCREEN_FOLDERS) {
 			Touch_Reset();

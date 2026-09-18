@@ -114,7 +114,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | tirón al cambiar de track | **corregido, pendiente de reconfirmar** | Reportado en consola: al pasar de un track latino a uno coreano hay un corte brevísimo. No es la renovación (`renovado 0x`) sino la rasterización de primer uso: un título CJK trae una docena de glifos nuevos que el atlas genera dentro de ese fotograma. `vita2d_pvf_text_width` llama a `generic_pvf_draw_text`, única función que alcanza `scePvfGetCharGlyphImage` y `texture_atlas_insert`, así que **medir puebla el atlas**: se mide el título y el artista en `Menu_InitMusic`, que corre entre fotogramas dentro de la pausa que el cambio de track ya tiene. |
 | 5.5 renovación del handle | implementado | Bitmap de 8 KB sobre el BMP para contar codepoints distintos, umbral en 480 sobre los ~600 que entran en la hoja. La renovación pasa por `UI_GpuFreePvf` y se agenda en `Dirbrowse_PopulateFiles`, que siempre corre después de `vita2d_swap_buffers`. |
 | 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `f3d908e`. |
-| tirón al repoblar el atlas | **caracterizado, no corregido** | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Queda registrado como característica del atlas bajo demanda, no como defecto abierto. |
+| tirón al repoblar el atlas | **caracterizado, no corregido** (ver tambien el renglon siguiente) | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Queda registrado como característica del atlas bajo demanda, no como defecto abierto. |
 | 5.7 PPH etapa 5 | pendiente de consola | |
 
 ## Cobertura real de las tipografías propias
@@ -224,6 +224,31 @@ registro:**
 
 Vendorizar y parchear `vita2d_font` ya fue evaluado y descartado en `design.md`,
 y este hallazgo no cambia esa evaluación.
+
+## La renovacion no alcanzaba con agendarla en el cambio de carpeta
+
+Probando el peso Medium el usuario reporto que la aplicacion **se pone
+claramente mas lenta al llegar a 758 glifos**. El numero identifica la causa: la
+hoja del atlas es 512x512, un glifo CJK a los ~18 px que el PVF rasteriza ocupa
+unos 18x18 mas padding, y entran del orden de **800**. A 758 la hoja estaba
+llena.
+
+Llena, `texture_atlas_insert` falla, y el camino de dibujo sigue llamando a
+`scePvfGetCharGlyphImage` para los glifos que no entran **en cada fotograma**,
+indefinidamente. No es un tiron: es un costo permanente que no se va solo.
+
+La causa de fondo es de agenda, no de umbral. `design.md` dispone la renovacion
+en el cambio de carpeta, para esconder su costo en una pausa que ya existe. Pero
+la hoja se puede llenar sin que el usuario salga nunca de la carpeta, que es
+exactamente lo que paso: se cruzo el umbral de 480 y el scroll siguio dentro de
+la misma lista, asi que la renovacion nunca disparo.
+
+La renovacion pasa a evaluarse **en el limite de fotograma**, justo despues de
+`vita2d_swap_buffers`, en los tres bucles de dibujo. Sigue cumpliendo la
+restriccion que importa —nunca dentro del dibujo de un fotograma, y siempre por
+el punto unico de destruccion— y subsume la oportunidad del cambio de carpeta,
+que se elimino por redundante. Esconder el costo era deseable; que la hoja no se
+llene es obligatorio.
 
 ## Peso tipografico: la causa real
 

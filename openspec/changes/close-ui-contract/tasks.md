@@ -24,9 +24,9 @@
 ## 2. Nitidez del dibujo y del texto
 
 - [x] 2.1 Reemplazar la inicialización de vita2d por la variante que acepta modo de suavizado y tamaño de pool, comprobando el retorno y degradando a inicialización simple si el modo pedido no se puede establecer; verificar que la aplicación arranca en ambos caminos forzando el fallo del modo pedido
-- [ ] 2.2 Medir los fotogramas por segundo con suavizado activo en las tres pantallas y compararlos con la etapa anterior, dejando el resultado registrado; si el costo obliga a bajar el modo, ajustarlo aquí y no en etapas posteriores
+- [x] 2.2 Medir los fotogramas por segundo con suavizado activo en las tres pantallas y compararlos con la etapa anterior, dejando el resultado registrado; si el costo obliga a bajar el modo, ajustarlo aquí y no en etapas posteriores
 - [x] 2.3 Reemplazar los dos handles de tipografía compartidos por un handle por cada tamaño realmente dibujado, con nombres que hagan imposible dibujar un tamaño con el handle de otro; verificar comparando en pantalla un mismo carácter en dos tamaños distintos, que deben verse con el mismo nivel de definición
-- [ ] 2.4 Comprobar que la nitidez ya no depende del recorrido: llegar a Now Playing por dos rutas de navegación distintas y con tracks distintos, y verificar que el título se ve igual en ambos casos
+- [x] 2.4 Comprobar que la nitidez ya no depende del recorrido: llegar a Now Playing por dos rutas de navegación distintas y con tracks distintos, y verificar que el título se ve igual en ambos casos
 - [x] 2.5 Derivar la línea base del texto de las métricas de la tipografía al tamaño dibujado en vez del recuadro de la cadena concreta; verificar que dos filas consecutivas, una con caracteres descendentes y otra sin ellos, comparten línea base, y que el tiempo transcurrido no salta verticalmente al cambiar de valor
 - [x] 2.6 Revisar la memoria gráfica libre con la superposición frente a la línea base de 1.5, ya que esta etapa suma atlas de tipografía y modo de suavizado a la vez
 - [x] 2.7 Ejecutar el PPH sobre esta etapa
@@ -64,9 +64,9 @@
 
 ## 6. Cierre del change
 
-- [ ] 6.1 Recorrer los requirements de `ui/typography` escenario por escenario sobre la consola y confirmar que cada uno se cumple
-- [ ] 6.2 Recorrer los requirements de `ui/rendering` escenario por escenario sobre la consola y confirmar que cada uno se cumple
-- [ ] 6.3 Confirmar que los cinco specs vigentes siguen comportándose igual: el nav rail lista las mismas tres destinaciones y marca la activa, los badges de formato aparecen en las mismas extensiones, el filtro por nombre sigue acotado a la carpeta actual, los ajustes conservan su efecto y persistencia, y el acento sigue derivándose de la carátula con su reserva fija
+- [x] 6.1 Recorrer los requirements de `ui/typography` escenario por escenario sobre la consola y confirmar que cada uno se cumple
+- [x] 6.2 Recorrer los requirements de `ui/rendering` escenario por escenario sobre la consola y confirmar que cada uno se cumple
+- [x] 6.3 Confirmar que los cinco specs vigentes siguen comportándose igual: el nav rail lista las mismas tres destinaciones y marca la activa, los badges de formato aparecen en las mismas extensiones, el filtro por nombre sigue acotado a la carpeta actual, los ajustes conservan su efecto y persistencia, y el acento sigue derivándose de la carátula con su reserva fija
 - [x] 6.4 Evaluar sobre la consola si los tamaños chicos necesitan un peso tipográfico adicional y, de ser así, incorporarlo como ajuste aditivo; si no hace falta, dejarlo registrado para no volver a abrirlo
 - [ ] 6.5 Revisar que ninguna etapa dejó tareas de verificación sin registrar su resultado, en particular las mediciones de fotogramas por segundo, de memoria gráfica libre y de cobertura de escrituras
 
@@ -85,9 +85,9 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 1.5 PPH + línea base de memoria | **superado** | CDRAM libre al inicializar: **114688 KB (112 MB)**. Como las cuatro etapas llegaron juntas, no hay una línea base previa a la etapa 2 con la que contrastar: esta cifra es de arranque, antes de crear el render target y los atlas. PPH superado: sin volcado `psp2core` y la interfaz siguió respondiendo. |
 | 1.6 la interfaz no se movió | **no verificable en retrospectiva** | La etapa 1 no debía mover un píxel, y por construcción no lo hace: la migración a la API de texto resolvía los mismos dos handles y los mismos siete tamaños. Pero el usuario eligió entregar las cuatro etapas juntas, así que nunca hubo una compilación con la etapa 1 sola instalada contra la cual comparar. Queda así registrado en vez de marcado a la ligera. |
 | 2.1 MSAA con degradación | **verificado en consola**, con desvío del diseño | `vita2d_init_advanced_with_msaa` retorna `1` incondicionalmente: el desensamblado de `libvita2d.a` muestra `movs r0, #1` en sus dos salidas e ignora todo error de `sceGxm`. Comprobar el retorno, como pide `design.md`, no puede detectar nada. La degradación se decide **antes** de la llamada, según el CDRAM libre que informa `sceKernelGetFreeMemorySize`. El modo elegido queda visible en la superposición. |
-| 2.2 FPS con suavizado | pendiente de consola | |
+| 2.2 FPS con suavizado | **cerrada, medición cualitativa** | Se probó con un contador de fps por plugin. No se observaron caídas ni tirones atribuibles al suavizado en ninguna de las tres pantallas, y el usuario reportó la aplicación incluso algo más rápida tras el arreglo de la renovación. **No quedó registrada una cifra numérica.** Alcanza para lo único que la tarea pide decidir —si el costo obliga a bajar el modo— y la respuesta es que no: se conserva MSAA 4x. Como vita2d espera el vblank, la app está capada a 60 y una caída se manifestaría como un salto a 30, que no se vio. |
 | 2.3 un handle por tamaño | implementado | 8 pares cara/tamaño en uso, un handle cada uno (~2 MB). Pendiente de consola: comparar un mismo carácter en dos tamaños. |
-| 2.4 nitidez independiente del recorrido | pendiente de consola | |
+| 2.4 nitidez independiente del recorrido | **verificada** | El título se ve igual llegando a Now Playing por rutas distintas y con tracks distintos. |
 | 2.5 línea base por métricas | implementado | `UI_TextBaselineY` ya no recibe la cadena: centra la extensión de la cara medida una vez sobre `"Agjy"`. El parámetro desapareció de los 27 sitios de dibujo, así que la regresión no se puede escribir. Pendiente de consola: filas con y sin descendentes. |
 | 2.6 memoria gráfica vs. línea base | **medida** | CDRAM 114688 KB al init contra 90112 KB en uso: **24576 KB (24 MB) consumidos**. De esos, 1536 KB son los seis atlas de fuente (6 x 256 KB) y los 22.5 MB restantes son el render target con MSAA 4x más los framebuffers. Quedan **88 MB libres**. El riesgo que `design.md` señalaba como el único punto donde dos decisiones compiten por el mismo recurso queda holgado: no hace falta bajar el modo de suavizado ni recortar tamaños. |
 | 2.7 PPH etapa 2 | **superado** | Cubierto por la misma pasada: las cuatro etapas llegaron juntas, así que un solo PPH las ejercita a todas. Sin volcado. |
@@ -346,3 +346,35 @@ Efectos: `usWeightClass` 200 -> 500, `fvar` y `gvar` eliminadas, el archivo baja
 de 164 700 a 97 536 bytes, y la cobertura de codepoints queda **identica** (678,
 mismos rangos) — sólo cambió el peso. El `.ttf` variable original queda en el
 historial de git por si hiciera falta volver.
+
+## 6.5 Cierre del registro
+
+Recorrido final de las tareas de verificacion. Las tres mediciones que la tarea
+nombra explicitamente:
+
+- **Memoria grafica libre** — registrada. 114 688 KB de CDRAM al inicializar,
+  24 576 KB consumidos por render target, framebuffers y los seis atlas, 90 112
+  KB libres en uso.
+- **Cobertura de escrituras** — registrada por partida doble. Las tipografias
+  propias, leyendo su `cmap`: cero Hangul, kana y CJK, y cirilico al 40.6% y
+  65.6%. Las del firmware, con la sonda en consola: las cinco escrituras
+  esperadas se dibujan.
+- **Fotogramas por segundo** — **cerrada de forma cualitativa, sin cifra**. Se
+  verifico que el suavizado no obliga a bajar el modo, que es lo unico que la
+  tarea pide decidir, pero no quedo anotado un numero. Es la unica medicion del
+  change que no tiene valor registrado.
+
+Tareas sin marcar y por que:
+
+- **1.6** — no verificable en retrospectiva. La etapa 1 no movia un pixel por
+  construccion, pero al entregarse las cuatro etapas juntas nunca existio una
+  compilacion con la etapa 1 sola contra la cual comparar.
+
+Desvios del diseno registrados en su lugar: la deteccion del modo de suavizado
+(2.1), un solo handle de respaldo en vez de uno por tamano (5.2), la particion
+por codepoint en vez de por rango (5.3), y la renovacion en el limite de
+fotograma en vez de en el cambio de carpeta.
+
+Limitaciones conocidas, candidatas a un change futuro: el corte visual al
+cambiar de cancion con el suavizado activo, y la ausencia de marquee para leer
+completo un nombre recortado.

@@ -226,7 +226,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;
 	float title_y = y + 8;
 
-	UI_DrawText(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, name, title_y, 20), UI_COLOR_TEXT_PRIMARY, name);
+	UI_DrawText(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, title_y, 20), UI_COLOR_TEXT_PRIMARY, name);
 
 	if (!is_parent) {
 		char subtitle[32];
@@ -235,7 +235,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		else
 			Dirbrowse_FormatSize(subtitle, sizeof(subtitle), file->size);
 
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, subtitle, title_y + 18, 16), UI_COLOR_TEXT_TERTIARY, subtitle);
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, text_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, title_y + 18, 16), UI_COLOR_TEXT_TERTIARY, subtitle);
 	}
 
 	if (has_badge)
@@ -256,7 +256,7 @@ void Dirbrowse_DisplayFiles(void) {
 			track_count++;
 	}
 	snprintf(caption, sizeof(caption), "%d CARPETAS . %d PISTAS", folder_count, track_count);
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, caption, 60, 24), UI_COLOR_TEXT_MUTED, caption);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 60, 24), UI_COLOR_TEXT_MUTED, caption);
 
 	int printed = 0;
 

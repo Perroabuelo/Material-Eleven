@@ -156,7 +156,7 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 	vita2d_draw_rectangle(CAT_COL_X + CAT_COL_W - 1, 0, 1, 544, UI_COLOR_HAIRLINE);
 	vita2d_draw_rectangle(CAT_COL_X, HEADER_H - 1, CAT_COL_W, 1, UI_COLOR_HAIRLINE);
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, CAT_COL_X + 18, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, "Ajustes", 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, "Ajustes");
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, CAT_COL_X + 18, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, "Ajustes");
 
 	float y = HEADER_H + 10;
 
@@ -168,12 +168,12 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 			UI_DrawRoundedRect(row_x, y, row_w, CAT_ROW_H, 12, ui_color_accent_wash);
 
 		unsigned int text_color = is_active ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_SECONDARY;
-		UI_DrawText(UI_FACE_UI, UI_TS_BODY, row_x + 12, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, categories[i].label, y, CAT_ROW_H), text_color, categories[i].label);
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, row_x + 12, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, CAT_ROW_H), text_color, categories[i].label);
 
 		char hint[32];
 		categories[i].get_hint(hint, sizeof(hint));
 		int hint_w = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL_SMALL, hint);
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, row_x + row_w - 12 - hint_w, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, hint, y, CAT_ROW_H), is_active ? ui_color_accent : UI_COLOR_TEXT_MUTED, hint);
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL_SMALL, row_x + row_w - 12 - hint_w, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL_SMALL, y, CAT_ROW_H), is_active ? ui_color_accent : UI_COLOR_TEXT_MUTED, hint);
 
 		y += CAT_ROW_H;
 	}
@@ -183,7 +183,7 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 	const SettingsCategory *cat = &categories[category_index];
 
 	vita2d_draw_rectangle(DETAIL_X, HEADER_H - 1, 960 - DETAIL_X, 1, UI_COLOR_HAIRLINE);
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE_LARGE, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE_LARGE, cat->label, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, cat->label);
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE_LARGE, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE_LARGE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, cat->label);
 
 	float y = HEADER_H + 18;
 
@@ -204,10 +204,10 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 
 		if (kind == SETTINGS_ITEM_RADIO) {
 			SettingsUI_DrawRadio(DETAIL_X + 26 + 9, y + ITEM_ROW_H / 2, active);
-			UI_DrawText(UI_FACE_UI, UI_TS_BODY, DETAIL_X + 26 + 30, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, label, y, ITEM_ROW_H), text_color, label);
+			UI_DrawText(UI_FACE_UI, UI_TS_BODY, DETAIL_X + 26 + 30, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, ITEM_ROW_H), text_color, label);
 		}
 		else {
-			UI_DrawText(UI_FACE_UI, UI_TS_BODY, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, label, y, ITEM_ROW_H), text_color, label);
+			UI_DrawText(UI_FACE_UI, UI_TS_BODY, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, ITEM_ROW_H), text_color, label);
 
 			SettingsUI_DrawToggle(960 - 26 - TOGGLE_W, y + (ITEM_ROW_H - TOGGLE_H) / 2.0f, active);
 		}

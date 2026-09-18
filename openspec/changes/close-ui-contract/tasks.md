@@ -23,11 +23,11 @@
 
 ## 2. Nitidez del dibujo y del texto
 
-- [ ] 2.1 Reemplazar la inicialización de vita2d por la variante que acepta modo de suavizado y tamaño de pool, comprobando el retorno y degradando a inicialización simple si el modo pedido no se puede establecer; verificar que la aplicación arranca en ambos caminos forzando el fallo del modo pedido
+- [x] 2.1 Reemplazar la inicialización de vita2d por la variante que acepta modo de suavizado y tamaño de pool, comprobando el retorno y degradando a inicialización simple si el modo pedido no se puede establecer; verificar que la aplicación arranca en ambos caminos forzando el fallo del modo pedido
 - [ ] 2.2 Medir los fotogramas por segundo con suavizado activo en las tres pantallas y compararlos con la etapa anterior, dejando el resultado registrado; si el costo obliga a bajar el modo, ajustarlo aquí y no en etapas posteriores
-- [ ] 2.3 Reemplazar los dos handles de tipografía compartidos por un handle por cada tamaño realmente dibujado, con nombres que hagan imposible dibujar un tamaño con el handle de otro; verificar comparando en pantalla un mismo carácter en dos tamaños distintos, que deben verse con el mismo nivel de definición
+- [x] 2.3 Reemplazar los dos handles de tipografía compartidos por un handle por cada tamaño realmente dibujado, con nombres que hagan imposible dibujar un tamaño con el handle de otro; verificar comparando en pantalla un mismo carácter en dos tamaños distintos, que deben verse con el mismo nivel de definición
 - [ ] 2.4 Comprobar que la nitidez ya no depende del recorrido: llegar a Now Playing por dos rutas de navegación distintas y con tracks distintos, y verificar que el título se ve igual en ambos casos
-- [ ] 2.5 Derivar la línea base del texto de las métricas de la tipografía al tamaño dibujado en vez del recuadro de la cadena concreta; verificar que dos filas consecutivas, una con caracteres descendentes y otra sin ellos, comparten línea base, y que el tiempo transcurrido no salta verticalmente al cambiar de valor
+- [x] 2.5 Derivar la línea base del texto de las métricas de la tipografía al tamaño dibujado en vez del recuadro de la cadena concreta; verificar que dos filas consecutivas, una con caracteres descendentes y otra sin ellos, comparten línea base, y que el tiempo transcurrido no salta verticalmente al cambiar de valor
 - [ ] 2.6 Revisar la memoria gráfica libre con la superposición frente a la línea base de 1.5, ya que esta etapa suma atlas de tipografía y modo de suavizado a la vez
 - [ ] 2.7 Ejecutar el PPH sobre esta etapa
 
@@ -84,3 +84,10 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 1.4 contador y superposición | implementado | Pendiente de consola: valores plausibles y conmutación en ejecución (L + R + SELECT). |
 | 1.5 PPH etapa 1 + línea base de memoria | pendiente de consola | |
 | 1.6 la interfaz no se movió | pendiente de consola | |
+| 2.1 MSAA con degradación | implementado, **con desvío del diseño** | `vita2d_init_advanced_with_msaa` retorna `1` incondicionalmente: el desensamblado de `libvita2d.a` muestra `movs r0, #1` en sus dos salidas e ignora todo error de `sceGxm`. Comprobar el retorno, como pide `design.md`, no puede detectar nada. La degradación se decide **antes** de la llamada, según el CDRAM libre que informa `sceKernelGetFreeMemorySize`. El modo elegido queda visible en la superposición. |
+| 2.2 FPS con suavizado | pendiente de consola | |
+| 2.3 un handle por tamaño | implementado | 8 pares cara/tamaño en uso, un handle cada uno (~2 MB). Pendiente de consola: comparar un mismo carácter en dos tamaños. |
+| 2.4 nitidez independiente del recorrido | pendiente de consola | |
+| 2.5 línea base por métricas | implementado | `UI_TextBaselineY` ya no recibe la cadena: centra la extensión de la cara medida una vez sobre `"Agjy"`. El parámetro desapareció de los 27 sitios de dibujo, así que la regresión no se puede escribir. Pendiente de consola: filas con y sin descendentes. |
+| 2.6 memoria gráfica vs. línea base | pendiente de consola | |
+| 2.7 PPH etapa 2 | pendiente de consola | |

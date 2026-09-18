@@ -112,7 +112,7 @@ void NavRail_DrawHintBar(float y, const char **segments, int count) {
 	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, 1, UI_COLOR_HAIRLINE);
 
 	float x = UI_RAIL_WIDTH + 22;
-	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, "Ag", y, UI_HINT_BAR_HEIGHT);
+	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, y, UI_HINT_BAR_HEIGHT);
 
 	for (int i = 0; i < count; i++) {
 		if (!segments[i])

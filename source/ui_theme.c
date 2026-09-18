@@ -64,28 +64,69 @@ static const char *const ui_face_file[UI_FACE_COUNT] = {
 	[UI_FACE_MONO] = "app0:IBMPlexMono-Medium.ttf",
 };
 
-// One shared handle per face for now: the per-size handles this table is shaped
-// to hold arrive with the sharpness stage. Resolving through UI_FontFor is what
-// lets that change land here and nowhere else.
-static vita2d_font *ui_font[UI_FACE_COUNT];
+// One handle per face and size actually drawn, because vita2d_font's glyph
+// atlas is keyed by glyph index with no size in the key: on a hit it divides
+// the requested size by the size the glyph was cached at and feeds that to
+// vita2d_draw_texture_tint_part_scale. A glyph shared between two sizes is
+// therefore rasterised once, at whichever size drew it first, and bilinearly
+// rescaled everywhere else - which is why sharpness used to depend on the order
+// the user navigated in. A handle per size gives each one its own atlas.
+//
+// Each handle costs one 512x512 single-channel sheet, 256 KB. Only the pairs
+// marked here are loaded; ADDING A DRAW SITE AT A NEW FACE/SIZE PAIR MEANS
+// ADDING IT TO THIS TABLE, or that text draws nothing at all.
+static const SceBool ui_face_uses[UI_FACE_COUNT][UI_TS_COUNT] = {
+	[UI_FACE_UI] = {
+		[UI_TS_LABEL_SMALL] = SCE_TRUE,
+		[UI_TS_BODY] = SCE_TRUE,
+		[UI_TS_TITLE] = SCE_TRUE,
+		[UI_TS_TITLE_LARGE] = SCE_TRUE,
+		[UI_TS_DISPLAY] = SCE_TRUE,
+	},
+	[UI_FACE_MONO] = {
+		[UI_TS_BADGE] = SCE_TRUE,
+		[UI_TS_LABEL_SMALL] = SCE_TRUE,
+		[UI_TS_HINT] = SCE_TRUE,
+	},
+};
+
+static vita2d_font *ui_font[UI_FACE_COUNT][UI_TS_COUNT];
+
+// Ascender-to-descender extent of the face itself at each size, measured once
+// from a reference string rather than from whatever string a draw site happens
+// to pass. See UI_TextBaselineY.
+static int ui_face_extent[UI_FACE_COUNT][UI_TS_COUNT];
+
+// Carries a cap-height letter, an x-height letter and two descenders, so it
+// spans the full em box of any Latin face at that size.
+#define UI_METRICS_REFERENCE "Agjy"
 
 static vita2d_font *UI_FontFor(UI_Face face, UI_TextSize ts) {
-	(void)ts;
-
-	if (face < 0 || face >= UI_FACE_COUNT)
+	if (face < 0 || face >= UI_FACE_COUNT || ts < 0 || ts >= UI_TS_COUNT)
 		return NULL;
 
-	return ui_font[face];
+	return ui_font[face][ts];
 }
 
 void UI_Theme_Load(void) {
-	for (int f = 0; f < UI_FACE_COUNT; f++)
-		ui_font[f] = vita2d_load_font_file(ui_face_file[f]);
+	for (int f = 0; f < UI_FACE_COUNT; f++) {
+		for (int t = 0; t < UI_TS_COUNT; t++) {
+			if (!ui_face_uses[f][t])
+				continue;
+
+			ui_font[f][t] = vita2d_load_font_file(ui_face_file[f]);
+
+			if (ui_font[f][t])
+				ui_face_extent[f][t] = vita2d_font_text_height(ui_font[f][t], ui_text_px[t], UI_METRICS_REFERENCE);
+		}
+	}
 }
 
 void UI_Theme_Free(void) {
-	for (int f = UI_FACE_COUNT - 1; f >= 0; f--)
-		UI_GpuFreeFont(&ui_font[f]);
+	for (int f = UI_FACE_COUNT - 1; f >= 0; f--) {
+		for (int t = UI_TS_COUNT - 1; t >= 0; t--)
+			UI_GpuFreeFont(&ui_font[f][t]);
+	}
 }
 
 void UI_DrawText(UI_Face face, UI_TextSize ts, float x, float baseline_y, unsigned int color, const char *text) {
@@ -129,10 +170,19 @@ void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_
 	vita2d_font_text_dimensions(f, ui_text_px[ts], text, out_w, out_h);
 }
 
-int UI_TextBaselineY(UI_Face face, UI_TextSize ts, const char *text, float box_top, float box_h) {
-	int height = UI_TextHeight(face, ts, text);
+// Centred on the face's own extent at this size, not on the extent of the
+// string being drawn. Measuring the string moved the baseline with its content:
+// a row whose name had no descender sat lower than the row under it, and the
+// elapsed time hopped vertically as its digits changed.
+int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
+	int extent;
 
-	return (int)(box_top + ((box_h - height) / 2) + height);
+	if (face < 0 || face >= UI_FACE_COUNT || ts < 0 || ts >= UI_TS_COUNT)
+		return (int)box_top;
+
+	extent = ui_face_extent[face][ts];
+
+	return (int)(box_top + ((box_h - extent) / 2) + extent);
 }
 
 static void UI_SetVertex(vita2d_color_vertex *v, float x, float y, unsigned int color) {
@@ -328,7 +378,7 @@ void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned 
 	else
 		UI_DrawPill(x, y, w, h, bg);
 
-	UI_DrawText(UI_FACE_MONO, ts, x + pad_x, UI_TextBaselineY(UI_FACE_MONO, ts, label, y, h), fg, label);
+	UI_DrawText(UI_FACE_MONO, ts, x + pad_x, UI_TextBaselineY(UI_FACE_MONO, ts, y, h), fg, label);
 }
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {

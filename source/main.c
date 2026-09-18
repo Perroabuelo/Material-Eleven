@@ -1,6 +1,7 @@
 #include <psp2/appmgr.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/sysmem.h>
 #include <psp2/shellutil.h>
 #include <psp2/sysmodule.h>
 #include <stdio.h>
@@ -20,8 +21,59 @@
 #include "utils.h"
 #include "vitaaudiolib.h"
 
+// The frame's vertex pool. vita2d_init() defaults to 1 MB; the vector chrome
+// this skin draws - rounded rects as arc fans, rings, strokes - spends far more
+// per frame than the textures it replaced, and the battery and row icons still
+// to come spend more again. Sized explicitly here so the margin is a decision
+// rather than a default, and watched through the exhaustion counter.
+#define UI_VERTEX_POOL_SIZE (2 * 1024 * 1024)
+
+// Multisampling is requested at init and nowhere else: vita2d builds the render
+// target with it and cannot change it afterwards. 4x is the console's top mode,
+// and the tile architecture resolves it in tile memory, so the expected cost is
+// low - but it does enlarge the render target, and that competes with the font
+// atlases for the same CDRAM.
+//
+// The mode cannot be chosen by trying it and checking: disassembling
+// libvita2d.a shows vita2d_init_advanced_with_msaa returning a literal 1 on
+// both of its exit paths, ignoring every sceGxm error along the way, so its
+// return value carries no information about whether the mode was established.
+// Degradation therefore has to be decided BEFORE the call, from the memory
+// actually free, rather than after it from a result that is always success.
+//
+// The thresholds are deliberately generous. Nothing has been allocated at this
+// point in startup, so a healthy console takes the 4x branch every time; the
+// lower branches exist so that a console which cannot afford the mode still
+// boots with aliased edges instead of failing to come up.
+#define UI_MSAA_4X_MIN_CDRAM_KB (32 * 1024)
+#define UI_MSAA_2X_MIN_CDRAM_KB (16 * 1024)
+
+static void UI_InitGraphics(void) {
+	SceKernelFreeMemorySizeInfo mem;
+	int cdram_kb = 0;
+
+	memset(&mem, 0, sizeof(mem));
+	mem.size = sizeof(mem);
+
+	if (sceKernelGetFreeMemorySize(&mem) >= 0)
+		cdram_kb = mem.size_cdram / 1024;
+
+	if (cdram_kb >= UI_MSAA_4X_MIN_CDRAM_KB) {
+		vita2d_init_advanced_with_msaa(UI_VERTEX_POOL_SIZE, SCE_GXM_MULTISAMPLE_4X);
+		UI_Debug_SetGraphicsMode("MSAA 4x", cdram_kb);
+	}
+	else if (cdram_kb >= UI_MSAA_2X_MIN_CDRAM_KB) {
+		vita2d_init_advanced_with_msaa(UI_VERTEX_POOL_SIZE, SCE_GXM_MULTISAMPLE_2X);
+		UI_Debug_SetGraphicsMode("MSAA 2x", cdram_kb);
+	}
+	else {
+		vita2d_init_advanced(UI_VERTEX_POOL_SIZE);
+		UI_Debug_SetGraphicsMode("sin MSAA", cdram_kb);
+	}
+}
+
 int main(int argc, char *argv[]) {
-	vita2d_init();
+	UI_InitGraphics();
 	font = vita2d_load_font_file("app0:Roboto-Regular.ttf");
 	UI_Theme_Load();
 	Textures_Load();

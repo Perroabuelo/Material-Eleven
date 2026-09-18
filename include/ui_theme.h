@@ -125,8 +125,12 @@ void UI_DrawPauseGlyph(float cx, float cy, float size, unsigned int color);
 // Skip to next / previous track: two triangles plus the end bar.
 void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned int color);
 
-// Baseline Y so `text` sits vertically centered within [box_top, box_top+box_h).
-int UI_TextBaselineY(UI_Face face, UI_TextSize ts, const char *text, float box_top, float box_h);
+// Baseline Y that centers the face's own ascender-to-descender extent within
+// [box_top, box_top+box_h). It takes no string on purpose: a baseline derived
+// from the string being drawn shifts with its content, so a row without
+// descenders sat lower than its neighbour and the elapsed time hopped as its
+// digits changed.
+int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h);
 
 // ---- Dynamic accent derived from cover art ----
 

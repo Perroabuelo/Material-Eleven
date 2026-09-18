@@ -248,13 +248,13 @@ static void Menu_DrawRepeatGlyph(float cx, float cy, float size, unsigned int co
 static void Menu_DrawUpNext(void) {
 	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 18 - (2 * UPNEXT_ROW_H) - 22;
 
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, "A CONTINUACION", y, 20), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 20), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
 	y += 26;
 
 	int upcoming = count - selection - 1;
 
 	if (upcoming <= 0) {
-		UI_DrawText(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, "No hay mas pistas en esta carpeta", y, UPNEXT_ROW_H), UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UPNEXT_ROW_H), UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
 		return;
 	}
 
@@ -263,7 +263,7 @@ static void Menu_DrawUpNext(void) {
 		char *name = Utils_Basename(path);
 
 		UI_DrawRoundedRect(x, y + 5, 30, 30, 8, UI_COLOR_SURFACE_2);
-		UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, x + 42, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, name, y, UPNEXT_ROW_H), UI_COLOR_TEXT_PRIMARY, name);
+		UI_DrawText(UI_FACE_UI, UI_TS_LABEL_SMALL, x + 42, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL_SMALL, y, UPNEXT_ROW_H), UI_COLOR_TEXT_PRIMARY, name);
 
 		y += UPNEXT_ROW_H;
 	}
@@ -357,11 +357,11 @@ static void Menu_RunNowPlayingLoop(void) {
 		const char *artist = Music_GetDisplayArtist();
 		float info_y = cover_y + COVER_SIZE + 20;
 
-		UI_DrawText(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, title, info_y, 26), UI_COLOR_TEXT_PRIMARY, title);
+		UI_DrawText(UI_FACE_UI, UI_TS_DISPLAY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_DISPLAY, info_y, 26), UI_COLOR_TEXT_PRIMARY, title);
 		info_y += 26;
 
 		if (artist[0] != '\0') {
-			UI_DrawText(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, artist, info_y, 20), UI_COLOR_TEXT_SECONDARY, artist);
+			UI_DrawText(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 20), UI_COLOR_TEXT_SECONDARY, artist);
 			info_y += 20;
 		}
 
@@ -377,8 +377,8 @@ static void Menu_RunNowPlayingLoop(void) {
 		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
 
 		Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
-		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, position_time, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, position_time);
-		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, length_time, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, length_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, position_time);
+		UI_DrawText(UI_FACE_MONO, UI_TS_HINT, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_HINT, SEEK_Y + 10, 20), UI_COLOR_TEXT_TERTIARY, length_time);
 
 		Menu_DrawTransportControls();
 		Menu_DrawUpNext();

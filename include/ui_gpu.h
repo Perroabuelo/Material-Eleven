@@ -46,6 +46,12 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 // nothing in normal use.
 #define UI_DEBUG_TOGGLE_COMBO (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_SELECT)
 
+// Records which multisampling mode startup settled on and the free CDRAM it
+// was chosen from, so the overlay can show what the app is actually running
+// with. The degradation is decided before vita2d_init_advanced_with_msaa
+// because that call always reports success - see UI_InitGraphics in main.c.
+void UI_Debug_SetGraphicsMode(const char *mode, int cdram_kb_at_init);
+
 // Once per frame, before drawing: samples the pad and flips the overlay.
 void UI_Debug_Update(void);
 // Once per frame, last of all, so the panel sits on top of the screen below it.

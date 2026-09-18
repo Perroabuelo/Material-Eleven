@@ -108,6 +108,40 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 4.7 PPH etapa 4 | pendiente de consola | |
 | 5.x cobertura no latina | **bloqueado** | Dos bloqueos, uno de proceso y uno verificado contra la biblioteca. Ver "Bloqueo de la etapa 5" abajo. |
 
+## Cobertura real de las tipografías propias
+
+Leyendo el `cmap` de los dos archivos de `res/` directamente. Esto responde, sin
+consola, la mitad de la tarea 5.1 que se refiere a la tipografía propia; lo que
+sigue faltando es qué cubren las tipografías del firmware.
+
+| Rango | Manrope | IBM Plex Mono |
+|---|---|---|
+| Latín básico y acentos | 100% | 100% |
+| Latín extendido A | 89.8% | 100% |
+| Griego | 52.1% | 0.7% |
+| Cirílico | **40.6%** | **65.6%** |
+| Hangul (jamo y sílabas) | **0%** | **0%** |
+| Hiragana / Katakana | **0%** | **0%** |
+| CJK unificado | **0%** | **0%** |
+
+Dos consecuencias que el `proposal.md` no anticipaba:
+
+- **El coreano no aparece "en blanco", aparece repetido.** Ningún codepoint
+  Hangul está en el `cmap`, así que `FTC_CMapCache_Lookup` devuelve índice de
+  glifo 0 para todos. Como el atlas se indexa por índice de glifo, **todos los
+  caracteres no cubiertos comparten la misma entrada**: se dibujan todos con el
+  mismo `.notdef` de Manrope. De ahí que se vea "incorrecto" y no vacío.
+  Confirmado en hardware por el usuario con Melomance y Jokers.
+- **El cirílico está cubierto a medias**, no ausente. Una cadena en ruso se
+  dibujará parte bien y parte como `.notdef`, que es un modo de fallo peor de
+  leer que la ausencia total, y el respaldo tendrá que decidir por codepoint y
+  no por rango completo.
+
+Defecto secundario, del mismo síntoma: `metadata.title` y `metadata.artist` son
+`char[64]`. En UTF-8 el Hangul ocupa 3 bytes, así que un título se corta a unos
+21 caracteres, y el corte puede caer en mitad de una secuencia y dejar un byte
+inválido que `utf8_to_ucs2` decodifica mal.
+
 ## Bloqueo de la etapa 5
 
 La etapa 5 no se inició. Hay dos bloqueos y el segundo invalida el mecanismo que

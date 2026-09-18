@@ -107,14 +107,17 @@ static void UI_Debug_SampleMemory(void) {
 // at neutral scale for exactly one token, and every other token is a rescale -
 // which is the thing this whole change exists to stop doing. The probe shows
 // both so the trade can be judged by looking at it.
-#define UI_PROBE_NEUTRAL_SCALE 1.0f
-// 30 px display token over the ~18 px the system font rasterises at.
-#define UI_PROBE_DISPLAY_SCALE 1.67f
+// The system PVF rasterises at one size and only one: vita2d_load_system_pvf
+// takes no size argument and calls scePvfSetCharSize with a constant, which at
+// the resolution vita2d sets works out near this. Confirmed on hardware - a
+// sample drawn at scale 1.0 is crisp and the same sample at 1.67 is visibly
+// soft - so every token's usable scale is its pixel size over this number.
+#define UI_PVF_NATIVE_PX 18.0f
 
 #define UI_PROBE_PANEL_X (UI_RAIL_WIDTH + 10)
-#define UI_PROBE_PANEL_Y 10
-#define UI_PROBE_PANEL_W 780
-#define UI_PROBE_PANEL_H 232
+#define UI_PROBE_PANEL_Y 8
+#define UI_PROBE_PANEL_W 800
+#define UI_PROBE_PANEL_H 400
 #define UI_PROBE_ROW_H   30
 
 static vita2d_pvf *probe_pvf = NULL;
@@ -130,7 +133,7 @@ static int UI_ProbeIsHan(unsigned int c) {
 }
 
 // The same multi-font group a real fallback would ask for, so the probe tests
-// the dispatch too and not just whether some font exists.
+// the per-codepoint dispatch too and not just whether some font exists.
 static const vita2d_system_pvf_config probe_configs[] = {
 	{ SCE_PVF_LANGUAGE_LATIN, UI_ProbeIsLatin },
 	{ SCE_PVF_LANGUAGE_K,     UI_ProbeIsHangul },
@@ -151,6 +154,20 @@ static const struct {
 };
 #define UI_PROBE_SAMPLE_COUNT ((int)(sizeof(probe_samples) / sizeof(probe_samples[0])))
 
+// Where user content is actually drawn, which is the only place a fallback
+// would ever be needed. Chrome is the application's own text and always Latin.
+static const struct {
+	UI_TextSize ts;
+	const char *where;
+} probe_tokens[] = {
+	{ UI_TS_BADGE,   "artista (mini)" },
+	{ UI_TS_LABEL,   "subtitulo, siguientes" },
+	{ UI_TS_BODY,    "nombre de archivo, artista" },
+	{ UI_TS_TITLE,   "-" },
+	{ UI_TS_DISPLAY, "titulo en Now Playing" },
+};
+#define UI_PROBE_TOKEN_COUNT ((int)(sizeof(probe_tokens) / sizeof(probe_tokens[0])))
+
 // Called from UI_Debug_Update, never from inside a frame.
 static void UI_Debug_LoadProbeFont(void) {
 	if (probe_attempted)
@@ -161,22 +178,26 @@ static void UI_Debug_LoadProbeFont(void) {
 }
 
 static void UI_Debug_DrawGlyphProbe(void) {
+	char line[80];
 	float x = UI_PROBE_PANEL_X + 12;
-	float y = UI_PROBE_PANEL_Y + 8;
-	float col_own = x + 90, col_neutral = x + 300, col_scaled = x + 520;
+	float y = UI_PROBE_PANEL_Y + 6;
+	float col_own = x + 96, col_sys = x + 300;
 
 	UI_DrawRoundedRect(UI_PROBE_PANEL_X, UI_PROBE_PANEL_Y, UI_PROBE_PANEL_W, UI_PROBE_PANEL_H,
 		UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
 
+	// ---- What the firmware covers (task 5.1) ----
+	snprintf(line, sizeof(line), "COBERTURA  -  sistema %s, escala neutra",
+		probe_pvf ? "cargado" : "NO DISPONIBLE");
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
-		UI_COLOR_TEXT_MUTED, "escritura");
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_own, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
-		UI_COLOR_TEXT_MUTED, "propia");
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_neutral, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
-		UI_COLOR_TEXT_MUTED, probe_pvf ? "sistema x1.0" : "sistema NO DISPONIBLE");
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_scaled, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
-		UI_COLOR_TEXT_MUTED, "sistema x1.67");
+		UI_COLOR_TEXT_MUTED, line);
 	y += UI_PROBE_ROW_H;
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_own, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 20),
+		UI_COLOR_TEXT_MUTED, "propia");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_sys, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 20),
+		UI_COLOR_TEXT_MUTED, "sistema");
+	y += 22;
 
 	for (int i = 0; i < UI_PROBE_SAMPLE_COUNT; i++) {
 		int baseline = UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UI_PROBE_ROW_H);
@@ -184,13 +205,32 @@ static void UI_Debug_DrawGlyphProbe(void) {
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, baseline, UI_COLOR_TEXT_TERTIARY, probe_samples[i].label);
 		UI_DrawText(UI_FACE_UI, UI_TS_BODY, col_own, baseline, UI_COLOR_TEXT_PRIMARY, probe_samples[i].sample);
 
-		if (probe_pvf) {
-			vita2d_pvf_draw_text(probe_pvf, (int)col_neutral, baseline, UI_COLOR_TEXT_PRIMARY,
-				UI_PROBE_NEUTRAL_SCALE, probe_samples[i].sample);
-			vita2d_pvf_draw_text(probe_pvf, (int)col_scaled, baseline, UI_COLOR_TEXT_PRIMARY,
-				UI_PROBE_DISPLAY_SCALE, probe_samples[i].sample);
-		}
+		if (probe_pvf)
+			vita2d_pvf_draw_text(probe_pvf, (int)col_sys, baseline, UI_COLOR_TEXT_PRIMARY,
+				1.0f, probe_samples[i].sample);
 
+		y += UI_PROBE_ROW_H;
+	}
+
+	// ---- The same sample at every token's required scale ----
+	y += 8;
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_PROBE_ROW_H),
+		UI_COLOR_TEXT_MUTED, "ESCALA POR TOKEN  -  donde aparece contenido del usuario");
+	y += UI_PROBE_ROW_H;
+
+	for (int i = 0; i < UI_PROBE_TOKEN_COUNT; i++) {
+		UI_TextSize ts = probe_tokens[i].ts;
+		float scale = (float)ui_text_px[ts] / UI_PVF_NATIVE_PX;
+		int baseline = UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UI_PROBE_ROW_H);
+
+		snprintf(line, sizeof(line), "%2u px  x%.2f", ui_text_px[ts], (double)scale);
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, baseline, UI_COLOR_TEXT_TERTIARY, line);
+
+		if (probe_pvf)
+			vita2d_pvf_draw_text(probe_pvf, (int)col_own, baseline, UI_COLOR_TEXT_PRIMARY,
+				scale, probe_samples[2].sample); // the Korean sample
+
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, col_sys + 60, baseline, UI_COLOR_TEXT_MUTED, probe_tokens[i].where);
 		y += UI_PROBE_ROW_H;
 	}
 

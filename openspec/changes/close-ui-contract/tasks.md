@@ -116,7 +116,34 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `f3d908e`. |
 | tirón al repoblar el atlas | **resuelto por el arreglo de agenda** | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Quedó resuelto al mover la renovación al límite de fotograma: como el atlas nunca se acerca a llenarse, los inserts no se degradan y no quedan glifos reintentándose. Confirmado en consola: el glitch ya no ocurre. |
 | 5.7 PPH etapa 5 | **superado** | Protocolo completo con contenido coreano en el medio. Sin volcado, la interfaz siguió respondiendo. |
-| glitch al cambiar de canción | **en atribución** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Pendiente de confirmar compilando `341709b` (el commit previo a la etapa 1) y comparando. |
+| glitch al cambiar de canción | **atribuido al MSAA** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Bisecado en consola con una compilación por etapa: **ausente en `341709b` y en la etapa 1, presente desde la etapa 2**. Dentro de la etapa 2 se hizo un A/B sobre el árbol actual variando sólo el modo de suavizado, con el mismo pool de 2 MB y los mismos atlas: **sin MSAA no aparece, con MSAA 2x aparece, con MSAA 4x aparece**. La causa es el suavizado, y bajar el modo no lo evita. El pool queda descartado. |
+
+## El suavizado y el corte al cambiar de track: un conflicto real
+
+Bisección en hardware, una compilación por etapa:
+
+| Build | Glitch |
+|---|---|
+| `341709b` (previo al change) | no (pero crashea antes de poder observar mucho) |
+| etapa 1 `0cbc7a5` | no |
+| etapa 2 `0409e82` | **sí** |
+
+Dentro de la etapa 2, A/B sobre el árbol actual variando **sólo** el modo de
+suavizado —mismo pool de 2 MB, mismos atlas por tamaño, mismo todo lo demás:
+
+| Modo | Glitch |
+|---|---|
+| sin MSAA | no |
+| MSAA 2x | **sí** |
+| MSAA 4x | **sí** |
+
+El pool de vértices queda descartado: viajaba en la misma llamada pero no es la
+causa. El suavizado lo es, y **el modo intermedio no sirve de escape**.
+
+Esto pone en conflicto dos cosas que el change quiere a la vez. El requirement
+"Bordes suavizados en las formas vectoriales" de `ui/rendering` exige el
+suavizado; el suavizado produce un corte visual breve y ocasional al cambiar de
+canción. No hay configuración que cumpla ambas.
 
 ## El crasheo que motivo el change: confirmado por comparacion directa
 

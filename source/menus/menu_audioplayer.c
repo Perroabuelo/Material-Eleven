@@ -89,8 +89,11 @@ static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 
 static void Menu_InitMusic(char *path) {
 	Audio_Init(path);
-	if (sceAudioOutSetAlcMode(config.alc_mode) < 0)
-		return;
+
+	// A failing ALC mode is no reason to leave the screen without its strings.
+	// This used to return here, and since the teardown frees them and nulls
+	// them, the next frame would have drawn from null pointers.
+	sceAudioOutSetAlcMode(config.alc_mode);
 
 	filename = malloc(128);
 	snprintf(filename, 128, Utils_Basename(path));

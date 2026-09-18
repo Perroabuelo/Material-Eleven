@@ -145,6 +145,21 @@ Esto pone en conflicto dos cosas que el change quiere a la vez. El requirement
 suavizado; el suavizado produce un corte visual breve y ocasional al cambiar de
 canción. No hay configuración que cumpla ambas.
 
+**Decisión del usuario: se conserva MSAA 4x y se acepta el corte.** El artefacto
+es un transitorio, breve y sólo al cambiar de canción; el escalonado en
+diagonales y curvas estaría en cada fotograma de cada pantalla, y los controles
+de transporte son casi todos triángulos y anillos. El requirement se cumple tal
+como está escrito y no hace falta enmendarlo: ningún requirement de
+`ui/rendering` prohíbe un transitorio visual, y el escenario de cambio repetido
+de track pide que la aplicación siga reproduciendo y dibujando sin caerse, lo
+que hace.
+
+Queda anotado como **limitación conocida** y como candidato a un change futuro.
+La sospecha, no verificada, es que el bucle deja de dibujar unos seis fotogramas
+mientras `Audio_Term` duerme 100 ms y se decodifica la carátula siguiente, y que
+reanudar el dibujo con MSAA después de ese hueco es donde aparece; atacarlo
+significaría volver asincrónico el desmontaje de audio, que excede este change.
+
 ## El crasheo que motivo el change: confirmado por comparacion directa
 
 Se compilo `341709b` —el commit inmediatamente anterior a la etapa 1— y se probo

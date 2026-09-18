@@ -185,11 +185,14 @@ redujo mucho al medir la escala en hardware:
 El PVF rasteriza cerca de 18 px, así que los tokens donde aparece contenido de
 usuario quedan a x0.83 (badge), x0.94 (label) y x1.06 (body) — dentro del 6% del
 tamaño nativo. **El único tamaño lejano es el título de Now Playing, a x1.67.**
-Falta confirmar la escalera completa con la sonda v2, pero si se confirma, la
-decisión ya no es entre las cuatro opciones de abajo: el respaldo sirve en todos
-los sitios de contenido de usuario salvo una línea, y lo único a decidir es qué
-hacer con esa línea (bajarla a 19 px cuando el título trae caracteres no
-latinos, o aceptarla borrosa).
+**Confirmado en consola con la sonda v2:** x0.83, x0.94 y x1.06 se ven bien;
+**a partir de x1.22 ya se ve borroso**. Es decir, el respaldo del sistema sirve
+para `UI_TS_BADGE` (15), `UI_TS_LABEL` (17) y `UI_TS_BODY` (19), y no sirve para
+`UI_TS_TITLE` (22) ni `UI_TS_DISPLAY` (30).
+
+Eso alcanza para todo el contenido de usuario menos un sitio. `UI_TS_TITLE` no
+dibuja contenido de usuario en ninguna pantalla, así que su borrosidad es
+irrelevante. **El único conflicto real es el título de Now Playing, a 30 px.**
 
 **Dos correcciones al diseño que la medición obliga:**
 

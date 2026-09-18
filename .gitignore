@@ -60,3 +60,4 @@ build/
 .repowise/
 .vscode/
 templates/
+scripts/

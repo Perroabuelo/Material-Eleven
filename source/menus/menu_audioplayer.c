@@ -271,7 +271,11 @@ static void Menu_DrawUpNext(void) {
 		if (path == NULL)
 			break;
 
-		char *name = Utils_Basename(path);
+		// El nombre que trajo el productor, para que esta lista y la vista de la
+		// que salio digan lo mismo. Una cola de carpeta no trae ninguno, y ahi el
+		// respaldo sigue siendo el nombre de archivo, como siempre.
+		const char *queued = Queue_GetTitle(selection + 1 + i);
+		const char *name = (queued != NULL) ? queued : Utils_Basename(path);
 
 		UI_DrawRoundedRect(x, y + 7, 34, 34, 9, UI_COLOR_SURFACE_2);
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, x + 48, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, UPNEXT_ROW_H), RIGHT_PANEL_R - (x + 48), UI_COLOR_TEXT_PRIMARY, name);

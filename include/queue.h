@@ -14,13 +14,19 @@
 // Vacia la cola y devuelve la posicion al principio.
 void Queue_Clear(void);
 
-// Anade una ruta al final. SCE_FALSE si ya no cabe.
-SceBool Queue_Add(const char *path);
+// Anade una ruta al final, con el nombre por el que la vista de origen la
+// conoce. `title` puede ser NULL - el navegador de carpetas no sabe mas que
+// la ruta -, y entonces quien la muestre se queda con el nombre de archivo.
+// SCE_FALSE si ya no cabe.
+SceBool Queue_Add(const char *path, const char *title);
 
 int Queue_Count(void);
 
 // NULL si el indice cae fuera de la cola.
 const char *Queue_GetPath(int index);
+
+// El nombre con el que se metio, o NULL si quien la lleno no traia ninguno.
+const char *Queue_GetTitle(int index);
 
 int Queue_GetPosition(void);
 

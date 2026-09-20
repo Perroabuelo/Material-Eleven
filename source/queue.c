@@ -24,6 +24,8 @@
 #define QUEUE_PATH_MAX 512
 
 static char **queue_paths = NULL;
+// En paralelo a las rutas, y con NULL donde el productor no trajo nombre.
+static char **queue_titles = NULL;
 static int queue_count = 0;
 static int queue_capacity = 0;
 static int queue_position = 0;
@@ -58,22 +60,46 @@ static SceBool Queue_Grow(void) {
 		return SCE_FALSE;
 
 	queue_paths = grown;
+
+	char **grown_titles = (char **)realloc(queue_titles, (size_t)next * sizeof(char *));
+
+	if (grown_titles == NULL)
+		return SCE_FALSE;
+
+	queue_titles = grown_titles;
 	queue_capacity = next;
 	return SCE_TRUE;
 }
 
 void Queue_Clear(void) {
-	for (int i = 0; i < queue_count; i++)
+	for (int i = 0; i < queue_count; i++) {
 		free(queue_paths[i]);
+		free(queue_titles[i]);
+	}
 
 	free(queue_paths);
+	free(queue_titles);
 	queue_paths = NULL;
+	queue_titles = NULL;
 	queue_count = 0;
 	queue_capacity = 0;
 	queue_position = 0;
 }
 
-SceBool Queue_Add(const char *path) {
+static char *Queue_Dup(const char *s) {
+	if (s == NULL || s[0] == '\0')
+		return NULL;
+
+	size_t len = strlen(s) + 1;
+	char *copy = (char *)malloc(len);
+
+	if (copy != NULL)
+		memcpy(copy, s, len);
+
+	return copy;
+}
+
+SceBool Queue_Add(const char *path, const char *title) {
 	if (path == NULL || queue_count >= QUEUE_MAX_TRACKS)
 		return SCE_FALSE;
 
@@ -84,14 +110,13 @@ SceBool Queue_Add(const char *path) {
 	// estatico gastaba 512 bytes por pista tuviera la ruta el largo que tuviera,
 	// aqui una ruta de 78 bytes - que es la media medida en una coleccion real -
 	// cuesta 79.
-	size_t len = strlen(path) + 1;
-	char *copy = (char *)malloc(len);
+	char *copy = Queue_Dup(path);
 
 	if (copy == NULL)
 		return SCE_FALSE;
 
-	memcpy(copy, path, len);
 	queue_paths[queue_count] = copy;
+	queue_titles[queue_count] = Queue_Dup(title);
 	queue_count++;
 	return SCE_TRUE;
 }
@@ -105,6 +130,13 @@ const char *Queue_GetPath(int index) {
 		return NULL;
 
 	return queue_paths[index];
+}
+
+const char *Queue_GetTitle(int index) {
+	if (index < 0 || index >= queue_count)
+		return NULL;
+
+	return queue_titles[index];
 }
 
 int Queue_GetPosition(void) {
@@ -152,7 +184,8 @@ int Queue_FillFromFolder(const char *dir) {
 				(!strncasecmp(FS_GetFileExt(entries[i].d_name), "xm", 4))) {
 				char path[QUEUE_PATH_MAX];
 				Queue_JoinPath(path, sizeof(path), dir, entries[i].d_name);
-				Queue_Add(path);
+				// Sin nombre: una carpeta no sabe mas que sus rutas.
+				Queue_Add(path, NULL);
 			}
 		}
 

@@ -38,6 +38,13 @@ static int root_check_frames = 0;
 static char notice[160] = "";
 static int notice_frames = 0;
 
+// Como se llama una pista en la vista: su titulo si lo trae, y el nombre del
+// archivo si no. El respaldo lo pone la vista y no el indice, para no guardar
+// como dato algo que no se leyo de ningun tag.
+static const char *Menu_LibraryTrackTitle(const Library_Track *track) {
+	return (track->title[0] != '\0') ? track->title : Utils_Basename(track->path);
+}
+
 static void Menu_LibraryNotice(const char *text) {
 	snprintf(notice, sizeof(notice), "%s", text);
 	notice_frames = NOTICE_FRAMES;
@@ -115,10 +122,7 @@ static void Menu_DrawLibraryList(void) {
 
 		float x = CONTENT_X + 22;
 
-		// Sin tags todavia - eso es la fase 2 -, asi que el titulo que se ve es
-		// el respaldo por nombre de archivo, que es lo que el spec pide cuando
-		// no hay metadatos.
-		const char *title = (track->title[0] != '\0') ? track->title : Utils_Basename(track->path);
+		const char *title = Menu_LibraryTrackTitle(track);
 
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
 			960 - x - 100, UI_COLOR_TEXT_PRIMARY, title);
@@ -232,7 +236,10 @@ static void Menu_LibraryPlaySelected(void) {
 	for (int i = 0; i < Library_Count(); i++) {
 		const Library_Track *t = Library_GetTrack(i);
 
-		if (t == NULL || !Queue_Add(t->path))
+		if (t == NULL)
+			break;
+
+		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t)))
 			break;
 	}
 

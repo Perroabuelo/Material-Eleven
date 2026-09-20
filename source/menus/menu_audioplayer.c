@@ -106,6 +106,21 @@ static void Music_FreeCurrentTrack(void) {
 // de Now Playing para salir, en vez de quedarse dibujando sin track.
 static SceBool track_failed = SCE_FALSE;
 
+// El generador se siembra una vez y despues se le deja avanzar. Sembrarlo antes
+// de cada tirada, como se hacia, lo ata al reloj: time() tiene resolucion de un
+// segundo, asi que dos sorteos dentro del mismo segundo daban el mismo numero, y
+// sorteos en segundos seguidos daban la primera salida de semillas consecutivas.
+static void Music_SeedOnce(void) {
+	static SceBool seeded = SCE_FALSE;
+
+	if (seeded)
+		return;
+
+	time_t t;
+	srand((unsigned)time(&t));
+	seeded = SCE_TRUE;
+}
+
 static void Music_HandleNext(SceBool forward, int next_state) {
 	int count = Queue_Count();
 	int selection = Queue_GetPosition();
@@ -116,14 +131,19 @@ static void Music_HandleNext(SceBool forward, int next_state) {
 		else
 			selection--;
 	}
-	else if (next_state == MUSIC_STATE_SHUFFLE) {
-		int old_selection = selection;
-		time_t t;
-		srand((unsigned) time(&t));
-		selection = rand() % (count - 1);
+	else if (next_state == MUSIC_STATE_SHUFFLE && count > 1) {
+		Music_SeedOnce();
 
-		if (selection == old_selection)
-			selection--;
+		// Se sortea entre las OTRAS, y el hueco de la actual se salta corriendo el
+		// resultado un puesto. Asi todas las demas salen con la misma probabilidad,
+		// la actual no se repite, y la ultima de la cola es alcanzable.
+		//
+		// Antes era "rand() % (count - 1)" y, si coincidia con la actual,
+		// "selection--": el modulo dejaba la ultima pista fuera del sorteo para
+		// siempre, y el decremento convertia la coincidencia en la pista anterior
+		// en vez de en otra cualquiera.
+		int pick = rand() % (count - 1);
+		selection = (pick >= selection) ? pick + 1 : pick;
 	}
 
 	Audio_Stop();

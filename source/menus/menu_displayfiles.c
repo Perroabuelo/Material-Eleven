@@ -53,12 +53,27 @@ static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
 // RUNNING antes de terminarlo, y esa espera también va acotada.
 #define FILTER_DRAIN_FRAMES 60
 
-// La leyenda va donde la pantalla de carpetas pone la suya. Cuando el diálogo
+// El cuerpo de la pantalla de carpetas, sin barra de botones ni riel: lo
+// comparten el lazo normal y el fondo del diálogo, que deben mostrar lo mismo.
+static void Menu_DrawFoldersContent(void);
+
+// El fotograma que se dibuja mientras el teclado está delante. Es la misma
+// pantalla que el usuario tenía, no un color plano, porque abrir el buscador
+// no debería hacer desaparecer la carpeta que se estaba mirando.
+//
+// La leyenda de botones se sustituye por la del abandono. Cuando el diálogo
 // compone, el teclado la tapa; cuando no compone, es lo único en pantalla, y
 // es justo entonces cuando el usuario necesita saber por dónde salir.
 static void Menu_DrawFilterFrame(void) {
+	vita2d_clear_screen();
+	Menu_DrawFoldersContent();
+
 	const char *hints[] = { "L + R + START - Cancelar la búsqueda", NULL };
 	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 2);
+
+	// El riel se dibuja para que la pantalla siga completa, y su resultado se
+	// descarta: detrás del teclado no se acciona nada.
+	NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
 }
 
 // Cierre ordenado: se pide el aborto y se espera de forma acotada a que el
@@ -68,7 +83,6 @@ static void Menu_AbandonFilterDialog(void) {
 
 	for (int i = 0; i < FILTER_DRAIN_FRAMES && sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING; i++) {
 		vita2d_start_drawing();
-		vita2d_clear_screen();
 		Menu_DrawFilterFrame();
 		vita2d_end_drawing();
 		vita2d_common_dialog_update();
@@ -105,7 +119,6 @@ static void Menu_PromptFilter(void) {
 
 	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
 		vita2d_start_drawing();
-		vita2d_clear_screen();
 		Menu_DrawFilterFrame();
 		vita2d_end_drawing();
 		// Detrás del cierre de la escena y delante de la presentación: la
@@ -243,6 +256,13 @@ static void Menu_DrawMiniPlayer(void) {
 	UI_DrawSkipGlyph(t.next_cx, t.cy, MINI_GLYPH_SIZE, SCE_TRUE, UI_COLOR_TEXT_SECONDARY);
 }
 
+static void Menu_DrawFoldersContent(void) {
+	StatusBar_Display();
+	Menu_DrawTopBar();
+	Dirbrowse_DisplayFiles();
+	Menu_DrawMiniPlayer();
+}
+
 static SceBool Menu_HandleMiniPlayerTouch(void) {
 	if (!Audio_HasTrack())
 		return SCE_FALSE;
@@ -302,10 +322,7 @@ void Menu_DisplayFiles(void) {
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 
-		StatusBar_Display();
-		Menu_DrawTopBar();
-		Dirbrowse_DisplayFiles();
-		Menu_DrawMiniPlayer();
+		Menu_DrawFoldersContent();
 
 		const char *hints[] = { "Abrir / Reproducir", "Carpeta superior", NULL, NULL, "SELECT - Ajustes", "START - Salir" };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);

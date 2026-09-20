@@ -53,7 +53,7 @@
 ## 5. Cierre del change
 
 - [x] 5.1 Ejecutar el PPB completo sobre el árbol final, en frío y con la consola recién arrancada
-- [ ] 5.2 Recorrer uno por uno los escenarios de los dos deltas de spec (`ui/folder-browser` y `ui/rendering`) sobre la consola y confirmar que cada uno se cumple, dejando constancia de cuál se verificó con qué maniobra
+- [x] 5.2 Recorrer uno por uno los escenarios de los dos deltas de spec (`ui/folder-browser` y `ui/rendering`) sobre la consola y confirmar que cada uno se cumple, dejando constancia de cuál se verificó con qué maniobra
 
   | Delta y escenario | Verificado en |
   |---|---|
@@ -62,12 +62,12 @@
   | `folder-browser` · Activar el filtro presenta la entrada de texto | 2.1 |
   | `folder-browser` · El botón de aceptar es el mismo que en el resto de la aplicación | 2.4, con las dos asignaciones de la consola |
   | `folder-browser` · Descartar la entrada de texto devuelve el control | 2.3 |
-  | `folder-browser` · **La entrada de texto no llega a mostrarse** | **sin verificar — depende de 1.1** |
+  | `folder-browser` · La entrada de texto no llega a mostrarse | 1.1, sobre el build `777d963` con el defecto presente |
   | `folder-browser` · Un filtro sin coincidencias en la raíz del dispositivo | 4.1 |
   | `folder-browser` · Quitar el filtro por botón por debajo de la raíz | 4.2 |
   | `rendering` · Un diálogo del sistema se presenta al pedirlo | 2.1 |
   | `rendering` · Un diálogo del sistema responde y termina | 2.2 y 2.3 |
-  | `rendering` · La condición esperada no llega a cumplirse | 1.2 por la vía del usuario; la vía automática depende de 1.1 |
+  | `rendering` · La condición esperada no llega a cumplirse | 1.2 por la vía del usuario; 1.1 por la automática |
   | `rendering` · La aplicación sigue dibujando mientras espera | 3.2 y el PPB de 5.1 |
 - [x] 5.3 Confirmar por inspección que la lógica de filtrado en `source/dirbrowse.c` no fue modificada, que es lo que `design.md` declara fuera de alcance
 - [x] 5.4 Confirmar que el historial del change son commits por etapas y no un commit único, de modo que cada etapa siga siendo bisectable

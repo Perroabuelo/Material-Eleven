@@ -1,0 +1,145 @@
+# Library Index Specification
+
+## Purpose
+
+Define de dónde sale la biblioteca de música y qué garantiza: qué carpeta se escanea, qué se indexa de cada pista, cómo se resuelve la ausencia de tags, cuándo se rehace el índice y cómo se comporta el escaneo frente a colecciones grandes, archivos ilegibles y música que el usuario añadió o borró desde la consola o el PC.
+
+## Requirements
+
+### Requirement: Carpeta de escaneo elegida por el usuario y recordada
+El sistema SHALL permitir al usuario elegir una carpeta de escaneo, SHALL recordarla entre sesiones, y SHALL admitir exactamente una carpeta a la vez. Cuando la carpeta recordada ya no existe, el sistema SHALL informarlo y ofrecer elegir otra, en vez de fallar o escanear una ruta distinta por su cuenta.
+
+#### Scenario: Primera vez, sin carpeta elegida
+- **WHEN** el usuario abre la biblioteca sin haber elegido nunca una carpeta
+- **THEN** la pantalla le ofrece elegir una carpeta, y no escanea nada por su cuenta
+
+#### Scenario: La carpeta elegida sobrevive al reinicio
+- **WHEN** el usuario elige una carpeta, cierra la aplicación y vuelve a abrirla
+- **THEN** la biblioteca sigue asociada a esa misma carpeta, sin volver a preguntar
+
+#### Scenario: Elegir una carpeta distinta reemplaza a la anterior
+- **WHEN** el usuario elige una carpeta distinta de la que tenía
+- **THEN** la biblioteca pasa a reflejar solo la carpeta nueva, y ninguna pista de la anterior permanece en el índice
+
+#### Scenario: La carpeta recordada ya no existe
+- **WHEN** el usuario abre la biblioteca y la carpeta recordada ya no está disponible, por ejemplo porque retiró la tarjeta de memoria
+- **THEN** la aplicación se lo informa y le ofrece elegir otra carpeta, sin borrar el índice que ya tenía y sin escanear otra ruta
+
+### Requirement: El escaneo recorre la carpeta completa e indexa solo lo reproducible
+El sistema SHALL recorrer recursivamente la carpeta de escaneo, incluidas sus subcarpetas a cualquier profundidad, y SHALL incorporar al índice únicamente los archivos con una extensión reconocida para reproducción, las mismas que la aplicación reconoce al abrir un archivo desde el navegador de carpetas.
+
+#### Scenario: Música repartida en subcarpetas anidadas
+- **WHEN** la carpeta elegida contiene música dentro de subcarpetas, y esas a su vez dentro de otras
+- **THEN** todas esas pistas quedan en el índice, sin que el usuario tenga que entrar a ninguna carpeta
+
+#### Scenario: Los archivos no reproducibles no entran
+- **WHEN** la carpeta elegida contiene archivos que la aplicación no puede reproducir, junto a los que sí
+- **THEN** el índice contiene solo los reproducibles, y el usuario no ve los demás en ninguna vista de biblioteca
+
+#### Scenario: El escaneo no altera dónde está parado el navegador de carpetas
+- **WHEN** el usuario escanea una carpeta distinta de aquella en la que tiene parado el navegador de carpetas
+- **THEN** el navegador de carpetas sigue mostrando la misma carpeta que mostraba antes del escaneo
+
+### Requirement: Cada pista indexada lleva identidad, ubicación y tags
+El sistema SHALL guardar para cada pista indexada su ruta, su extensión, su tamaño, su fecha de modificación, y su título, artista y álbum cuando el formato los provea. El sistema SHALL derivar el título de la pista del formato de origen: de los tags embebidos cuando existen, del nombre interno del módulo en los formatos de tracker, y del nombre de archivo cuando no hay ninguna de las dos cosas.
+
+#### Scenario: Pista con tags completos
+- **WHEN** se indexa un archivo cuyos tags embebidos traen título, artista y álbum
+- **THEN** la pista aparece en la biblioteca con ese título, ese artista y ese álbum
+
+#### Scenario: Archivo con tags vacíos o ausentes
+- **WHEN** se indexa un archivo de un formato que admite tags pero que no los trae
+- **THEN** la pista aparece con su nombre de archivo como título
+
+#### Scenario: Módulo de tracker
+- **WHEN** se indexa un módulo de tracker que lleva un nombre interno
+- **THEN** la pista aparece con ese nombre interno como título, y no con su nombre de archivo
+
+#### Scenario: Formato sin metadatos de ninguna clase
+- **WHEN** se indexa un archivo de un formato que no admite metadatos embebidos
+- **THEN** la pista aparece con su nombre de archivo como título
+
+### Requirement: La ausencia de artista o de álbum se agrupa bajo "Desconocido"
+El sistema SHALL agrupar bajo una entrada única llamada "Desconocido" todas las pistas sin artista, y bajo una entrada única del mismo nombre todas las pistas sin álbum. Esa entrada SHALL ordenarse siempre al final de su lista, con independencia del criterio de orden vigente.
+
+#### Scenario: Pistas sin artista
+- **WHEN** la biblioteca contiene pistas cuyo formato no provee artista, o cuyos tags no lo traen
+- **THEN** todas ellas quedan reunidas bajo una sola entrada "Desconocido" en la vista de artistas
+
+#### Scenario: "Desconocido" no se intercala entre los nombres reales
+- **WHEN** el usuario mira la vista de artistas o la de álbumes y existe la entrada "Desconocido"
+- **THEN** esa entrada aparece al final de la lista, después de todos los nombres reales
+
+### Requirement: El índice sobrevive entre sesiones sin reescanear
+El sistema SHALL persistir el índice, y SHALL presentar la biblioteca al abrir la aplicación sin volver a recorrer la carpeta de escaneo. Cuando el índice persistido no puede leerse o está incompleto, el sistema SHALL tratarlo como biblioteca no construida y ofrecer escanear, en vez de presentar datos parciales como si fueran la colección.
+
+#### Scenario: Reabrir la aplicación
+- **WHEN** el usuario escanea su carpeta, cierra la aplicación y vuelve a abrirla
+- **THEN** la biblioteca se muestra completa de inmediato, sin repetir el escaneo
+
+#### Scenario: Índice ilegible
+- **WHEN** el índice persistido no puede leerse o quedó incompleto por un corte de energía durante un escaneo
+- **THEN** la aplicación se lo informa al usuario y le ofrece escanear de nuevo, y no muestra una biblioteca parcial como si estuviera completa
+
+### Requirement: Reescaneo manual que refleja lo añadido y lo borrado
+El sistema SHALL ofrecer al usuario reescanear la carpeta cuando él lo pida, y el índice resultante SHALL reflejar tanto las pistas añadidas desde el último escaneo como la desaparición de las que ya no están. El sistema SHALL NOT reescanear por su cuenta.
+
+#### Scenario: El usuario añadió música
+- **WHEN** el usuario copia canciones nuevas dentro de la carpeta de escaneo y pide reescanear
+- **THEN** esas canciones aparecen en la biblioteca
+
+#### Scenario: El usuario borró música
+- **WHEN** el usuario borra archivos de la carpeta de escaneo y pide reescanear
+- **THEN** esas pistas dejan de aparecer en la biblioteca
+
+#### Scenario: No se reescanea solo
+- **WHEN** el usuario añade música a la carpeta y abre la biblioteca sin pedir reescaneo
+- **THEN** la biblioteca muestra lo que tenía indexado, sin ponerse a recorrer la carpeta por su cuenta
+
+### Requirement: Un escaneo en curso puede abandonarse y deja la biblioteca en un estado coherente
+El sistema SHALL permitir al usuario abandonar un escaneo en curso, y SHALL dejar entonces la biblioteca en un estado coherente: o bien el índice anterior intacto, o bien un índice parcial identificado como tal. El sistema SHALL NOT quedar retenido en un escaneo sin forma de salir.
+
+#### Scenario: Abandonar un escaneo
+- **WHEN** el usuario abandona un escaneo que está en curso
+- **THEN** vuelve a tener el control de la aplicación, y la biblioteca queda o como estaba antes o marcada como incompleta
+
+#### Scenario: La reproducción no se interrumpe
+- **WHEN** hay una pista sonando y el usuario lanza un escaneo
+- **THEN** la reproducción continúa sin cortes durante todo el escaneo
+
+### Requirement: El escaneo tolera lo que no puede leer
+El sistema SHALL continuar el escaneo cuando encuentra un archivo o una carpeta que no puede leer, y SHALL dejar fuera del índice únicamente lo que no pudo leerse. Un archivo ilegible SHALL NOT interrumpir el escaneo ni invalidar lo ya indexado.
+
+#### Scenario: Archivo ilegible a mitad del recorrido
+- **WHEN** el escaneo encuentra un archivo con extensión reconocida que no puede abrirse o cuya cabecera está dañada
+- **THEN** el escaneo continúa con el resto, y la biblioteca contiene todas las demás pistas
+
+#### Scenario: Carpeta que no puede abrirse
+- **WHEN** el escaneo encuentra una subcarpeta que no puede abrirse
+- **THEN** el escaneo continúa con las demás carpetas en vez de detenerse
+
+### Requirement: La biblioteca tiene un techo declarado y no lo desborda
+El sistema SHALL tener un número máximo de pistas indexables, y cuando una colección lo supere SHALL indexar hasta ese máximo, informar al usuario de que la biblioteca quedó truncada, y seguir funcionando con normalidad. El escaneo SHALL NOT escribir fuera de la memoria que tiene reservada, sea cual sea el número de archivos o de entradas de una carpeta.
+
+#### Scenario: Colección más grande que el techo
+- **WHEN** el usuario escanea una carpeta con más pistas reproducibles de las que la biblioteca admite
+- **THEN** la biblioteca contiene pistas hasta su máximo, el usuario es informado de que quedó truncada, y la aplicación sigue respondiendo con normalidad
+
+#### Scenario: Una sola carpeta con muchísimas entradas
+- **WHEN** el escaneo atraviesa una carpeta que contiene muchos más archivos de los que cabrían en una reserva de tamaño fijo
+- **THEN** el escaneo la procesa sin corromper memoria y sin caerse
+
+### Requirement: Las carátulas se extraen una vez por álbum y se conservan
+El sistema SHALL obtener la carátula de una pista de su imagen embebida cuando el formato la provea, SHALL extraerla una sola vez por álbum en lugar de una vez por pista, y SHALL conservarla entre sesiones para no repetir la extracción en cada arranque. Las pistas sin carátula disponible SHALL quedar identificadas como tales, sin bloquear ni reintentar indefinidamente.
+
+#### Scenario: Varias pistas del mismo álbum
+- **WHEN** se indexa un álbum de varias pistas que llevan todas la misma carátula embebida
+- **THEN** la carátula se extrae una sola vez para ese álbum, y todas sus pistas la muestran
+
+#### Scenario: Pista sin carátula embebida
+- **WHEN** se indexa una pista cuyo formato no lleva carátula, o que no la trae
+- **THEN** la biblioteca la muestra con su marcador por defecto, y no reintenta extraerla en cada arranque
+
+#### Scenario: Las carátulas sobreviven al reinicio
+- **WHEN** el usuario cierra la aplicación y vuelve a abrirla después de un escaneo con carátulas
+- **THEN** las carátulas se muestran sin volver a abrir los archivos de audio

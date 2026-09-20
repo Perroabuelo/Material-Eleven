@@ -12,7 +12,7 @@ El sistema SHALL componer todo diálogo provisto por el sistema operativo fuera 
 - **THEN** el diálogo progresa y termina, y la aplicación recibe su resultado y recupera el control
 
 ### Requirement: Ninguna operación que retenga el lazo de fotogramas deja la aplicación sin salida
-El sistema SHALL garantizar que toda operación que retenga el lazo de fotogramas —esperar un diálogo del sistema, o cualquier trabajo que impida a la pantalla anterior seguir atendiendo al usuario— termine por sí sola en un estado utilizable aunque la condición que esperaba no llegue a cumplirse. El sistema SHALL NOT dejar como única salida que el usuario cierre el proceso desde el sistema operativo.
+El sistema SHALL garantizar que toda operación que retenga el lazo de fotogramas —esperar un diálogo del sistema, o cualquier trabajo que impida a la pantalla anterior seguir atendiendo al usuario— termine por sí sola aunque la condición que esperaba no llegue a cumplirse, devolviendo el control a la pantalla anterior y sin interrumpir la reproducción en curso. El sistema SHALL NOT quedar esperando indefinidamente una condición que no llega.
 
 #### Scenario: La condición esperada no llega a cumplirse
 - **WHEN** una operación que retiene el lazo de fotogramas espera una condición que no se cumple

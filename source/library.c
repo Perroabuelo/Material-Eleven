@@ -53,6 +53,16 @@ static int library_capacity = 0;
 static SceBool library_built = SCE_FALSE;
 static SceBool library_truncated = SCE_FALSE;
 
+// El estado de las vistas. Viven aqui arriba porque Library_Free las suelta,
+// y esa funcion viene antes que el bloque que las construye.
+static int *library_view = NULL;
+static int library_view_count = 0;
+
+static const char **library_names = NULL;
+static int *library_name_counts = NULL;
+static int library_name_count = 0;
+static SceBool library_has_unknown = SCE_FALSE;
+
 // ---------------------------------------------------------------------------
 // la lista
 
@@ -91,6 +101,16 @@ static Library_Track *Library_Append(void) {
 }
 
 void Library_Free(void) {
+	// Las vistas apuntan al indice, asi que no pueden sobrevivirlo.
+	free(library_view);
+	free(library_names);
+	free(library_name_counts);
+	library_view = NULL;
+	library_names = NULL;
+	library_name_counts = NULL;
+	library_view_count = 0;
+	library_name_count = 0;
+
 	free(library_tracks);
 	library_tracks = NULL;
 	library_count = 0;
@@ -390,6 +410,190 @@ SceBool Library_Load(void) {
 }
 
 // ---------------------------------------------------------------------------
+// las vistas
+
+static const char *Library_FieldOf(const Library_Track *t, Library_Field field) {
+	return (field == LIBRARY_FIELD_ARTIST) ? t->artist : t->album;
+}
+
+// El titulo con el que se ordena y se muestra. Igual que hace la pantalla: el
+// tag si lo trae, y el nombre del archivo si no.
+static const char *Library_SortTitle(const Library_Track *t) {
+	return (t->title[0] != '\0') ? t->title : Utils_Basename(t->path);
+}
+
+static SceBool Library_ViewReserve(void) {
+	free(library_view);
+	library_view = (int *)malloc(sizeof(int) * (size_t)(library_count > 0 ? library_count : 1));
+	library_view_count = 0;
+	return library_view != NULL;
+}
+
+static int Library_CmpTitle(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+	int by_title = strcasecmp(Library_SortTitle(ta), Library_SortTitle(tb));
+
+	// La ruta desempata para que el orden no dependa de en que orden se
+	// encontraron dos pistas que se llaman igual.
+	return (by_title != 0) ? by_title : strcasecmp(ta->path, tb->path);
+}
+
+static int Library_CmpRecent(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+
+	if (ta->mtime != tb->mtime)
+		return (ta->mtime > tb->mtime) ? -1 : 1;
+
+	return strcasecmp(ta->path, tb->path);
+}
+
+int Library_BuildSongs(void) {
+	if (!Library_ViewReserve())
+		return 0;
+
+	for (int i = 0; i < library_count; i++)
+		library_view[library_view_count++] = i;
+
+	qsort(library_view, (size_t)library_view_count, sizeof(int), Library_CmpTitle);
+	return library_view_count;
+}
+
+int Library_BuildRecent(void) {
+	if (!Library_ViewReserve())
+		return 0;
+
+	for (int i = 0; i < library_count; i++)
+		library_view[library_view_count++] = i;
+
+	qsort(library_view, (size_t)library_view_count, sizeof(int), Library_CmpRecent);
+	return library_view_count;
+}
+
+int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unknown) {
+	if (!Library_ViewReserve())
+		return 0;
+
+	for (int i = 0; i < library_count; i++) {
+		const char *value = Library_FieldOf(&library_tracks[i], field);
+		SceBool empty = (value[0] == '\0');
+
+		if (unknown ? empty : (!empty && !strcasecmp(value, name)))
+			library_view[library_view_count++] = i;
+	}
+
+	// Dentro de un album manda el orden del album, pero sin numero de pista en el
+	// indice lo unico estable es el titulo.
+	qsort(library_view, (size_t)library_view_count, sizeof(int), Library_CmpTitle);
+	return library_view_count;
+}
+
+int Library_ViewCount(void) {
+	return library_view_count;
+}
+
+const Library_Track *Library_ViewTrack(int index) {
+	if (index < 0 || index >= library_view_count)
+		return NULL;
+
+	return &library_tracks[library_view[index]];
+}
+
+// --- los nombres distintos -------------------------------------------------
+
+static int Library_CmpName(const void *a, const void *b) {
+	return strcasecmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+int Library_BuildFieldNames(Library_Field field) {
+	free(library_names);
+	free(library_name_counts);
+	library_names = NULL;
+	library_name_counts = NULL;
+	library_name_count = 0;
+	library_has_unknown = SCE_FALSE;
+
+	if (library_count == 0)
+		return 0;
+
+	library_names = (const char **)malloc(sizeof(char *) * (size_t)library_count);
+
+	if (library_names == NULL)
+		return 0;
+
+	// Los nombres apuntan al propio indice: no se copian, asi que una vista de
+	// nombres cuesta un puntero por nombre distinto.
+	for (int i = 0; i < library_count; i++) {
+		const char *value = Library_FieldOf(&library_tracks[i], field);
+
+		if (value[0] == '\0') {
+			library_has_unknown = SCE_TRUE;
+			continue;
+		}
+
+		SceBool seen = SCE_FALSE;
+
+		for (int j = 0; j < library_name_count && !seen; j++)
+			seen = (strcasecmp(library_names[j], value) == 0);
+
+		if (!seen)
+			library_names[library_name_count++] = value;
+	}
+
+	qsort(library_names, (size_t)library_name_count, sizeof(char *), Library_CmpName);
+
+	// El cubo va al final, detras de todos los nombres reales, sea cual sea el
+	// criterio de orden. Por eso se anade despues de ordenar y no se ordena con
+	// los demas.
+	if (library_has_unknown)
+		library_names[library_name_count++] = "";
+
+	library_name_counts = (int *)malloc(sizeof(int) * (size_t)library_name_count);
+
+	if (library_name_counts != NULL) {
+		for (int j = 0; j < library_name_count; j++) {
+			SceBool unknown = (library_names[j][0] == '\0');
+			int n = 0;
+
+			for (int i = 0; i < library_count; i++) {
+				const char *value = Library_FieldOf(&library_tracks[i], field);
+
+				if (unknown ? (value[0] == '\0') : (value[0] != '\0' && !strcasecmp(value, library_names[j])))
+					n++;
+			}
+
+			library_name_counts[j] = n;
+		}
+	}
+
+	return library_name_count;
+}
+
+int Library_NameCount(void) {
+	return library_name_count;
+}
+
+const char *Library_NameAt(int index) {
+	if (index < 0 || index >= library_name_count)
+		return NULL;
+
+	return library_names[index];
+}
+
+SceBool Library_NameIsUnknown(int index) {
+	const char *name = Library_NameAt(index);
+	return (name != NULL && name[0] == '\0') ? SCE_TRUE : SCE_FALSE;
+}
+
+int Library_NameTrackCount(int index) {
+	if (library_name_counts == NULL || index < 0 || index >= library_name_count)
+		return 0;
+
+	return library_name_counts[index];
+}
+
+// ---------------------------------------------------------------------------
 // la segunda pasada: los tags
 
 int Library_PendingTags(void) {
@@ -545,6 +749,73 @@ static void Library_DrawScanProgress(const char *folder, int found, int skipped)
 	vita2d_swap_buffers();
 }
 
+// --- reaprovechar los tags entre reescaneos --------------------------------
+// Un reescaneo rehace el recorrido entero, pero leer otra vez los tags de una
+// coleccion completa cuesta los 159 ms por pista que midio el grupo 0 - 46
+// segundos por 291 pistas. Lo que no ha cambiado no hace falta releerlo.
+//
+// La identidad de una pista es su ruta absoluta, no su posicion, que cambia en
+// cada reescaneo. Y se comprueban ademas tamaño y fecha: una ruta que sigue ahi
+// pero con otro contenido es otra cosa, y sus tags viejos mentirian.
+
+typedef struct {
+	const Library_Track *track;
+} Library_Carried;
+
+static int Library_CmpCarriedPath(const void *a, const void *b) {
+	return strcmp(((const Library_Carried *)a)->track->path, ((const Library_Carried *)b)->track->path);
+}
+
+// Ordena el indice anterior por ruta, para poder buscar por biseccion en vez de
+// recorrerlo entero por cada pista nueva: con el techo puesto son unas 48.000
+// comparaciones en vez de dieciseis millones.
+static Library_Carried *Library_BuildCarry(const Library_Track *old, int old_count) {
+	if (old == NULL || old_count <= 0)
+		return NULL;
+
+	Library_Carried *carry = (Library_Carried *)malloc(sizeof(Library_Carried) * (size_t)old_count);
+
+	if (carry == NULL)
+		return NULL;
+
+	for (int i = 0; i < old_count; i++)
+		carry[i].track = &old[i];
+
+	qsort(carry, (size_t)old_count, sizeof(Library_Carried), Library_CmpCarriedPath);
+	return carry;
+}
+
+static void Library_CarryTags(Library_Track *dst, const Library_Carried *carry, int count) {
+	if (carry == NULL)
+		return;
+
+	int lo = 0, hi = count - 1;
+
+	while (lo <= hi) {
+		int mid = lo + (hi - lo) / 2;
+		int cmp = strcmp(carry[mid].track->path, dst->path);
+
+		if (cmp == 0) {
+			const Library_Track *src = carry[mid].track;
+
+			// Mismo archivo, no solo mismo nombre.
+			if (src->tagged && src->size == dst->size && src->mtime == dst->mtime) {
+				memcpy(dst->title, src->title, LIBRARY_TAG_MAX);
+				memcpy(dst->artist, src->artist, LIBRARY_TAG_MAX);
+				memcpy(dst->album, src->album, LIBRARY_TAG_MAX);
+				dst->tagged = SCE_TRUE;
+			}
+
+			return;
+		}
+
+		if (cmp < 0)
+			lo = mid + 1;
+		else
+			hi = mid - 1;
+	}
+}
+
 SceBool Library_RunScan(void) {
 	// Sin carpeta, o con una que ya no esta, no se toca nada: recorrer una
 	// raiz ausente dejaria cero pistas y se llevaria por delante un indice
@@ -552,7 +823,19 @@ SceBool Library_RunScan(void) {
 	if (!Library_RootAvailable())
 		return SCE_FALSE;
 
+	// El indice anterior se aparta, no se tira: es de donde salen los tags que no
+	// hace falta releer.
+	Library_Track *old_tracks = library_tracks;
+	int old_count = library_count;
+
+	library_tracks = NULL;
+	library_count = 0;
+	library_capacity = 0;
+	library_truncated = SCE_FALSE;
+	library_built = SCE_FALSE;
 	Library_Free();
+
+	Library_Carried *carry = Library_BuildCarry(old_tracks, old_count);
 
 	// Una pila explicita y no recursion: el arbol lo elige el usuario y puede
 	// ser arbitrariamente profundo, y la pila de un hilo aqui es limitada. Es
@@ -651,6 +934,7 @@ SceBool Library_RunScan(void) {
 			// cuestan una llamada aparte.
 			track->size = entry.d_stat.st_size;
 			sceRtcGetTime64_t(&entry.d_stat.st_mtime, &track->mtime);
+			Library_CarryTags(track, carry, old_count);
 		}
 
 		if (library_truncated || (dir < 0 && top == 0))
@@ -669,6 +953,8 @@ SceBool Library_RunScan(void) {
 		sceIoDclose(dir);
 
 	free(stack);
+	free(carry);
+	free(old_tracks);
 
 	if (abandoned) {
 		// Abandonar deja la biblioteca como estaba, no a medias: el indice en

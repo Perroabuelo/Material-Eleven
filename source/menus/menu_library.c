@@ -32,7 +32,39 @@
 // A 60 fps, una vez por segundo.
 #define ROOT_CHECK_PERIOD 60
 
+// Las cuatro formas de recorrer la coleccion, y la etiqueta de cada una.
+typedef enum {
+	VIEW_SONGS = 0,
+	VIEW_ARTISTS,
+	VIEW_ALBUMS,
+	VIEW_RECENT,
+	VIEW_COUNT
+} Menu_LibraryTab;
+
+static const char *view_label[VIEW_COUNT] = { "Canciones", "Artistas", "Albumes", "Recientes" };
+
+// La etiqueta del cubo de las pistas sin ese campo. La pone la vista, no el
+// indice: asi un artista que de verdad se llame asi no se mezcla con el cubo.
+#define UNKNOWN_LABEL "Desconocido"
+
+static Menu_LibraryTab view = VIEW_SONGS;
 static int selection = 0;
+
+// Dentro de un artista o de un album. El nombre vacio con `inside_unknown`
+// puesto es el cubo.
+static SceBool inside = SCE_FALSE;
+static SceBool inside_unknown = SCE_FALSE;
+static char inside_name[LIBRARY_TAG_MAX] = "";
+static int outer_selection = 0;
+
+// Construir una vista es un qsort sobre miles de enteros. Se rehace cuando algo
+// la invalida - cambiar de pestaña, entrar, salir, reescanear - y no en cada
+// fotograma, que es lo que costaria dibujarla y leer el pad.
+static SceBool view_dirty = SCE_TRUE;
+
+// Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
+// las otras dos que mueven la vista.
+static void Menu_LibrarySetView(Menu_LibraryTab next);
 static SceBool root_missing = SCE_FALSE;
 static int root_check_frames = 0;
 static char notice[160] = "";
@@ -43,6 +75,39 @@ static int notice_frames = 0;
 // como dato algo que no se leyo de ningun tag.
 static const char *Menu_LibraryTrackTitle(const Library_Track *track) {
 	return (track->title[0] != '\0') ? track->title : Utils_Basename(track->path);
+}
+
+// Una vista es un orden sobre el indice, y se rehace cuando cambia algo: no se
+// guarda entre fotogramas porque construirla cuesta un qsort sobre unos miles de
+// enteros, y tenerla en cache obligaria a invalidarla en cada reescaneo.
+static SceBool Menu_LibraryShowsNames(void) {
+	return (view == VIEW_ARTISTS || view == VIEW_ALBUMS) && !inside;
+}
+
+static Library_Field Menu_LibraryField(void) {
+	return (view == VIEW_ALBUMS) ? LIBRARY_FIELD_ALBUM : LIBRARY_FIELD_ARTIST;
+}
+
+static int Menu_LibraryBuilt(void) {
+	return Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount();
+}
+
+static int Menu_LibraryBuild(void) {
+	if (!view_dirty)
+		return Menu_LibraryBuilt();
+
+	view_dirty = SCE_FALSE;
+
+	if (Menu_LibraryShowsNames())
+		return Library_BuildFieldNames(Menu_LibraryField());
+
+	if (inside)
+		return Library_BuildFieldTracks(Menu_LibraryField(), inside_name, inside_unknown);
+
+	if (view == VIEW_RECENT)
+		return Library_BuildRecent();
+
+	return Library_BuildSongs();
 }
 
 static void Menu_LibraryNotice(const char *text) {
@@ -82,12 +147,30 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	float x = CONTENT_X + 22;
 
+	// Dentro de un artista o un album manda su nombre, porque es lo que el usuario
+	// acaba de elegir; la pestaña sigue marcada al lado.
+	const char *heading = inside ? (inside_unknown ? UNKNOWN_LABEL : inside_name) : "Biblioteca";
+
 	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
-		UI_COLOR_TEXT_PRIMARY, "Biblioteca");
+		UI_COLOR_TEXT_PRIMARY, heading);
+
+	// Las cuatro pestañas, con la vigente marcada. Se dibujan tambien dentro de un
+	// grupo, para que se vea de donde se entro.
+	float tab_x = 960 - 22;
+
+	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
+		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, view_label[i]);
+		tab_x -= w;
+
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
+			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, view_label[i]);
+
+		tab_x -= 18.0f;
+	}
 
 	if (Library_HasRoot()) {
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x,
-			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), 960 - x - 22,
+			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), 960 - x - 240,
 			UI_COLOR_TEXT_TERTIARY, Library_GetRoot());
 	}
 }
@@ -106,34 +189,45 @@ static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
 	}
 }
 
+// Una fila: la linea de arriba es lo que la vista lista, y la de abajo lo que
+// ayuda a distinguirlo de sus vecinas.
+static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary) {
+	if (i == selection)
+		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
+
+	float x = CONTENT_X + 22;
+
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
+		960 - x - 100, UI_COLOR_TEXT_PRIMARY, primary);
+
+	if (secondary != NULL) {
+		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y + 34, 20),
+			960 - x - 100, UI_COLOR_TEXT_TERTIARY, secondary);
+	}
+}
+
 static void Menu_DrawLibraryList(void) {
-	int count = Library_Count();
+	int count = Menu_LibraryBuild();
 	int first = selection - (selection % ROWS_PER_PAGE);
 	float y = LIST_TOP;
 
 	for (int i = first; i < first + ROWS_PER_PAGE && i < count; i++) {
-		const Library_Track *track = Library_GetTrack(i);
+		if (Menu_LibraryShowsNames()) {
+			char sub[48];
+			int n = Library_NameTrackCount(i);
 
-		if (track == NULL)
-			break;
+			snprintf(sub, sizeof(sub), (n == 1) ? "%d pista" : "%d pistas", n);
+			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? UNKNOWN_LABEL : Library_NameAt(i), sub);
+		}
+		else {
+			const Library_Track *track = Library_ViewTrack(i);
 
-		if (i == selection)
-			UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
+			if (track == NULL)
+				break;
 
-		float x = CONTENT_X + 22;
-
-		const char *title = Menu_LibraryTrackTitle(track);
-
-		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
-			960 - x - 100, UI_COLOR_TEXT_PRIMARY, title);
-
-		// "Desconocido" lo pone la vista y no el indice: un artista que de verdad
-		// se llame asi no se mezcla con el cubo, y el indice no queda escrito en
-		// un idioma.
-		const char *artist = (track->artist[0] != '\0') ? track->artist : "Desconocido";
-
-		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y + 34, 20),
-			960 - x - 100, UI_COLOR_TEXT_TERTIARY, artist);
+			const char *artist = (track->artist[0] != '\0') ? track->artist : UNKNOWN_LABEL;
+			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist);
+		}
 
 		y += ROW_H;
 	}
@@ -179,6 +273,7 @@ static void Menu_LibraryPickRoot(void) {
 
 	Library_SetRoot(picked);
 	selection = 0;
+	Menu_LibrarySetView(VIEW_SONGS);
 
 	// La primera pasada deja la biblioteca utilizable; la segunda la completa.
 	// Encadenadas, pero separadas: abandonar la de tags no tira el recorrido.
@@ -192,6 +287,8 @@ static void Menu_LibraryPickRoot(void) {
 static void Menu_LibraryRescan(void) {
 	if (!Library_HasRoot())
 		return;
+
+	view_dirty = SCE_TRUE;
 
 	if (!Library_RootAvailable()) {
 		Menu_LibraryNotice("Esa carpeta ya no esta disponible. Elegi otra con Cuadrado.");
@@ -207,18 +304,16 @@ static void Menu_LibraryRescan(void) {
 		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
 }
 
-// Retomar la pasada de tags donde se dejo. No hace falta reescanear: lo que
-// falta esta marcado pista a pista en el propio indice.
-static void Menu_LibraryResumeTags(void) {
-	if (Library_PendingTags() > 0)
-		Library_RunTagPass();
-}
-
 // El productor de biblioteca: vuelca la vista vigente en la cola, en el orden
 // en que se ve, y reproduce desde ahi. Siguiente y anterior recorren esa cola y
 // no la carpeta en la que este el archivo.
 static void Menu_LibraryPlaySelected(void) {
-	const Library_Track *track = Library_GetTrack(selection);
+	// La cola es esta vista, en el orden en que se ve. Por eso se reconstruye
+	// aqui: es lo que hace que reproducir desde un album encadene el album y no
+	// la carpeta en la que este cada archivo.
+	Menu_LibraryBuild();
+
+	const Library_Track *track = Library_ViewTrack(selection);
 
 	if (track == NULL)
 		return;
@@ -233,8 +328,8 @@ static void Menu_LibraryPlaySelected(void) {
 
 	Queue_Clear();
 
-	for (int i = 0; i < Library_Count(); i++) {
-		const Library_Track *t = Library_GetTrack(i);
+	for (int i = 0; i < Library_ViewCount(); i++) {
+		const Library_Track *t = Library_ViewTrack(i);
 
 		if (t == NULL)
 			break;
@@ -253,8 +348,57 @@ static void Menu_LibraryPlaySelected(void) {
 
 // ---------------------------------------------------------------------------
 
+static void Menu_LibraryEnter(void) {
+	const char *name = Library_NameAt(selection);
+
+	if (name == NULL)
+		return;
+
+	inside_unknown = Library_NameIsUnknown(selection);
+	snprintf(inside_name, sizeof(inside_name), "%s", name);
+	outer_selection = selection;
+	inside = SCE_TRUE;
+	selection = 0;
+	view_dirty = SCE_TRUE;
+}
+
+// SCE_TRUE si habia de donde salir. Cancelar deshace lo mas reciente primero,
+// igual que hace el filtro en el navegador de carpetas.
+static SceBool Menu_LibraryLeave(void) {
+	if (!inside)
+		return SCE_FALSE;
+
+	inside = SCE_FALSE;
+	inside_unknown = SCE_FALSE;
+	inside_name[0] = '\0';
+	selection = outer_selection;
+	view_dirty = SCE_TRUE;
+	return SCE_TRUE;
+}
+
+static void Menu_LibrarySetView(Menu_LibraryTab next) {
+	view = next;
+	inside = SCE_FALSE;
+	inside_unknown = SCE_FALSE;
+	inside_name[0] = '\0';
+	selection = 0;
+	outer_selection = 0;
+	view_dirty = SCE_TRUE;
+}
+
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
-	int count = Library_Count();
+	int count = Menu_LibraryBuild();
+
+	// L y R recorren las cuatro vistas. Cambiar de vista sale de cualquier grupo
+	// en el que se estuviera.
+	if (state == LIBRARY_STATE_READY) {
+		if (pressed & SCE_CTRL_RTRIGGER)
+			Menu_LibrarySetView((view + 1) % VIEW_COUNT);
+		else if (pressed & SCE_CTRL_LTRIGGER)
+			Menu_LibrarySetView((view + VIEW_COUNT - 1) % VIEW_COUNT);
+
+		count = Menu_LibraryBuild();
+	}
 
 	if (state == LIBRARY_STATE_READY && count > 0) {
 		if (pressed & SCE_CTRL_UP)
@@ -270,8 +414,16 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 		else if (pressed & SCE_CTRL_RIGHT)
 			selection = count - 1;
 
-		if (pressed & SCE_CTRL_ENTER)
-			Menu_LibraryPlaySelected();
+		if (pressed & SCE_CTRL_ENTER) {
+			// Sobre un nombre, confirmar entra; sobre una pista, reproduce.
+			if (Menu_LibraryShowsNames())
+				Menu_LibraryEnter();
+			else
+				Menu_LibraryPlaySelected();
+		}
+
+		if (pressed & SCE_CTRL_CANCEL)
+			Menu_LibraryLeave();
 	}
 	else if (pressed & SCE_CTRL_ENTER) {
 		// Sin nada que reproducir, confirmar hace lo unico que procede en cada
@@ -286,8 +438,6 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 		Menu_LibraryRescan();
 	else if (pressed & SCE_CTRL_SQUARE)
 		Menu_LibraryPickRoot();
-	else if (pressed & SCE_CTRL_LTRIGGER)
-		Menu_LibraryResumeTags();
 }
 
 void Menu_DisplayLibrary(void) {
@@ -336,11 +486,12 @@ void Menu_DisplayLibrary(void) {
 		MiniPlayer_Draw();
 		Menu_DrawLibraryNotice();
 
-		const char *play_hint = (state == LIBRARY_STATE_READY) ? "Reproducir" : "Empezar";
+		const char *play_hint = (state != LIBRARY_STATE_READY) ? "Empezar"
+			: (Menu_LibraryShowsNames() ? "Abrir" : "Reproducir");
 		// La leyenda anuncia lo que el boton hace ahora mismo: retomar etiquetas
 		// solo aparece cuando queda alguna por leer.
-		const char *tags_hint = (Library_PendingTags() > 0) ? "L - Leer etiquetas" : NULL;
-		const char *hints[] = { play_hint, NULL, "Triangulo - Reescanear", "Cuadrado - Carpeta", tags_hint };
+		const char *back_hint = inside ? "Volver" : NULL;
+		const char *hints[] = { play_hint, back_hint, "L R - Vistas", "Triangulo - Reescanear", "Cuadrado - Carpeta" };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);

@@ -90,6 +90,46 @@ SceBool Library_Save(void);
 // SCE_TRUE si termino de recorrer, SCE_FALSE si el usuario lo abandono.
 SceBool Library_RunScan(void);
 
+// --- las vistas ------------------------------------------------------------
+// Una vista es un orden sobre el indice, no una copia: lo que se construye es
+// una lista de indices de pista, o una lista de nombres distintos.
+//
+// "Desconocido" no esta en el indice. El indice guarda el artista y el album
+// vacios cuando la pista no los trae, y la etiqueta y su posicion al final las
+// pone la vista. Asi un artista que de verdad se llame "Desconocido" no se
+// mezcla con el cubo, y el indice no queda escrito en un idioma.
+
+typedef enum {
+	LIBRARY_FIELD_ARTIST = 0,
+	LIBRARY_FIELD_ALBUM
+} Library_Field;
+
+// Todas las pistas, por titulo.
+int Library_BuildSongs(void);
+
+// Todas las pistas, de la mas reciente a la mas antigua por fecha de
+// modificacion. Empatan al segundo con frecuencia - una copia masiva desde el PC
+// las deja todas iguales -, y ahi desempata la ruta, que es estable entre
+// reescaneos y no cambia si el usuario edita un tag.
+int Library_BuildRecent(void);
+
+// Las pistas de ese nombre dentro de ese campo. Con `unknown`, las que no lo
+// traen.
+int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unknown);
+
+// Cuantas pistas tiene la vista construida, y cual es cada una.
+int Library_ViewCount(void);
+const Library_Track *Library_ViewTrack(int index);
+
+// Los nombres distintos de ese campo, ordenados, con el cubo de los vacios al
+// final si lo hay.
+int Library_BuildFieldNames(Library_Field field);
+int Library_NameCount(void);
+const char *Library_NameAt(int index);
+// SCE_TRUE para el cubo de las pistas que no traen ese campo.
+SceBool Library_NameIsUnknown(int index);
+int Library_NameTrackCount(int index);
+
 // Cuantas pistas del indice siguen sin tags leidos.
 int Library_PendingTags(void);
 

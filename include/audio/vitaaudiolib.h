@@ -35,6 +35,9 @@ void vitaAudioEndPre(void);
 void vitaAudioEnd(void);
 void vitaAudioPreSetGrain(unsigned int grain);
 unsigned int vitaAudioGetGrain(void);
+// Canales con los que vitaAudioInit dimensiono el buffer de salida. Quien
+// escriba en ese buffer tiene que contar con esto y no suponer estereo.
+unsigned int vitaAudioGetChannelCount(void);
 unsigned int vitaAudioGetDefaultGrain(void);
 
 #ifdef __cplusplus

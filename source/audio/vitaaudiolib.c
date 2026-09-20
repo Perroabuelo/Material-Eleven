@@ -91,6 +91,10 @@ unsigned int vitaAudioGetGrain(void) {
 	return audio_grain;
 }
 
+unsigned int vitaAudioGetChannelCount(void) {
+	return audio_channel_count;
+}
+
 unsigned int vitaAudioGetDefaultGrain(void) {
 	return VITA_DEFAULT_AUDIO_SAMPLES;
 }

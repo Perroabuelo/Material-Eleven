@@ -44,11 +44,15 @@ SceBool playing = SCE_TRUE, paused = SCE_FALSE;
 
 static void Audio_Decode(void *buf, unsigned int length, void *userdata) {
 	if (playing == SCE_FALSE || paused == SCE_TRUE) {
-		short *buf_short = (short *)buf;
-		unsigned int count;
-		for (count = 0; count < length * 2; count++)
-			*(buf_short + count) = 0;
-	} 
+		// vitaAudioInit reserva grain * canales shorts, asi que el silencio se
+		// escribe con esa misma cuenta. Esto era un "length * 2" fijo: en un
+		// track mono escribia el doble del buffer y pisaba el heap en cada
+		// callback, unas cincuenta veces por segundo. Se entra aqui al pausar,
+		// y tambien al acabarse el archivo, que es cuando el decoder pone
+		// playing en SCE_FALSE, de modo que bastaba con dejar sonando un mono
+		// hasta el final para corromper el heap.
+		memset(buf, 0, length * vitaAudioGetChannelCount() * sizeof(short));
+	}
 	else
 		(* decoder.decode)(buf, length, userdata);
 }

@@ -45,7 +45,7 @@
 ## 4. Cerrar el segundo bloqueo: salir de un filtro sin coincidencias
 
 - [ ] 4.1 Hacer que el botón de cancelar limpie el filtro cuando hay uno activo, con precedencia sobre subir a la carpeta superior; verificar en la raíz del dispositivo aplicando un término que no coincida con nada, de modo que la lista quede vacía, y comprobando que el botón recupera la lista completa
-- [ ] 4.2 Verificar la precedencia por debajo de la raíz: con un filtro aplicado en una carpeta anidada, la primera pulsación quita el filtro y deja al usuario en la misma carpeta, y solo la segunda sube a la carpeta superior
+- [x] 4.2 Verificar la precedencia por debajo de la raíz: con un filtro aplicado en una carpeta anidada, la primera pulsación quita el filtro y deja al usuario en la misma carpeta, y solo la segunda sube a la carpeta superior
 - [ ] 4.3 Verificar que sin filtro aplicado el botón se comporta exactamente como antes de este change, tanto en la raíz como por debajo de ella
 - [ ] 4.4 Actualizar la leyenda de botones en pantalla para que anuncie la acción vigente; verificar que el texto cambia al aplicar y al quitar el filtro, y que en la raíz sin filtro no anuncia una acción que no existe
 - [ ] 4.5 Ejecutar el PPB sobre esta etapa

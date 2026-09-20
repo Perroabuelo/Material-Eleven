@@ -123,7 +123,10 @@ static void Menu_DrawLibraryList(void) {
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
 			960 - x - 100, UI_COLOR_TEXT_PRIMARY, title);
 
-		const char *artist = (track->artist[0] != '\0') ? track->artist : track->path;
+		// "Desconocido" lo pone la vista y no el indice: un artista que de verdad
+		// se llame asi no se mezcla con el cubo, y el indice no queda escrito en
+		// un idioma.
+		const char *artist = (track->artist[0] != '\0') ? track->artist : "Desconocido";
 
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y + 34, 20),
 			960 - x - 100, UI_COLOR_TEXT_TERTIARY, artist);
@@ -133,8 +136,12 @@ static void Menu_DrawLibraryList(void) {
 
 	char counter[96];
 
+	int pending = Library_PendingTags();
+
 	if (Library_IsTruncated())
 		snprintf(counter, sizeof(counter), "%d de %d  -  biblioteca truncada en el maximo", selection + 1, count);
+	else if (pending > 0)
+		snprintf(counter, sizeof(counter), "%d de %d  -  faltan %d etiquetas por leer", selection + 1, count, pending);
 	else
 		snprintf(counter, sizeof(counter), "%d de %d", selection + 1, count);
 
@@ -168,7 +175,11 @@ static void Menu_LibraryPickRoot(void) {
 
 	Library_SetRoot(picked);
 	selection = 0;
-	Library_RunScan();
+
+	// La primera pasada deja la biblioteca utilizable; la segunda la completa.
+	// Encadenadas, pero separadas: abandonar la de tags no tira el recorrido.
+	if (Library_RunScan())
+		Library_RunTagPass();
 
 	if (Library_IsTruncated())
 		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
@@ -184,10 +195,19 @@ static void Menu_LibraryRescan(void) {
 	}
 
 	selection = 0;
-	Library_RunScan();
+
+	if (Library_RunScan())
+		Library_RunTagPass();
 
 	if (Library_IsTruncated())
 		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
+}
+
+// Retomar la pasada de tags donde se dejo. No hace falta reescanear: lo que
+// falta esta marcado pista a pista en el propio indice.
+static void Menu_LibraryResumeTags(void) {
+	if (Library_PendingTags() > 0)
+		Library_RunTagPass();
 }
 
 // El productor de biblioteca: vuelca la vista vigente en la cola, en el orden
@@ -259,6 +279,8 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 		Menu_LibraryRescan();
 	else if (pressed & SCE_CTRL_SQUARE)
 		Menu_LibraryPickRoot();
+	else if (pressed & SCE_CTRL_LTRIGGER)
+		Menu_LibraryResumeTags();
 }
 
 void Menu_DisplayLibrary(void) {
@@ -308,7 +330,10 @@ void Menu_DisplayLibrary(void) {
 		Menu_DrawLibraryNotice();
 
 		const char *play_hint = (state == LIBRARY_STATE_READY) ? "Reproducir" : "Empezar";
-		const char *hints[] = { play_hint, NULL, "Triangulo - Reescanear", "Cuadrado - Carpeta", "SELECT - Ajustes" };
+		// La leyenda anuncia lo que el boton hace ahora mismo: retomar etiquetas
+		// solo aparece cuando queda alguna por leer.
+		const char *tags_hint = (Library_PendingTags() > 0) ? "L - Leer etiquetas" : NULL;
+		const char *hints[] = { play_hint, NULL, "Triangulo - Reescanear", "Cuadrado - Carpeta", tags_hint };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);

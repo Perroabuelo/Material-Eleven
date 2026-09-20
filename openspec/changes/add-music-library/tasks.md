@@ -39,7 +39,7 @@
 - [x] 4.5 Conectar el productor de biblioteca a la cola, y verificar que reproducir desde la lista de canciones toma esa lista como cola y que siguiente avanza por ella
 - [ ] 4.6 Verificar que la reproducción en curso no se corta durante un escaneo completo, y que abrir una pista cuya ruta ya no existe avisa sin caerse y sugiere reescanear
 - [x] 4.7 Verificar que el navegador de carpetas sigue comportándose igual que antes del change, incluido reproducir archivos que están fuera de la carpeta de escaneo
-- [ ] 4.8 Mostrar el mini reproductor en la pantalla de biblioteca reutilizando el del navegador en vez de escribir un segundo, y verificar que refleja la pista en curso, que sus controles responden y que la lista sigue cabiendo
+- [x] 4.8 Mostrar el mini reproductor en la pantalla de biblioteca reutilizando el del navegador en vez de escribir un segundo, y verificar que refleja la pista en curso, que sus controles responden y que la lista sigue cabiendo
 
 ## 5. Fase 2 — tags
 

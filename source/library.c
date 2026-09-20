@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "library.h"
 #include "nav_rail.h"
+#include "tags.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -20,12 +21,20 @@
 // Una version que no se reconoce no se migra: se descarta y se ofrece
 // reescanear. Sale gratis porque no hay nada del usuario que perder.
 #define LIBRARY_INDEX_MAGIC   "ELEVENMPV_LIBRARY"
-#define LIBRARY_INDEX_VERSION 1
+// v2 anade la marca de tags leidos. Una version que no se reconoce no se
+// migra: se descarta y se ofrece reescanear, que con el indice es gratis.
+#define LIBRARY_INDEX_VERSION 2
 
 // Entradas de directorio por fotograma. A los 595 us por entrada que midio el
 // grupo 0 sobre una coleccion real, dieciseis salen a unos 9,5 ms: cabe en el
 // fotograma con margen. Es una constante de ajuste, no una decision de diseño.
 #define LIBRARY_ENTRIES_PER_FRAME 16
+
+// Cada cuantas pistas se vuelca el indice durante la pasada de tags. A los
+// 159 ms por pista que costo medir, treinta y dos son unos cinco segundos de
+// trabajo en riesgo si se corta la energia, contra una escritura completa del
+// indice cada vez.
+#define LIBRARY_TAG_PERSIST_EVERY 32
 
 #define LIBRARY_INITIAL_CAPACITY 64
 #define LIBRARY_WRITE_BUFFER (32 * 1024)
@@ -228,8 +237,9 @@ SceBool Library_Save(void) {
 		// La ruta va la ultima: si alguna vez trae un tabulador, no corre los
 		// campos de detras.
 		char line[LIBRARY_PATH_MAX + 4 * LIBRARY_TAG_MAX + 64];
-		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%s\t%s\t%s\t%s\t%s\n",
-			(unsigned long long)t->size, (unsigned long long)t->mtime, t->ext, title, artist, album, t->path);
+		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%d\t%s\t%s\t%s\t%s\t%s\n",
+			(unsigned long long)t->size, (unsigned long long)t->mtime, t->tagged ? 1 : 0,
+			t->ext, title, artist, album, t->path);
 
 		if (len >= (int)sizeof(line))
 			len = (int)sizeof(line) - 1;
@@ -315,7 +325,7 @@ SceBool Library_Load(void) {
 		if (line[0] == '\0')
 			continue;
 
-		char *fields[7];
+		char *fields[8];
 
 		if (header_lines < 3) {
 			int n = Library_SplitFields(line, fields, 2);
@@ -347,7 +357,7 @@ SceBool Library_Load(void) {
 			continue;
 		}
 
-		if (Library_SplitFields(line, fields, 7) < 7)
+		if (Library_SplitFields(line, fields, 8) < 8)
 			break;
 
 		Library_Track *t = Library_Append();
@@ -357,11 +367,12 @@ SceBool Library_Load(void) {
 
 		t->size = (SceOff)strtoull(fields[0], NULL, 10);
 		t->mtime = (SceUInt64)strtoull(fields[1], NULL, 10);
-		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[2]);
-		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[3]);
-		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[4]);
-		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[5]);
-		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[6]);
+		t->tagged = (atoi(fields[2]) != 0) ? SCE_TRUE : SCE_FALSE;
+		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[3]);
+		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[4]);
+		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[5]);
+		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[6]);
+		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[7]);
 	}
 
 	free(buf);
@@ -376,6 +387,101 @@ SceBool Library_Load(void) {
 
 	library_built = SCE_TRUE;
 	return SCE_TRUE;
+}
+
+// ---------------------------------------------------------------------------
+// la segunda pasada: los tags
+
+int Library_PendingTags(void) {
+	int pending = 0;
+
+	for (int i = 0; i < library_count; i++) {
+		if (!library_tracks[i].tagged)
+			pending++;
+	}
+
+	return pending;
+}
+
+static void Library_DrawTagProgress(int done, int total, const char *path) {
+	char detail[128];
+
+	vita2d_start_drawing();
+	vita2d_clear_screen();
+
+	float x = 80.0f, y = 200.0f;
+
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, "Leyendo etiquetas");
+	y += 44.0f;
+
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26), 960.0f - x - 80.0f,
+		UI_COLOR_TEXT_SECONDARY, Utils_Basename(path));
+	y += 34.0f;
+
+	snprintf(detail, sizeof(detail), "%d de %d", done, total);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, 24), UI_COLOR_TEXT_TERTIARY, detail);
+	y += 30.0f;
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
+		"Lo leido se guarda: abandonar no obliga a empezar de nuevo");
+
+	const char *hints[] = { NULL, "Abandonar", NULL, NULL, NULL };
+	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+
+	vita2d_end_drawing();
+	vita2d_swap_buffers();
+}
+
+SceBool Library_RunTagPass(void) {
+	if (!library_built || library_count == 0)
+		return SCE_TRUE;
+
+	int total = library_count;
+	int since_save = 0;
+	SceBool abandoned = SCE_FALSE;
+
+	for (int i = 0; i < library_count && !abandoned; i++) {
+		Library_Track *track = &library_tracks[i];
+
+		if (track->tagged)
+			continue;
+
+		// Una pista por fotograma. La medicion del grupo 0 dio 159 ms de media y
+		// 187 ms para FLAC, asi que no hay trozo que quepa en un fotograma: lo
+		// que se trocea no es el trabajo sino la espera, y el pad se lee entre
+		// pista y pista para que abandonar responda.
+		Library_DrawTagProgress(i, total, track->path);
+
+		Tags tags;
+
+		// El valor de retorno no se mira: que un formato no lleve tags, o que su
+		// cabecera este dañada, no es un error que haya que reintentar. Queda
+		// marcada igual, con sus campos vacios, y la vista pone el respaldo.
+		Tags_Read(track->path, track->ext, &tags);
+
+		snprintf(track->title, LIBRARY_TAG_MAX, "%s", tags.title);
+		snprintf(track->artist, LIBRARY_TAG_MAX, "%s", tags.artist);
+		snprintf(track->album, LIBRARY_TAG_MAX, "%s", tags.album);
+		track->tagged = SCE_TRUE;
+		since_save++;
+
+		if (since_save >= LIBRARY_TAG_PERSIST_EVERY) {
+			Library_Save();
+			since_save = 0;
+		}
+
+		Utils_ReadControls();
+
+		if (pressed & SCE_CTRL_CANCEL)
+			abandoned = SCE_TRUE;
+	}
+
+	// Lo leido se guarda pase lo que pase: es lo unico que hace que abandonar no
+	// cueste nada.
+	if (since_save > 0)
+		Library_Save();
+
+	return !abandoned && (Library_PendingTags() == 0);
 }
 
 // ---------------------------------------------------------------------------

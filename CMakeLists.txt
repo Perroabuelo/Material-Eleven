@@ -54,6 +54,7 @@ add_executable(${PROJECT_NAME}
   source/nav_rail.c
   source/queue.c
   source/status_bar.c
+  source/tags.c
   source/touch.c
   source/ui_gpu.c
   source/ui_theme.c

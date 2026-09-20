@@ -37,6 +37,10 @@ typedef struct {
 	SceOff size;
 	SceUInt64 mtime;
 	char ext[LIBRARY_EXT_MAX];
+	// Si a esta pista ya se le leyeron los tags. Sin esta marca no se
+	// podria distinguir "todavia no la mire" de "la mire y no traia nada",
+	// que es justo lo que hace reanudable la segunda pasada.
+	SceBool tagged;
 } Library_Track;
 
 // --- la carpeta de escaneo -------------------------------------------------
@@ -85,5 +89,15 @@ SceBool Library_Save(void);
 //
 // SCE_TRUE si termino de recorrer, SCE_FALSE si el usuario lo abandono.
 SceBool Library_RunScan(void);
+
+// Cuantas pistas del indice siguen sin tags leidos.
+int Library_PendingTags(void);
+
+// La segunda pasada: recorre el indice leyendo tags y persiste cada tantas
+// pistas, de modo que abandonarla - o quedarse sin bateria - no tira lo
+// leido y la siguiente continua por las que faltan.
+//
+// SCE_TRUE si no quedo ninguna pendiente.
+SceBool Library_RunTagPass(void);
 
 #endif

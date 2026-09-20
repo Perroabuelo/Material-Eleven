@@ -135,17 +135,21 @@ int FLAC_Init(const char *path) {
 	if (tags)
 		FLAC__metadata_object_delete(tags);
 
+	// data_length y no length: length es el tamaño del bloque de metadatos
+	// entero - tipo MIME, descripcion y dimensiones incluidos -, no el de la
+	// imagen. libjpeg no se atragantaba porque para en el marcador EOI, pero le
+	// llegaban de mas los bytes de cabecera que preceden a los datos.
 	FLAC__StreamMetadata *picture;
 	if (config.meta_flac && FLAC__metadata_get_picture(path, &picture, FLAC__STREAM_METADATA_PICTURE_TYPE_FRONT_COVER, "image/jpg", NULL, (unsigned)(-1), (unsigned)(-1),
 		(unsigned)(-1), (unsigned)(-1))) {
 		metadata.has_meta = SCE_TRUE;
-		metadata.cover_image = vita2d_load_JPEG_buffer(picture->data.picture.data, picture->length);
+		metadata.cover_image = vita2d_load_JPEG_buffer(picture->data.picture.data, picture->data.picture.data_length);
 		FLAC__metadata_object_delete(picture);
 	}
 	else if (config.meta_flac && FLAC__metadata_get_picture(path, &picture, FLAC__STREAM_METADATA_PICTURE_TYPE_FRONT_COVER, "image/jpeg", NULL, (unsigned)(-1), (unsigned)(-1),
 		(unsigned)(-1), (unsigned)(-1))) {
 		metadata.has_meta = SCE_TRUE;
-		metadata.cover_image = vita2d_load_JPEG_buffer(picture->data.picture.data, picture->length);
+		metadata.cover_image = vita2d_load_JPEG_buffer(picture->data.picture.data, picture->data.picture.data_length);
 		FLAC__metadata_object_delete(picture);
 	}
 	else if (config.meta_flac && FLAC__metadata_get_picture(path, &picture, FLAC__STREAM_METADATA_PICTURE_TYPE_FRONT_COVER, "image/png", NULL, (unsigned)(-1), (unsigned)(-1),

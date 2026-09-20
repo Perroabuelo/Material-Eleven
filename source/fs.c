@@ -37,6 +37,22 @@ const char *FS_GetFileExt(const char *filename) {
 	return dot + 1;
 }
 
+SceBool FS_IsPlayableExt(const char *ext) {
+	static const char *playable[] = {
+		"flac", "it", "mod", "mp3", "ogg", "opus", "s3m", "wav", "xm"
+	};
+
+	if (ext == NULL)
+		return SCE_FALSE;
+
+	for (unsigned int i = 0; i < sizeof(playable) / sizeof(playable[0]); i++) {
+		if (!strcasecmp(ext, playable[i]))
+			return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
+}
+
 int FS_GetFileSize(const char *path, SceOff *size) {
 	SceIoStat stat;
 	int ret = 0;

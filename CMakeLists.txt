@@ -48,6 +48,7 @@ add_executable(${PROJECT_NAME}
   source/config.c
   source/dirbrowse.c
   source/fs.c
+  source/library.c
   source/main.c
   source/nav_rail.c
   source/queue.c

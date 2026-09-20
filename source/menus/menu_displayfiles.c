@@ -148,7 +148,7 @@ static void Menu_PromptFilter(void) {
 	if (Menu_OpenFilterDialog(&param) < 0)
 		return;
 
-	SceBool abandoned = SCE_FALSE;
+	SceBool abandoned = SCE_FALSE, ever_composed = SCE_FALSE;
 	int compose_fails = 0, combo_frames = 0, frames = 0;
 
 	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
@@ -167,7 +167,16 @@ static void Menu_PromptFilter(void) {
 		// no puede ver qué está pulsando.
 		Utils_ReadControls();
 
-		compose_fails = (composed < 0) ? compose_fails + 1 : 0;
+		// Solo cuenta el fallo de un diálogo que no ha llegado a componerse ni
+		// una vez. Abandonar uno que ya se veía sería peor que no hacer nada:
+		// no se le puede cerrar sin componerlo, y un diálogo del sistema vivo
+		// se queda con la entrada, así que la red dejaría la aplicación sin
+		// navegación en lugar de salvarla. Comprobado en consola sobre el build
+		// con el defecto: sale del lazo, y la navegación no vuelve.
+		if (composed >= 0)
+			ever_composed = SCE_TRUE;
+
+		compose_fails = (composed < 0 && !ever_composed) ? compose_fails + 1 : 0;
 		combo_frames = ((Utils_HeldButtons() & FILTER_ABORT_COMBO) == FILTER_ABORT_COMBO) ? combo_frames + 1 : 0;
 		frames++;
 

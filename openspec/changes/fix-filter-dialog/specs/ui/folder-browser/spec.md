@@ -29,8 +29,8 @@ The system SHALL always leave the user a way out of the filter, both while the t
 - **THEN** vuelve a la lista de carpetas con el filtro que tenía antes, y la pantalla responde de nuevo a los botones y al toque
 
 #### Scenario: La entrada de texto no llega a mostrarse
-- **WHEN** el usuario activa el filtro y la entrada de texto no llega a presentarse o deja de progresar
-- **THEN** la aplicación vuelve por sí sola a la lista de carpetas en un estado utilizable, en lugar de quedar retenida hasta que el usuario cierre el proceso desde el sistema
+- **WHEN** el usuario activa el filtro y la entrada de texto no llega a presentarse
+- **THEN** la aplicación deja de esperarla por sí sola y vuelve a la lista de carpetas, en lugar de quedar retenida indefinidamente, y la reproducción en curso no se interrumpe
 
 #### Scenario: Un filtro sin coincidencias en la raíz del dispositivo
 - **WHEN** el usuario aplica en la raíz del dispositivo un término que no coincide con ninguna entrada, de modo que la lista queda vacía

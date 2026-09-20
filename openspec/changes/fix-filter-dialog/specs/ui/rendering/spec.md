@@ -16,7 +16,7 @@ El sistema SHALL garantizar que toda operación que retenga el lazo de fotograma
 
 #### Scenario: La condición esperada no llega a cumplirse
 - **WHEN** una operación que retiene el lazo de fotogramas espera una condición que no se cumple
-- **THEN** la operación termina por sí sola y devuelve el control a la pantalla anterior, que vuelve a dibujarse y a responder
+- **THEN** la operación termina por sí sola y devuelve el control a la pantalla anterior, que vuelve a dibujarse
 
 #### Scenario: La aplicación sigue dibujando mientras espera
 - **WHEN** la aplicación está esperando el resultado de una operación que retiene el lazo de fotogramas

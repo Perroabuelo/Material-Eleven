@@ -42,6 +42,12 @@ La salida del lazo combina tres mecanismos, en este orden de precedencia:
 
 En los tres casos el filtro queda exactamente como estaba antes de abrir el diálogo, y el diálogo se cierra por la vía ordenada —se le pide que aborte y se espera de forma acotada a que deje de estar en ejecución— antes de volver.
 
+**El límite de la red, medido en consola.** Cerrar ordenadamente un diálogo del sistema exige seguir componiéndolo hasta que informe de que terminó. Si lo que está roto es precisamente la composición, ese cierre es imposible: el aborto no progresa, el drenaje agota sus fotogramas, la terminación falla y el diálogo queda vivo. Un diálogo del sistema vivo retiene la entrada, así que la aplicación sigue dibujando y reproduciendo pero deja de responder a botones y a toque. Se comprobó sobre el build que conserva el defecto: el lazo se abandona como debe, la reproducción continúa, y la navegación no vuelve hasta reiniciar la aplicación.
+
+Por eso el primer mecanismo cuenta únicamente los fallos de un diálogo que **no ha compuesto ni una sola vez** desde que se abrió, y no fallos consecutivos sin más. Un diálogo que ya se veía y tropieza unos fotogramas es un tropiezo; abandonarlo lo dejaría huérfano y la red pasaría a provocar exactamente la avería que existe para evitar. Con el criterio de "nunca compuso", el mecanismo solo puede dispararse en la clase de defecto diagnosticada, que es la que este change corrige, y no a media sesión.
+
+Lo que la red garantiza, entonces, es que la aplicación deje de esperar y que la reproducción no se interrumpa; no garantiza recuperar la entrada cuando el diálogo no se puede cerrar. Los escenarios de ambos deltas dicen eso y no más.
+
 *Alternativa considerada y descartada:* quedarse solo con el pad y el techo, sin mirar el código de error. Descartada al comprobar que la envoltura del motor gráfico sí propaga el error (ver Context): renunciar a la señal exacta para quedarse con dos heurísticas sería aceptar una detección más lenta y menos informativa a cambio de nada.
 
 *Alternativa considerada y descartada:* un techo de tiempo corto y sin abandono explícito. Descartada porque le cortaría la escritura a un usuario lento, convirtiendo un bloqueo en una pérdida de texto silenciosa.

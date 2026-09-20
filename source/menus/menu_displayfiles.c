@@ -1,4 +1,5 @@
 #include <psp2/ime_dialog.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "audio.h"
@@ -68,6 +69,38 @@ static void Menu_DrawFoldersContent(void);
 static SceCommonDialogColor filter_bg_color = { 0, 0, 0, 0 };
 static SceCommonDialogColor filter_dimmer_color = { 0, 0, 0, 160 };
 
+// ANDAMIO TEMPORAL - retirar antes de archivar el change.
+//
+// Pedir esos colores hizo que sceImeDialogInit rechazara los parámetros y que
+// el buscador no abriera nada, y el código de error no se veía por ninguna
+// parte. Así que la apertura pasa a intentarlo con transparencia y, si se la
+// rechazan, a reintentar con el fondo propio del diálogo: el teclado importa
+// más que ver a través de él. El código rechazado queda a la vista para poder
+// decidir si la transparencia es alcanzable o si hay que revisar el spec.
+static char filter_init_note[40] = "";
+
+static int Menu_OpenFilterDialog(SceImeDialogParam *param) {
+	param->commonParam.bgColor = &filter_bg_color;
+	param->commonParam.dimmerColor = &filter_dimmer_color;
+
+	int ret = sceImeDialogInit(param);
+	if (ret >= 0) {
+		filter_init_note[0] = '\0';
+		return ret;
+	}
+
+	snprintf(filter_init_note, sizeof(filter_init_note), "IME rechazo 0x%08X", (unsigned int)ret);
+
+	param->commonParam.bgColor = NULL;
+	param->commonParam.dimmerColor = NULL;
+
+	ret = sceImeDialogInit(param);
+	if (ret < 0)
+		snprintf(filter_init_note, sizeof(filter_init_note), "IME 2x fallo 0x%08X", (unsigned int)ret);
+
+	return ret;
+}
+
 // El fotograma que se dibuja mientras el teclado está delante. Es la misma
 // pantalla que el usuario tenía, no un color plano, porque abrir el buscador
 // no debería hacer desaparecer la carpeta que se estaba mirando.
@@ -121,10 +154,7 @@ static void Menu_PromptFilter(void) {
 	param.maxTextLength = 63;
 	param.initialText = initial;
 	param.inputTextBuffer = input;
-	param.commonParam.bgColor = &filter_bg_color;
-	param.commonParam.dimmerColor = &filter_dimmer_color;
-
-	if (sceImeDialogInit(&param) < 0)
+	if (Menu_OpenFilterDialog(&param) < 0)
 		return;
 
 	SceBool abandoned = SCE_FALSE;
@@ -354,7 +384,11 @@ void Menu_DisplayFiles(void) {
 		const char *back_hint = Dirbrowse_HasFilter() ? "Quitar filtro"
 			: ((strcmp(cwd, root_path) != 0) ? "Carpeta superior" : NULL);
 
-		const char *hints[] = { open_hint, back_hint, NULL, NULL, "SELECT - Ajustes", "START - Salir" };
+		// ANDAMIO TEMPORAL: el tercer hueco muestra lo que el diálogo rechazó,
+		// si rechazó algo. Se retira con el resto del andamio.
+		const char *hints[] = { open_hint, back_hint,
+			filter_init_note[0] ? filter_init_note : NULL, NULL,
+			"SELECT - Ajustes", "START - Salir" };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);

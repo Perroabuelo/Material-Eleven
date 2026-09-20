@@ -31,4 +31,8 @@ void Queue_SetPosition(int index);
 // Indice de esa ruta exacta dentro de la cola, o 0 si no esta.
 int Queue_IndexOf(const char *path);
 
+// Productor de carpeta: vuelca en la cola los archivos reproducibles de esa
+// carpeta, en el mismo orden en que se reproducian antes de existir el modulo.
+int Queue_FillFromFolder(const char *dir);
+
 #endif

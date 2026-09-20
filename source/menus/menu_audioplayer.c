@@ -1,5 +1,4 @@
 #include <psp2/audioout.h>
-#include <psp2/io/dirent.h>
 #include <psp2/power.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +13,7 @@
 #include "menu_displayfiles.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
+#include "queue.h"
 #include "status_bar.h"
 #include "touch.h"
 #include "ui_gpu.h"
@@ -26,56 +26,9 @@ typedef enum {
 	MUSIC_STATE_SHUFFLE // 2
 } Music_State;
 
-static char playlist[1024][512];
-static int count = 0, selection = 0, state = 0;
+static int state = 0;
 static int length_time_width = 0;
 static char *position_time = NULL, *length_time = NULL, *filename = NULL;
-
-static int Menu_GetMusicList(void) {
-	SceUID dir = 0;
-
-	if (R_SUCCEEDED(dir = sceIoDopen(cwd))) {
-		int entryCount = 0, i = 0;
-		SceIoDirent *entries = (SceIoDirent *)calloc(MAX_FILES, sizeof(SceIoDirent));
-
-		// Acotado antes de leer, por lo mismo que Dirbrowse_PopulateFiles: la
-		// cola se construye sobre la misma reserva de MAX_FILES entradas.
-		while ((entryCount < MAX_FILES) && (sceIoDread(dir, &entries[entryCount]) > 0))
-			entryCount++;
-
-		sceIoDclose(dir);
-		qsort(entries, entryCount, sizeof(SceIoDirent), Utils_Alphasort);
-
-		for (i = 0; i < entryCount; i++) {
-			if ((!strncasecmp(FS_GetFileExt(entries[i].d_name), "flac", 4)) || (!strncasecmp(FS_GetFileExt(entries[i].d_name), "it", 4)) ||
-				(!strncasecmp(FS_GetFileExt(entries[i].d_name), "mod", 4)) || (!strncasecmp(FS_GetFileExt(entries[i].d_name), "mp3", 4)) ||
-				(!strncasecmp(FS_GetFileExt(entries[i].d_name), "ogg", 4)) || (!strncasecmp(FS_GetFileExt(entries[i].d_name), "opus", 4)) ||
-				(!strncasecmp(FS_GetFileExt(entries[i].d_name), "s3m", 4)) || (!strncasecmp(FS_GetFileExt(entries[i].d_name), "wav", 4)) ||
-				(!strncasecmp(FS_GetFileExt(entries[i].d_name), "xm", 4))) {
-				strcpy(playlist[count], cwd);
-				strcpy(playlist[count] + strlen(playlist[count]), entries[i].d_name);
-				count++;
-			}
-		}
-
-		free(entries);
-	}
-	else {
-		sceIoDclose(dir);
-		return dir;
-	}
-
-	return 0;
-}
-
-static int Music_GetCurrentIndex(char *path) {
-	for(int i = 0; i < count; ++i) {
-		if (!strcmp(playlist[i], path))
-			return i;
-	}
-
-	return 0;
-}
 
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 	int h = 0, m = 0, s = 0;
@@ -89,7 +42,7 @@ static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 		snprintf(string, 35, "%02d:%02d", m, s);
 }
 
-static void Menu_InitMusic(char *path) {
+static void Menu_InitMusic(const char *path) {
 	Audio_Init(path);
 
 	// A failing ALC mode is no reason to leave the screen without its strings.
@@ -105,7 +58,7 @@ static void Menu_InitMusic(char *path) {
 
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
 	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, length_time);
-	selection = Music_GetCurrentIndex(path);
+	Queue_SetPosition(Queue_IndexOf(path));
 
 	// The fallback rasterises each glyph the first time it is asked for, and a
 	// CJK title brings a dozen new ones at once - enough to show as a hitch on
@@ -146,6 +99,9 @@ static void Music_FreeCurrentTrack(void) {
 }
 
 static void Music_HandleNext(SceBool forward, int next_state) {
+	int count = Queue_Count();
+	int selection = Queue_GetPosition();
+
 	if (next_state == MUSIC_STATE_NONE) {
 		if (forward)
 			selection++;
@@ -164,11 +120,20 @@ static void Music_HandleNext(SceBool forward, int next_state) {
 
 	Utils_SetMax(&selection, 0, (count - 1));
 	Utils_SetMin(&selection, (count - 1), 0);
+	Queue_SetPosition(selection);
+
+	const char *next = Queue_GetPath(selection);
+
+	// La cola vacia ya la filtran los guardas de count en cada llamador, pero
+	// leerla por indice obliga a decirlo aqui tambien: antes el indice iba
+	// directo a un arreglo estatico y siempre apuntaba a algo.
+	if (next == NULL)
+		return;
 
 	Audio_Stop();
 	Music_FreeCurrentTrack();
 	Audio_Term();
-	Menu_InitMusic(playlist[selection]);
+	Menu_InitMusic(next);
 }
 
 const char *Music_GetDisplayTitle(void) {
@@ -191,12 +156,12 @@ void Music_TogglePlayPause(void) {
 }
 
 void Music_Previous(void) {
-	if (Audio_HasTrack() && count != 0)
+	if (Audio_HasTrack() && Queue_Count() != 0)
 		Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
 }
 
 void Music_Next(void) {
-	if (Audio_HasTrack() && count != 0)
+	if (Audio_HasTrack() && Queue_Count() != 0)
 		Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
 }
 
@@ -276,7 +241,8 @@ static void Menu_DrawUpNext(void) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
 	y += 30;
 
-	int upcoming = count - selection - 1;
+	int selection = Queue_GetPosition();
+	int upcoming = Queue_Count() - selection - 1;
 
 	if (upcoming <= 0) {
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UPNEXT_ROW_H), RIGHT_PANEL_R - x, UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
@@ -284,7 +250,11 @@ static void Menu_DrawUpNext(void) {
 	}
 
 	for (int i = 0; i < 2 && i < upcoming; i++) {
-		char *path = playlist[selection + 1 + i];
+		const char *path = Queue_GetPath(selection + 1 + i);
+
+		if (path == NULL)
+			break;
+
 		char *name = Utils_Basename(path);
 
 		UI_DrawRoundedRect(x, y + 7, 34, 34, 9, UI_COLOR_SURFACE_2);
@@ -337,13 +307,13 @@ static SceBool Menu_HandleTransportTouch(void) {
 	}
 
 	if (UI_TouchTarget(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
-		if (count != 0)
+		if (Queue_Count() != 0)
 			Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(next_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
-		if (count != 0)
+		if (Queue_Count() != 0)
 			Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
 		return SCE_TRUE;
 	}
@@ -428,13 +398,13 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		if (!playing) {
 			if (state == MUSIC_STATE_NONE) {
-				if (count != 0)
+				if (Queue_Count() != 0)
 					Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
 			}
 			else if (state == MUSIC_STATE_REPEAT)
 				Music_HandleNext(SCE_FALSE, MUSIC_STATE_REPEAT);
 			else if (state == MUSIC_STATE_SHUFFLE) {
-				if (count != 0)
+				if (Queue_Count() != 0)
 					Music_HandleNext(SCE_FALSE, MUSIC_STATE_SHUFFLE);
 			}
 		}
@@ -475,11 +445,11 @@ static void Menu_RunNowPlayingLoop(void) {
 			state = (state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT;
 
 		if (pressed & SCE_CTRL_LTRIGGER) {
-			if (count != 0)
+			if (Queue_Count() != 0)
 				Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
 		}
 		else if (pressed & SCE_CTRL_RTRIGGER) {
-			if (count != 0)
+			if (Queue_Count() != 0)
 				Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
 		}
 
@@ -499,10 +469,10 @@ void Menu_PlayAudio(char *path) {
 		Audio_Stop();
 		Music_FreeCurrentTrack();
 		Audio_Term();
-		count = 0;
+		Queue_Clear();
 	}
 
-	Menu_GetMusicList();
+	Queue_FillFromFolder(cwd);
 	Menu_InitMusic(path);
 
 	Menu_RunNowPlayingLoop();

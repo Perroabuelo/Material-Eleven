@@ -26,6 +26,56 @@
 static float Menu_FilterBoxX(void) { return 960 - 22 - FILTER_W; }
 static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
 
+// ---- Salidas del lazo del diálogo ----
+//
+// Mientras gira, el lazo del teclado sustituye al lazo de fotogramas de
+// Menu_DisplayFiles: nada más de la aplicación dibuja ni lee la entrada. Un
+// diálogo que no salga de SCE_COMMON_DIALOG_STATUS_RUNNING se lleva por
+// delante la aplicación entera, que es exactamente como se envió esta
+// pantalla. Tres salidas, de la más precisa a la más tosca.
+//
+// 1. El código de error de la composición. vita2d_common_dialog_update hace
+//    una llamada de cola a sceCommonDialogUpdate y devuelve su error sin
+//    tocarlo, así que este es el defecto en sí y no una inferencia sobre él:
+//    componer con una escena abierta falla en todos y cada uno de los
+//    fotogramas. Se piden varios seguidos para no abandonar por un tropiezo.
+#define FILTER_COMPOSE_FAILS 8
+// 2. El abandono que pide el usuario. L y R juntos no aparecen al escribir, y
+//    START los aísla de cualquier pulsación suelta; el teclado del sistema no
+//    usa ninguno de los tres. El mantenido evita el disparo accidental.
+#define FILTER_ABORT_COMBO  (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_START)
+#define FILTER_ABORT_FRAMES 90
+// 3. La última red, por si ni la composición informa ni el pad llega. Holgada
+//    a propósito: cortarle la escritura a alguien lento convertiría un
+//    bloqueo en una pérdida de texto silenciosa.
+#define FILTER_MAX_FRAMES 7200
+// Abortar es una petición, no un cierre: hay que dejar que el diálogo salga de
+// RUNNING antes de terminarlo, y esa espera también va acotada.
+#define FILTER_DRAIN_FRAMES 60
+
+// La leyenda va donde la pantalla de carpetas pone la suya. Cuando el diálogo
+// compone, el teclado la tapa; cuando no compone, es lo único en pantalla, y
+// es justo entonces cuando el usuario necesita saber por dónde salir.
+static void Menu_DrawFilterFrame(void) {
+	const char *hints[] = { "L + R + START - Cancelar la búsqueda", NULL };
+	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 2);
+}
+
+// Cierre ordenado: se pide el aborto y se espera de forma acotada a que el
+// diálogo deje de estar en ejecución, en vez de terminarlo por debajo.
+static void Menu_AbandonFilterDialog(void) {
+	sceImeDialogAbort();
+
+	for (int i = 0; i < FILTER_DRAIN_FRAMES && sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING; i++) {
+		vita2d_start_drawing();
+		vita2d_clear_screen();
+		Menu_DrawFilterFrame();
+		vita2d_common_dialog_update();
+		vita2d_end_drawing();
+		vita2d_swap_buffers();
+	}
+}
+
 static void Menu_PromptFilter(void) {
 	SceWChar16 title[] = u"Buscar en esta carpeta";
 	SceWChar16 initial[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
@@ -50,15 +100,36 @@ static void Menu_PromptFilter(void) {
 	if (sceImeDialogInit(&param) < 0)
 		return;
 
+	SceBool abandoned = SCE_FALSE;
+	int compose_fails = 0, combo_frames = 0, frames = 0;
+
 	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
 		vita2d_start_drawing();
 		vita2d_clear_screen();
-		vita2d_common_dialog_update();
+		Menu_DrawFilterFrame();
+		int composed = vita2d_common_dialog_update();
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+
+		// El pad se lee aquí y solo para el abandono: la pantalla de fondo no
+		// procesa entrada mientras el teclado está delante, porque el usuario
+		// no puede ver qué está pulsando.
+		Utils_ReadControls();
+
+		compose_fails = (composed < 0) ? compose_fails + 1 : 0;
+		combo_frames = ((Utils_HeldButtons() & FILTER_ABORT_COMBO) == FILTER_ABORT_COMBO) ? combo_frames + 1 : 0;
+		frames++;
+
+		if ((compose_fails >= FILTER_COMPOSE_FAILS) || (combo_frames >= FILTER_ABORT_FRAMES) || (frames >= FILTER_MAX_FRAMES)) {
+			abandoned = SCE_TRUE;
+			break;
+		}
 	}
 
-	if (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
+	// Al abandonar, el resultado no se mira: el filtro queda como estaba.
+	if (abandoned)
+		Menu_AbandonFilterDialog();
+	else if (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_FINISHED) {
 		SceImeDialogResult result;
 		memset(&result, 0, sizeof(result));
 		sceImeDialogGetResult(&result);

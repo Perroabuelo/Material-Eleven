@@ -31,6 +31,10 @@ int Utils_ReadControls(void) {
 	return 0;
 }
 
+SceUInt32 Utils_HeldButtons(void) {
+	return pad.buttons;
+}
+
 int Utils_InitAppUtil(void) {
 	SceAppUtilInitParam init;
 	SceAppUtilBootParam boot;

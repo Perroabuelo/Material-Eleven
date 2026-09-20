@@ -4,6 +4,10 @@
 void Utils_SetMax(int *set, int value, int max);
 void Utils_SetMin(int *set, int value, int min);
 int Utils_ReadControls(void);
+// Buttons held down as of the last Utils_ReadControls, not the edge that
+// `pressed` carries. A hold is what an escape combo has to be made of: an
+// edge cannot be distinguished from a stray tap.
+SceUInt32 Utils_HeldButtons(void);
 int Utils_InitAppUtil(void);
 int Utils_TermAppUtil(void);
 int Utils_GetEnterButton(void);

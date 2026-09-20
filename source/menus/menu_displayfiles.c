@@ -308,9 +308,18 @@ static void Menu_HandleControls(void) {
 			Dirbrowse_OpenFile();
 	}
 
-	if ((strcmp(cwd, root_path) != 0) && (pressed & SCE_CTRL_CANCEL)) {
-		Dirbrowse_Navigate(SCE_TRUE);
-		Dirbrowse_PopulateFiles(SCE_TRUE);
+	// El filtro es un estado superpuesto a la carpeta, así que cancelar deshace
+	// lo más reciente primero y solo después sube. Es además la única salida
+	// por botón físico cuando un filtro sin coincidencias deja la lista vacía
+	// en la raíz, donde no hay carpeta superior a la que volver y por tanto no
+	// había ninguna: el filtro solo podía quitarse por toque.
+	if (pressed & SCE_CTRL_CANCEL) {
+		if (Dirbrowse_HasFilter())
+			Dirbrowse_ClearFilter();
+		else if (strcmp(cwd, root_path) != 0) {
+			Dirbrowse_Navigate(SCE_TRUE);
+			Dirbrowse_PopulateFiles(SCE_TRUE);
+		}
 	}
 }
 
@@ -324,7 +333,15 @@ void Menu_DisplayFiles(void) {
 
 		Menu_DrawFoldersContent();
 
-		const char *hints[] = { "Abrir / Reproducir", "Carpeta superior", NULL, NULL, "SELECT - Ajustes", "START - Salir" };
+		// La leyenda anuncia lo que el botón hace ahora mismo, no lo que suele
+		// hacer: con un filtro puesto cancelar lo quita, y en la raíz sin
+		// filtro no hay nada que cancelar. Abrir tampoco se anuncia cuando el
+		// filtro no dejó ninguna entrada sobre la que actuar.
+		const char *open_hint = Dirbrowse_GetVisibleCount() > 0 ? "Abrir / Reproducir" : NULL;
+		const char *back_hint = Dirbrowse_HasFilter() ? "Quitar filtro"
+			: ((strcmp(cwd, root_path) != 0) ? "Carpeta superior" : NULL);
+
+		const char *hints[] = { open_hint, back_hint, NULL, NULL, "SELECT - Ajustes", "START - Salir" };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);

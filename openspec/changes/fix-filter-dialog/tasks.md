@@ -54,5 +54,5 @@
 
 - [ ] 5.1 Ejecutar el PPB completo sobre el árbol final, en frío y con la consola recién arrancada
 - [ ] 5.2 Recorrer uno por uno los escenarios de los dos deltas de spec (`ui/folder-browser` y `ui/rendering`) sobre la consola y confirmar que cada uno se cumple, dejando constancia de cuál se verificó con qué maniobra
-- [ ] 5.3 Confirmar por inspección que la lógica de filtrado en `source/dirbrowse.c` no fue modificada, que es lo que `design.md` declara fuera de alcance
-- [ ] 5.4 Confirmar que el historial del change son commits por etapas y no un commit único, de modo que cada etapa siga siendo bisectable
+- [x] 5.3 Confirmar por inspección que la lógica de filtrado en `source/dirbrowse.c` no fue modificada, que es lo que `design.md` declara fuera de alcance
+- [x] 5.4 Confirmar que el historial del change son commits por etapas y no un commit único, de modo que cada etapa siga siendo bisectable

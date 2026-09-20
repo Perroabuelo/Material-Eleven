@@ -28,12 +28,12 @@
 
 ## 2. Composición del diálogo fuera de la escena de dibujo
 
-- [ ] 2.1 Mover la actualización del diálogo detrás del cierre de la escena del fotograma y delante de la presentación del buffer; verificar en consola que el teclado del sistema aparece efectivamente en pantalla, que es la corrección del defecto
-- [ ] 2.2 Escribir un término y aceptarlo; verificar que la lista se reduce a las entradas cuyo nombre lo contiene y que la píldora del buscador muestra el término vigente
-- [ ] 2.3 Reabrir el buscador con un filtro ya aplicado; verificar que el teclado se abre con el término vigente ya cargado, y que cancelar devuelve a la lista con ese filtro intacto
-- [ ] 2.4 Añadir la configuración del subsistema de diálogos comunes en el arranque, junto al resto de la inicialización de servicios del sistema; verificar que los botones que confirman y descartan el teclado coinciden con los que la aplicación usa para abrir y para volver, probándolo con las dos asignaciones que la consola permite elegir
-- [ ] 2.5 Solo si el teclado siguiera sin aparecer tras 2.1: arrancar forzando la degradación a sin multisampling y repetir la apertura, dejando el resultado registrado para descartar o confirmar el sospechoso siguiente que `design.md` anota
-- [ ] 2.6 Ejecutar el PPB sobre esta etapa
+- [x] 2.1 Mover la actualización del diálogo detrás del cierre de la escena del fotograma y delante de la presentación del buffer; verificar en consola que el teclado del sistema aparece efectivamente en pantalla, que es la corrección del defecto
+- [x] 2.2 Escribir un término y aceptarlo; verificar que la lista se reduce a las entradas cuyo nombre lo contiene y que la píldora del buscador muestra el término vigente
+- [x] 2.3 Reabrir el buscador con un filtro ya aplicado; verificar que el teclado se abre con el término vigente ya cargado, y que cancelar devuelve a la lista con ese filtro intacto
+- [x] 2.4 Añadir la configuración del subsistema de diálogos comunes en el arranque, junto al resto de la inicialización de servicios del sistema; verificar que los botones que confirman y descartan el teclado coinciden con los que la aplicación usa para abrir y para volver, probándolo con las dos asignaciones que la consola permite elegir
+- [x] 2.5 **No aplicó.** La tarea estaba condicionada a que el teclado siguiera sin aparecer tras 2.1, y apareció. El modo de multisampling queda descartado como causa sin necesidad de forzar la degradación, y con él el único sospechoso alternativo que `design.md` anotaba
+- [x] 2.6 Ejecutar el PPB sobre esta etapa
 
 ## 3. La lista sigue visible detrás del teclado
 

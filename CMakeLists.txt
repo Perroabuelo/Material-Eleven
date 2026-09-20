@@ -50,6 +50,7 @@ add_executable(${PROJECT_NAME}
   source/fs.c
   source/library.c
   source/main.c
+  source/mini_player.c
   source/nav_rail.c
   source/queue.c
   source/status_bar.c

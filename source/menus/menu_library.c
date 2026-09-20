@@ -9,6 +9,7 @@
 #include "menu_displayfiles.h"
 #include "menu_library.h"
 #include "menu_settings.h"
+#include "mini_player.h"
 #include "nav_rail.h"
 #include "queue.h"
 #include "status_bar.h"
@@ -137,8 +138,11 @@ static void Menu_DrawLibraryList(void) {
 	else
 		snprintf(counter, sizeof(counter), "%d de %d", selection + 1, count);
 
+	// Justo debajo de la ultima fila y por encima del mini reproductor, que
+	// empieza en MiniPlayer_Top(): asi el contador no queda tapado cuando hay
+	// algo sonando ni suelto en medio cuando no.
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, CONTENT_X + 22,
-		UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 544 - UI_HINT_BAR_HEIGHT - 30, 22),
+		UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, LIST_TOP + ROWS_PER_PAGE * ROW_H + 4, 22),
 		UI_COLOR_TEXT_MUTED, counter);
 }
 
@@ -146,7 +150,7 @@ static void Menu_DrawLibraryNotice(void) {
 	if (notice_frames <= 0)
 		return;
 
-	float h = 44.0f, y = 544 - UI_HINT_BAR_HEIGHT - h - 8;
+	float h = 44.0f, y = MiniPlayer_Top() - h - 8;
 
 	UI_DrawRoundedRect(CONTENT_X + 16, y, 960 - CONTENT_X - 32, h, 12, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 32, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, h),
@@ -300,6 +304,7 @@ void Menu_DisplayLibrary(void) {
 				break;
 		}
 
+		MiniPlayer_Draw();
 		Menu_DrawLibraryNotice();
 
 		const char *play_hint = (state == LIBRARY_STATE_READY) ? "Reproducir" : "Empezar";
@@ -335,6 +340,9 @@ void Menu_DisplayLibrary(void) {
 			Menu_ShowNowPlaying();
 			return;
 		}
+
+		if (MiniPlayer_HandleTouch())
+			continue;
 
 		Menu_HandleLibraryControls(state);
 

@@ -9,15 +9,23 @@
 #include "queue.h"
 #include "utils.h"
 
-// La reserva es, por ahora, exactamente la que tenia el playlist[1024][512]
-// estatico de menu_audioplayer.c, para que mudar la cola aqui no cambie ni el
-// consumo ni el comportamiento. Dimensionarla a la cola real es el paso
-// siguiente, y queda dentro de este archivo.
-#define QUEUE_MAX_TRACKS 1024
-#define QUEUE_PATH_MAX   512
+// Techo declarado, no tamaño reservado: la cola crece hasta aqui y no mas, pero
+// una carpeta de doce canciones cuesta doce rutas y no el techo. Coincide con el
+// techo de pistas de la biblioteca que fijo la medicion del grupo 0, para que una
+// vista de biblioteca llena quepa entera en la cola.
+#define QUEUE_MAX_TRACKS 4000
 
-static char queue_paths[QUEUE_MAX_TRACKS][QUEUE_PATH_MAX];
+// Cuanto se reserva la primera vez, y desde donde se duplica. Una carpeta de
+// album cabe entera sin un solo realloc.
+#define QUEUE_INITIAL_CAPACITY 32
+
+// Lo que admite una ruta al componerla. Es el mismo limite que tenia la fila del
+// arreglo estatico, de modo que lo que se truncaba antes se trunca igual.
+#define QUEUE_PATH_MAX 512
+
+static char **queue_paths = NULL;
 static int queue_count = 0;
+static int queue_capacity = 0;
 static int queue_position = 0;
 
 // Une carpeta y nombre acotando a mano, que es lo mismo que hace el navegador
@@ -35,8 +43,33 @@ static void Queue_JoinPath(char *dst, size_t cap, const char *dir, const char *n
 	dst[n] = '\0';
 }
 
+static SceBool Queue_Grow(void) {
+	int next = (queue_capacity == 0) ? QUEUE_INITIAL_CAPACITY : queue_capacity * 2;
+
+	if (next > QUEUE_MAX_TRACKS)
+		next = QUEUE_MAX_TRACKS;
+
+	if (next <= queue_capacity)
+		return SCE_FALSE;
+
+	char **grown = (char **)realloc(queue_paths, (size_t)next * sizeof(char *));
+
+	if (grown == NULL)
+		return SCE_FALSE;
+
+	queue_paths = grown;
+	queue_capacity = next;
+	return SCE_TRUE;
+}
+
 void Queue_Clear(void) {
+	for (int i = 0; i < queue_count; i++)
+		free(queue_paths[i]);
+
+	free(queue_paths);
+	queue_paths = NULL;
 	queue_count = 0;
+	queue_capacity = 0;
 	queue_position = 0;
 }
 
@@ -44,9 +77,21 @@ SceBool Queue_Add(const char *path) {
 	if (path == NULL || queue_count >= QUEUE_MAX_TRACKS)
 		return SCE_FALSE;
 
-	// Acotado, a diferencia del strcpy que esto releva: una ruta mas larga que
-	// la fila se queda truncada en vez de escribir en la fila siguiente.
-	snprintf(queue_paths[queue_count], QUEUE_PATH_MAX, "%s", path);
+	if ((queue_count == queue_capacity) && !Queue_Grow())
+		return SCE_FALSE;
+
+	// Cada ruta ocupa lo que mide, no lo que midan las demas: donde el arreglo
+	// estatico gastaba 512 bytes por pista tuviera la ruta el largo que tuviera,
+	// aqui una ruta de 78 bytes - que es la media medida en una coleccion real -
+	// cuesta 79.
+	size_t len = strlen(path) + 1;
+	char *copy = (char *)malloc(len);
+
+	if (copy == NULL)
+		return SCE_FALSE;
+
+	memcpy(copy, path, len);
+	queue_paths[queue_count] = copy;
 	queue_count++;
 	return SCE_TRUE;
 }

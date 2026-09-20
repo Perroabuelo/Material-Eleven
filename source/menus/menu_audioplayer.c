@@ -43,8 +43,10 @@ static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 		snprintf(string, 35, "%02d:%02d", m, s);
 }
 
-static void Menu_InitMusic(const char *path) {
-	Audio_Init(path);
+static SceBool Menu_InitMusic(const char *path) {
+	// Sin esto, todo lo de abajo interroga a un decoder que no abrio.
+	if (R_FAILED(Audio_Init(path)))
+		return SCE_FALSE;
 
 	// A failing ALC mode is no reason to leave the screen without its strings.
 	// This used to return here, and since the teardown frees them and nulls
@@ -76,6 +78,7 @@ static void Menu_InitMusic(const char *path) {
 	// waiting rather than on the first frame they look at.
 	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayTitle());
 	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayArtist());
+	return SCE_TRUE;
 }
 
 static void Music_FreeCurrentTrack(void) {
@@ -99,6 +102,10 @@ static void Music_FreeCurrentTrack(void) {
 	UI_GpuFreeTexture(&metadata.cover_image);
 }
 
+// Puesta cuando ninguna pista de la cola llego a abrirse. La lee el lazo
+// de Now Playing para salir, en vez de quedarse dibujando sin track.
+static SceBool track_failed = SCE_FALSE;
+
 static void Music_HandleNext(SceBool forward, int next_state) {
 	int count = Queue_Count();
 	int selection = Queue_GetPosition();
@@ -119,29 +126,37 @@ static void Music_HandleNext(SceBool forward, int next_state) {
 			selection--;
 	}
 
-	Utils_SetMax(&selection, 0, (count - 1));
-	Utils_SetMin(&selection, (count - 1), 0);
-	Queue_SetPosition(selection);
-
-	const char *next = Queue_GetPath(selection);
-
-	// La cola vacia ya la filtran los guardas de count en cada llamador, pero
-	// leerla por indice obliga a decirlo aqui tambien: antes el indice iba
-	// directo a un arreglo estatico y siempre apuntaba a algo.
-	if (next == NULL)
-		return;
-
 	Audio_Stop();
 	Music_FreeCurrentTrack();
 	Audio_Term();
-	Menu_InitMusic(next);
+
+	// Una pista que no abre no puede quedarse con la pantalla: se salta y se
+	// prueba la siguiente en la misma direccion. Como mucho una vuelta
+	// entera a la cola, que es lo que acota esto cuando no abre ninguna.
+	for (int tries = 0; tries < count; tries++) {
+		Utils_SetMax(&selection, 0, (count - 1));
+		Utils_SetMin(&selection, (count - 1), 0);
+
+		const char *next = Queue_GetPath(selection);
+
+		if (next != NULL && Menu_InitMusic(next)) {
+			Queue_SetPosition(selection);
+			return;
+		}
+
+		selection += forward ? 1 : -1;
+	}
+
+	track_failed = SCE_TRUE;
 }
 
 const char *Music_GetDisplayTitle(void) {
 	if ((metadata.has_meta) && (metadata.title[0] != '\0'))
 		return metadata.title;
 
-	return filename;
+	// Nunca NULL: el desmontaje libera filename y lo anula, y esta pantalla
+	// ya se cayo una vez dibujando desde ahi.
+	return (filename != NULL) ? filename : "";
 }
 
 const char *Music_GetDisplayArtist(void) {
@@ -333,7 +348,17 @@ static SceBool Menu_HandleTransportTouch(void) {
 }
 
 static void Menu_RunNowPlayingLoop(void) {
+	track_failed = SCE_FALSE;
+
 	while (SCE_TRUE) {
+		// Antes de dibujar: sin track, las cadenas de esta pantalla estan
+		// liberadas y puestas a NULL.
+		if (track_failed) {
+			track_failed = SCE_FALSE;
+			Touch_Reset();
+			return;
+		}
+
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 
@@ -478,25 +503,30 @@ static void Menu_StopCurrentTrack(void) {
 	}
 }
 
-void Menu_PlayAudio(char *path) {
+SceBool Menu_PlayAudio(char *path) {
 	Menu_StopCurrentTrack();
 
 	// La cola es la carpeta, que es lo que este camino siempre quiso decir.
 	Queue_Clear();
 	Queue_FillFromFolder(cwd);
-	Menu_InitMusic(path);
+
+	if (!Menu_InitMusic(path))
+		return SCE_FALSE;
 
 	Menu_RunNowPlayingLoop();
+	return SCE_TRUE;
 }
 
-void Menu_PlayQueued(const char *path) {
+SceBool Menu_PlayQueued(const char *path) {
 	Menu_StopCurrentTrack();
 
 	// Sin tocar la cola: la trae hecha quien llama, y rehacerla desde cwd
 	// es justamente lo que dejo de ser obligatorio.
-	Menu_InitMusic(path);
+	if (!Menu_InitMusic(path))
+		return SCE_FALSE;
 
 	Menu_RunNowPlayingLoop();
+	return SCE_TRUE;
 }
 
 void Menu_ShowNowPlaying(void) {

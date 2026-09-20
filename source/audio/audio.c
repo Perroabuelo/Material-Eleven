@@ -146,7 +146,18 @@ int Audio_Init(const char *path) {
 			break;
 	}
 
-	(* decoder.init)(path);
+	// El valor de retorno se miraba y se tiraba. Un decoder que no abrio deja
+	// su handle en NULL, y los getters no lo comprueban - FLAC_GetSampleRate
+	// es "return flac->sampleRate" a secas -, asi que seguir de aqui a
+	// vitaAudioInit era leer de un handle que nunca existio. Cualquier archivo
+	// con extension reconocida y contenido inservible tumbaba la aplicacion.
+	if ((* decoder.init)(path) != 0) {
+		decoder = empty_decoder;
+		metadata = empty_metadata;
+		file_type = FILE_TYPE_NONE;
+		track_loaded = SCE_FALSE;
+		return -1;
+	}
 
 	// decoder.init is where FLAC_Init / MP3_Init / OPUS_Init decode the embedded
 	// cover art into metadata.cover_image, so this is the single point per track

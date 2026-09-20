@@ -1,12 +1,16 @@
 #ifndef _ELEVENMPV_MENU_PLAYAUDIO_H_
 #define _ELEVENMPV_MENU_PLAYAUDIO_H_
 
+#include <psp2/types.h>
+
 // Starts playback of `path` and shows the Now Playing screen. Tears down
 // whatever track was previously loaded first, if any.
-void Menu_PlayAudio(char *path);
+// SCE_FALSE si el archivo no se pudo decodificar; entonces no se entra a
+// Now Playing y no suena nada.
+SceBool Menu_PlayAudio(char *path);
 // Igual, pero sin construir la cola: la trae hecha quien llama. Es lo que
 // usa la biblioteca, cuya cola es la vista y no la carpeta del archivo.
-void Menu_PlayQueued(const char *path);
+SceBool Menu_PlayQueued(const char *path);
 // Re-enters the Now Playing screen for the track already loaded in the
 // background (used by the nav rail from Folders/Settings). No-op if
 // nothing is currently loaded.

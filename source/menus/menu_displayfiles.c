@@ -57,6 +57,17 @@ static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
 // comparten el lazo normal y el fondo del diálogo, que deben mostrar lo mismo.
 static void Menu_DrawFoldersContent(void);
 
+// Dibujar la pantalla debajo del teclado no basta por sí solo: el diálogo trae
+// su propio fondo a pantalla completa y, con los punteros de color a NULL como
+// los deja sceImeDialogParamInit, lo pinta opaco y tapa lo que haya debajo.
+// Pidiéndole un fondo transparente, lo que se ve detrás es la carpeta; el
+// atenuador se queda para que el teclado siga legible encima de ella.
+//
+// Son punteros que el diálogo conserva, así que el almacenamiento vive fuera
+// de la función que abre el teclado y no en su marco de pila.
+static SceCommonDialogColor filter_bg_color = { 0, 0, 0, 0 };
+static SceCommonDialogColor filter_dimmer_color = { 0, 0, 0, 160 };
+
 // El fotograma que se dibuja mientras el teclado está delante. Es la misma
 // pantalla que el usuario tenía, no un color plano, porque abrir el buscador
 // no debería hacer desaparecer la carpeta que se estaba mirando.
@@ -110,6 +121,8 @@ static void Menu_PromptFilter(void) {
 	param.maxTextLength = 63;
 	param.initialText = initial;
 	param.inputTextBuffer = input;
+	param.commonParam.bgColor = &filter_bg_color;
+	param.commonParam.dimmerColor = &filter_dimmer_color;
 
 	if (sceImeDialogInit(&param) < 0)
 		return;

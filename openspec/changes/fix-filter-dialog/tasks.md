@@ -20,7 +20,7 @@
 ## 1. Salida garantizada del lazo del diálogo
 
 - [ ] 1.1 Comprobar el código de error que devuelve la composición del diálogo y abandonar el lazo tras varios fotogramas consecutivos con error, que es el detector principal; verificar en consola que al abrir el buscador —que en esta etapa sigue sin componerse— la aplicación vuelve sola a la lista casi de inmediato en vez de quedar retenida
-- [ ] 1.2 Leer el pad dentro del lazo del diálogo, que hoy no lo hace, y añadir el abandono explícito por combinación de botones mantenida varios fotogramas; verificar en consola que la combinación devuelve a la lista y la aplicación vuelve a responder a botones y toque
+- [x] 1.2 Leer el pad dentro del lazo del diálogo, que hoy no lo hace, y añadir el abandono explícito por combinación de botones mantenida varios fotogramas; verificar en consola que la combinación devuelve a la lista y la aplicación vuelve a responder a botones y toque
 - [ ] 1.3 Elegir la combinación entre las que el teclado del sistema no utiliza y comprobar en consola que no se dispara por una pulsación accidental ni interfiere con el uso normal de la pantalla de carpetas
 - [ ] 1.4 Añadir el techo absoluto de fotogramas como última red; verificar que, sin tocar nada y con los dos mecanismos anteriores neutralizados, la aplicación vuelve sola a la lista, y medir el tiempo real que tarda para confirmar por escrito que es holgado frente a lo que tarda una persona en escribir un término
 - [ ] 1.5 Comprobar que el diálogo se cierra por la vía ordenada en las tres salidas —se le pide abortar y se espera de forma acotada— y que el filtro queda exactamente como estaba antes de abrirlo: sin filtro si no lo había, con el término previo si lo había

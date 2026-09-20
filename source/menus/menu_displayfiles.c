@@ -6,6 +6,7 @@
 #include "common.h"
 #include "dirbrowse.h"
 #include "menu_audioplayer.h"
+#include "menu_library.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
 #include "status_bar.h"
@@ -366,6 +367,102 @@ static void Menu_HandleControls(void) {
 	}
 }
 
+// Modo seleccion de carpeta. No es un selector nuevo: es esta misma pantalla,
+// su misma navegacion y su mismo dibujado, con la accion de confirmar cambiada
+// y sin ninguna ruta hacia la reproduccion. Escribir un selector propio habria
+// duplicado navegacion, dibujado y entrada que aqui ya estaban resueltos.
+SceBool Menu_PickFolder(char *out, int cap) {
+	char saved_cwd[512];
+	char saved_filter[64];
+	int saved_position = position;
+	SceBool picked = SCE_FALSE;
+
+	snprintf(saved_cwd, sizeof(saved_cwd), "%s", cwd);
+	snprintf(saved_filter, sizeof(saved_filter), "%s", Dirbrowse_GetFilter());
+
+	Dirbrowse_ClearFilter();
+	Dirbrowse_PopulateFiles(SCE_TRUE);
+	Touch_Reset();
+
+	while (SCE_TRUE) {
+		vita2d_start_drawing();
+		vita2d_clear_screen();
+
+		Menu_DrawFoldersContent();
+
+		const char *back_hint = (strcmp(cwd, root_path) != 0) ? "Carpeta superior" : "Cancelar";
+		const char *hints[] = { "Entrar", back_hint, "Triangulo - Elegir esta carpeta", NULL, NULL };
+		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+
+		// El rail se dibuja pero no navega: salir de aqui a media eleccion dejaria
+		// el navegador movido de donde estaba.
+		NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);
+		UI_Debug_Draw();
+
+		vita2d_end_drawing();
+		vita2d_swap_buffers();
+
+		Utils_ReadControls();
+		Touch_Update();
+		UI_Debug_Update();
+		UI_Theme_RenewFallbackIfNeeded();
+
+		int visible_count = Dirbrowse_GetVisibleCount();
+
+		if (visible_count > 0) {
+			if (pressed & SCE_CTRL_UP)
+				position--;
+			else if (pressed & SCE_CTRL_DOWN)
+				position++;
+
+			Utils_SetMax(&position, 0, visible_count - 1);
+			Utils_SetMin(&position, visible_count - 1, 0);
+		}
+
+		if (pressed & SCE_CTRL_ENTER) {
+			File *file = Dirbrowse_GetFileIndex(position);
+
+			// Sobre una carpeta, confirmar entra; sobre cualquier otra cosa elige
+			// la carpeta actual. Lo que no hace nunca es reproducir.
+			if (file != NULL && file->is_dir) {
+				if (R_SUCCEEDED(Dirbrowse_Navigate(SCE_FALSE)))
+					Dirbrowse_PopulateFiles(SCE_TRUE);
+			}
+			else {
+				picked = SCE_TRUE;
+				break;
+			}
+		}
+
+		if (pressed & SCE_CTRL_TRIANGLE) {
+			picked = SCE_TRUE;
+			break;
+		}
+
+		if (pressed & SCE_CTRL_CANCEL) {
+			if (strcmp(cwd, root_path) != 0) {
+				Dirbrowse_Navigate(SCE_TRUE);
+				Dirbrowse_PopulateFiles(SCE_TRUE);
+			}
+			else
+				break;
+		}
+	}
+
+	if (picked)
+		snprintf(out, cap, "%s", cwd);
+
+	// El navegador vuelve exactamente a donde estaba, se haya elegido o no:
+	// library/index pide que escanear no altere donde esta parado.
+	snprintf(cwd, sizeof(cwd), "%s", saved_cwd);
+	Dirbrowse_PopulateFiles(SCE_TRUE);
+	Dirbrowse_SetFilter(saved_filter);
+	position = saved_position;
+	Touch_Reset();
+
+	return picked;
+}
+
 void Menu_DisplayFiles(void) {
 	Dirbrowse_PopulateFiles(SCE_FALSE);
 	vita2d_set_clear_color(UI_COLOR_BG);
@@ -400,6 +497,10 @@ void Menu_DisplayFiles(void) {
 
 		if (tapped == UI_SCREEN_SETTINGS) {
 			Menu_DisplaySettings();
+			return;
+		}
+		else if (tapped == UI_SCREEN_LIBRARY) {
+			Menu_DisplayLibrary();
 			return;
 		}
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {

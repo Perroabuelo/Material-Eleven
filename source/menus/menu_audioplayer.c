@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
+#include "menu_library.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
 #include "queue.h"
@@ -419,6 +420,11 @@ static void Menu_RunNowPlayingLoop(void) {
 			Menu_DisplayFiles();
 			return;
 		}
+		else if (tapped == UI_SCREEN_LIBRARY) {
+			Touch_Reset();
+			Menu_DisplayLibrary();
+			return;
+		}
 		else if (tapped == UI_SCREEN_SETTINGS) {
 			Touch_Reset();
 			Menu_DisplaySettings();
@@ -464,15 +470,30 @@ static void Menu_RunNowPlayingLoop(void) {
 	}
 }
 
-void Menu_PlayAudio(char *path) {
+static void Menu_StopCurrentTrack(void) {
 	if (Audio_HasTrack()) {
 		Audio_Stop();
 		Music_FreeCurrentTrack();
 		Audio_Term();
-		Queue_Clear();
 	}
+}
 
+void Menu_PlayAudio(char *path) {
+	Menu_StopCurrentTrack();
+
+	// La cola es la carpeta, que es lo que este camino siempre quiso decir.
+	Queue_Clear();
 	Queue_FillFromFolder(cwd);
+	Menu_InitMusic(path);
+
+	Menu_RunNowPlayingLoop();
+}
+
+void Menu_PlayQueued(const char *path) {
+	Menu_StopCurrentTrack();
+
+	// Sin tocar la cola: la trae hecha quien llama, y rehacerla desde cwd
+	// es justamente lo que dejo de ser obligatorio.
 	Menu_InitMusic(path);
 
 	Menu_RunNowPlayingLoop();

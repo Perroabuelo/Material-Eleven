@@ -13,6 +13,7 @@
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "library.h"
 #include "menu_displayfiles.h"
 #include "touch.h"
 #include "ui_gpu.h"
@@ -78,6 +79,11 @@ int main(int argc, char *argv[]) {
 	sceIoMkdir("ux0:data/ElevenMPV", 0777);
 	Config_Load();
 	Config_GetLastDirectory();
+
+	// La carpeta de escaneo primero: el indice se descarta si habla de
+	// otra, asi que sin ella cargada no se puede decidir.
+	Library_LoadRoot();
+	Library_Load();
 	sceAudioOutSetEffectType(config.eq_mode);
 
 	Utils_InitAppUtil();

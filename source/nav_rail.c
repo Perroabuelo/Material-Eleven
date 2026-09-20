@@ -13,20 +13,25 @@
 // Drawn at its final size - no 28px texture rescaled down to 19px any more.
 #define RAIL_ICON_SIZE        22
 #define RAIL_GEAR_TEETH       8
+#define RAIL_BUTTONS          4
 
 typedef struct {
 	UI_Screen screen;
 	float x, y, size;
 } NavRail_Button;
 
-static void NavRail_GetButtons(NavRail_Button out[3]) {
+static void NavRail_GetButtons(NavRail_Button out[RAIL_BUTTONS]) {
 	float x = (UI_RAIL_WIDTH - RAIL_BUTTON_SIZE) / 2.0f;
+	float pitch = RAIL_BUTTON_SIZE + RAIL_GAP;
 
+	// El paso es 70 px y UI_TOUCH_MIN es 66, asi que las areas tactiles
+	// crecidas de dos botones seguidos siguen sin solaparse con cuatro.
 	out[0] = (NavRail_Button){ UI_SCREEN_NOW_PLAYING, x, RAIL_TOP_PAD, RAIL_BUTTON_SIZE };
-	out[1] = (NavRail_Button){ UI_SCREEN_FOLDERS, x, RAIL_TOP_PAD + RAIL_BUTTON_SIZE + RAIL_GAP, RAIL_BUTTON_SIZE };
+	out[1] = (NavRail_Button){ UI_SCREEN_FOLDERS, x, RAIL_TOP_PAD + pitch, RAIL_BUTTON_SIZE };
+	out[2] = (NavRail_Button){ UI_SCREEN_LIBRARY, x, RAIL_TOP_PAD + 2 * pitch, RAIL_BUTTON_SIZE };
 
 	float settings_x = (UI_RAIL_WIDTH - RAIL_SETTINGS_SIZE) / 2.0f;
-	out[2] = (NavRail_Button){ UI_SCREEN_SETTINGS, settings_x, 544 - RAIL_TOP_PAD - RAIL_SETTINGS_SIZE, RAIL_SETTINGS_SIZE };
+	out[3] = (NavRail_Button){ UI_SCREEN_SETTINGS, settings_x, 544 - RAIL_TOP_PAD - RAIL_SETTINGS_SIZE, RAIL_SETTINGS_SIZE };
 }
 
 // Now Playing: filled play triangle, nudged right so it reads optically centered.
@@ -50,6 +55,22 @@ static void NavRail_DrawFoldersGlyph(float cx, float cy, float size, unsigned in
 	UI_DrawStroke(r, fold, r, bottom, t, color);
 	UI_DrawStroke(r, bottom, l, bottom, t, color);
 	UI_DrawStroke(l, bottom, l, top, t, color);
+}
+
+// Library: a quaver - filled head, stem and flag. Unmistakable next to the play
+// triangle, the folder outline and the cog, which are the three silhouettes it
+// has to stay apart from.
+static void NavRail_DrawLibraryGlyph(float cx, float cy, float size, unsigned int color) {
+	float t = size * 0.11f;
+	float head_d = size * 0.36f;
+	float head_cx = cx - size * 0.14f, head_cy = cy + size * 0.24f;
+	float stem_x = head_cx + head_d / 2.0f - t / 2.0f;
+	float stem_top = cy - size * 0.46f;
+
+	// Un pill cuadrado es un circulo: el radio es h/2.
+	UI_DrawPill(head_cx - head_d / 2.0f, head_cy - head_d / 2.0f, head_d, head_d, color);
+	UI_DrawStroke(stem_x, head_cy, stem_x, stem_top, t, color);
+	UI_DrawStroke(stem_x, stem_top, cx + size * 0.38f, stem_top + size * 0.22f, t, color);
 }
 
 // Settings: cog - an open ring plus radial teeth, so it stays correct over both
@@ -76,13 +97,14 @@ static void NavRail_DrawIcon(UI_Screen screen, float cx, float cy, unsigned int 
 	switch (screen) {
 		case UI_SCREEN_NOW_PLAYING: NavRail_DrawNowPlayingGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
 		case UI_SCREEN_FOLDERS: NavRail_DrawFoldersGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
+		case UI_SCREEN_LIBRARY: NavRail_DrawLibraryGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
 		case UI_SCREEN_SETTINGS: NavRail_DrawSettingsGlyph(cx, cy, RAIL_ICON_SIZE, color); break;
 		default: break;
 	}
 }
 
 UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
-	NavRail_Button buttons[3];
+	NavRail_Button buttons[RAIL_BUTTONS];
 	NavRail_GetButtons(buttons);
 
 	vita2d_draw_rectangle(0, 0, UI_RAIL_WIDTH, 544, UI_COLOR_BG_ELEVATED);
@@ -90,7 +112,7 @@ UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
 
 	UI_Screen tapped = UI_SCREEN_NONE;
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < RAIL_BUTTONS; i++) {
 		NavRail_Button *b = &buttons[i];
 		SceBool is_active = (b->screen == active);
 

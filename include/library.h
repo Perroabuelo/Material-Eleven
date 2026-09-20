@@ -47,6 +47,11 @@ typedef struct {
 // Lee la carpeta recordada. Se llama una vez al arrancar.
 void Library_LoadRoot(void);
 SceBool Library_HasRoot(void);
+
+// Si la carpeta recordada sigue estando. Puede no estarlo sin que sea culpa
+// de nadie: el usuario retira la tarjeta. Entonces no se escanea ni se borra
+// el indice que ya habia, solo se informa.
+SceBool Library_RootAvailable(void);
 const char *Library_GetRoot(void);
 
 // Fija la carpeta y la recuerda. Descarta el indice de la anterior, para que no

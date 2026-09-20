@@ -9,6 +9,7 @@
 #include "fs.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
+#include "menu_library.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
 #include "status_bar.h"
@@ -246,6 +247,10 @@ void Menu_DisplaySettings(void) {
 
 		if (tapped == UI_SCREEN_FOLDERS) {
 			Menu_DisplayFiles();
+			return;
+		}
+		else if (tapped == UI_SCREEN_LIBRARY) {
+			Menu_DisplayLibrary();
 			return;
 		}
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {

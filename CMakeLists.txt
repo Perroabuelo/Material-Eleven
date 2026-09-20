@@ -67,6 +67,7 @@ add_executable(${PROJECT_NAME}
   source/audio/xm.c
   source/menus/menu_audioplayer.c
   source/menus/menu_displayfiles.c
+  source/menus/menu_library.c
   source/menus/menu_settings.c
 )
 

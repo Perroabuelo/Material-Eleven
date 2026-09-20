@@ -145,6 +145,10 @@ SceBool Library_HasRoot(void) {
 	return library_has_root;
 }
 
+SceBool Library_RootAvailable(void) {
+	return library_has_root && FS_DirExists(library_root);
+}
+
 const char *Library_GetRoot(void) {
 	return library_root;
 }
@@ -436,7 +440,10 @@ static void Library_DrawScanProgress(const char *folder, int found, int skipped)
 }
 
 SceBool Library_RunScan(void) {
-	if (!library_has_root)
+	// Sin carpeta, o con una que ya no esta, no se toca nada: recorrer una
+	// raiz ausente dejaria cero pistas y se llevaria por delante un indice
+	// que sigue siendo bueno para cuando la tarjeta vuelva.
+	if (!Library_RootAvailable())
 		return SCE_FALSE;
 
 	Library_Free();

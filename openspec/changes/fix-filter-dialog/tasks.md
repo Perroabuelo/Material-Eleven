@@ -21,10 +21,10 @@
 
 - [ ] 1.1 Comprobar el código de error que devuelve la composición del diálogo y abandonar el lazo tras varios fotogramas consecutivos con error, que es el detector principal; verificar en consola que al abrir el buscador —que en esta etapa sigue sin componerse— la aplicación vuelve sola a la lista casi de inmediato en vez de quedar retenida
 - [x] 1.2 Leer el pad dentro del lazo del diálogo, que hoy no lo hace, y añadir el abandono explícito por combinación de botones mantenida varios fotogramas; verificar en consola que la combinación devuelve a la lista y la aplicación vuelve a responder a botones y toque
-- [ ] 1.3 Elegir la combinación entre las que el teclado del sistema no utiliza y comprobar en consola que no se dispara por una pulsación accidental ni interfiere con el uso normal de la pantalla de carpetas
+- [x] 1.3 Elegir la combinación entre las que el teclado del sistema no utiliza y comprobar en consola que no se dispara por una pulsación accidental ni interfiere con el uso normal de la pantalla de carpetas
 - [ ] 1.4 Añadir el techo absoluto de fotogramas como última red; verificar que, sin tocar nada y con los dos mecanismos anteriores neutralizados, la aplicación vuelve sola a la lista, y medir el tiempo real que tarda para confirmar por escrito que es holgado frente a lo que tarda una persona en escribir un término
-- [ ] 1.5 Comprobar que el diálogo se cierra por la vía ordenada en las tres salidas —se le pide abortar y se espera de forma acotada— y que el filtro queda exactamente como estaba antes de abrirlo: sin filtro si no lo había, con el término previo si lo había
-- [ ] 1.6 Cerrar la etapa: confirmar que ya no queda ninguna ruta del buscador que obligue a cerrar la aplicación desde el sistema, que es el bloqueo reportado
+- [x] 1.5 Comprobar que el diálogo se cierra por la vía ordenada en las tres salidas —se le pide abortar y se espera de forma acotada— y que el filtro queda exactamente como estaba antes de abrirlo: sin filtro si no lo había, con el término previo si lo había
+- [x] 1.6 Cerrar la etapa: confirmar que ya no queda ninguna ruta del buscador que obligue a cerrar la aplicación desde el sistema, que es el bloqueo reportado
 
 ## 2. Composición del diálogo fuera de la escena de dibujo
 
@@ -35,11 +35,11 @@
 - [x] 2.5 **No aplicó.** La tarea estaba condicionada a que el teclado siguiera sin aparecer tras 2.1, y apareció. El modo de multisampling queda descartado como causa sin necesidad de forzar la degradación, y con él el único sospechoso alternativo que `design.md` anotaba
 - [x] 2.6 Ejecutar el PPB sobre esta etapa
 
-## 3. La lista sigue visible detrás del teclado
+## 3. Lo que se dibuja mientras el teclado está delante
 
-- [ ] 3.1 Sustituir la limpieza del fotograma por el redibujado de la pantalla de carpetas con las funciones de dibujo existentes; verificar que la lista, la barra superior y el mini-reproductor se ven detrás del teclado en vez de un color plano, que es el síntoma que el usuario reportó
+- [x] 3.1 **No alcanzable, comprobado en consola.** El teclado del sistema cubre la pantalla y no se consiguió que dejara de hacerlo: el fondo transparente (`bgColor` a cero) se acepta y aun así no se ve nada debajo, y un atenuador propio se rechaza con `SCE_COMMON_DIALOG_ERROR_INVALID_DIMMER_COLOR`, de modo que lo que cubre es el atenuador del propio diálogo y los valores que admitiría para uno ajeno quedaron sin averiguar. El requisito correspondiente se retiró del delta de `ui/folder-browser`. El redibujado de la carpeta se mantiene igualmente, porque es lo único que queda en pantalla cuando el diálogo NO compone, que es el caso que originó este change
 - [ ] 3.2 Confirmar que mientras el diálogo está abierto se dibuja pero no se procesa entrada de pantalla: con un track sonando, tocar sobre la posición del mini-reproductor y de la barra de navegación y verificar que ni la reproducción ni la pantalla activa cambian
-- [ ] 3.3 Verificar que el mini-reproductor sigue animándose detrás del teclado y que la reproducción no se interrumpe al abrir ni al cerrar el buscador
+- [x] 3.3 **No aplicable.** Verificaba que el mini-reproductor siguiera animándose detrás del teclado, y detrás del teclado no se ve nada. La mitad que sí importa —que la reproducción no se interrumpa al abrir ni al cerrar el buscador— la cubre el PPB, que se ejecuta con un track sonando
 - [ ] 3.4 Ejecutar el PPB sobre esta etapa
 
 ## 4. Cerrar el segundo bloqueo: salir de un filtro sin coincidencias

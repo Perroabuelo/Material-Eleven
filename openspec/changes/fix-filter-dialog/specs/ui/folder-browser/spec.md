@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: In-folder filename filter
-The system SHALL let the user filter the current directory's already-loaded listing by typing part of a name, and SHALL present a text-entry surface when the user activates the filter. The filter SHALL apply only to entries already listed in the current folder and SHALL NOT trigger reading any other folder. While the text-entry surface is open the system SHALL keep the folder listing visible behind it, and SHALL honor the console's own confirm and cancel button assignment, the same one the rest of the application honors.
+The system SHALL let the user filter the current directory's already-loaded listing by typing part of a name, and SHALL present a text-entry surface when the user activates the filter. The filter SHALL apply only to entries already listed in the current folder and SHALL NOT trigger reading any other folder. The text-entry surface SHALL honor the console's own confirm and cancel button assignment, the same one the rest of the application honors.
 
 #### Scenario: Filtering narrows the current listing
 - **WHEN** the user types a search term while viewing a folder's contents
@@ -14,10 +14,6 @@ The system SHALL let the user filter the current directory's already-loaded list
 #### Scenario: Activar el filtro presenta la entrada de texto
 - **WHEN** el usuario activa el filtro desde la lista de carpetas
 - **THEN** aparece una superficie de entrada de texto sobre la pantalla, con el término vigente ya cargado si el usuario había filtrado antes
-
-#### Scenario: La lista sigue visible detrás de la entrada de texto
-- **WHEN** la entrada de texto está abierta
-- **THEN** la lista de la carpeta sigue dibujándose detrás, en vez de quedar reemplazada por un color plano
 
 #### Scenario: El botón de aceptar es el mismo que en el resto de la aplicación
 - **WHEN** el usuario confirma o descarta la entrada de texto

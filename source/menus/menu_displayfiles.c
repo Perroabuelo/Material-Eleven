@@ -58,60 +58,47 @@ static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
 // comparten el lazo normal y el fondo del diálogo, que deben mostrar lo mismo.
 static void Menu_DrawFoldersContent(void);
 
-// Dibujar la pantalla debajo del teclado no basta por sí solo: el diálogo trae
-// su propio fondo a pantalla completa y, con los punteros de color a NULL como
-// los deja sceImeDialogParamInit, lo pinta opaco y tapa lo que haya debajo.
-// Pidiéndole un fondo transparente, lo que se ve detrás es la carpeta; el
-// atenuador se queda para que el teclado siga legible encima de ella.
+// El teclado del sistema tapa la pantalla que hay debajo, y no se consiguió
+// que dejara de hacerlo. Lo comprobado en consola, por si alguien lo reintenta:
+//
+//   bgColor {0,0,0,0}    aceptado, y aun así no se ve nada debajo
+//   dimmerColor a 160    rechazado, SCE_COMMON_DIALOG_ERROR_INVALID_DIMMER_COLOR
+//   dimmerColor NULL     aceptado, y es el que sigue tapando
+//
+// O sea que lo que cubre es el atenuador propio del diálogo, y los valores que
+// acepta para uno ajeno quedaron sin averiguar. El fondo transparente se queda
+// puesto porque es correcto y no cuesta nada, no porque se note.
 //
 // Es un puntero que el diálogo conserva, así que el almacenamiento vive fuera
 // de la función que abre el teclado y no en su marco de pila.
-//
-// El atenuador se deja en NULL a propósito. Darle uno propio hizo que la
-// consola devolviera SCE_COMMON_DIALOG_ERROR_INVALID_DIMMER_COLOR y rechazara
-// los parámetros enteros; como hay un error distinto para el fondo
-// (SCE_COMMON_DIALOG_ERROR_INVALID_BG_COLOR) y no fue ese el que salió, el
-// fondo transparente sí es válido y solo sobraba el atenuador. El del diálogo
-// sirve igual: lo que hacía falta era que no tapara, no elegir cuánto atenúa.
 static SceCommonDialogColor filter_bg_color = { 0, 0, 0, 0 };
 
-// ANDAMIO TEMPORAL - retirar antes de archivar el change.
-//
-// Pedir esos colores hizo que sceImeDialogInit rechazara los parámetros y que
-// el buscador no abriera nada, y el código de error no se veía por ninguna
-// parte. Así que la apertura pasa a intentarlo con transparencia y, si se la
-// rechazan, a reintentar con el fondo propio del diálogo: el teclado importa
-// más que ver a través de él. El código rechazado queda a la vista para poder
-// decidir si la transparencia es alcanzable o si hay que revisar el spec.
-static char filter_init_note[40] = "";
-
+// Un parámetro rechazado tumba la apertura entera y el buscador no abre nada,
+// que fue lo que pasó al pedir un atenuador propio. El fondo transparente sí
+// se acepta, pero se pide con red: si alguna consola lo rechazara, se reintenta
+// sin él, porque el teclado importa más que el fondo sobre el que se dibuja.
 static int Menu_OpenFilterDialog(SceImeDialogParam *param) {
 	param->commonParam.bgColor = &filter_bg_color;
 
 	int ret = sceImeDialogInit(param);
-	if (ret >= 0) {
-		filter_init_note[0] = '\0';
+	if (ret >= 0)
 		return ret;
-	}
-
-	snprintf(filter_init_note, sizeof(filter_init_note), "IME rechazo 0x%08X", (unsigned int)ret);
 
 	param->commonParam.bgColor = NULL;
 
-	ret = sceImeDialogInit(param);
-	if (ret < 0)
-		snprintf(filter_init_note, sizeof(filter_init_note), "IME 2x fallo 0x%08X", (unsigned int)ret);
-
-	return ret;
+	return sceImeDialogInit(param);
 }
 
-// El fotograma que se dibuja mientras el teclado está delante. Es la misma
-// pantalla que el usuario tenía, no un color plano, porque abrir el buscador
-// no debería hacer desaparecer la carpeta que se estaba mirando.
+// El fotograma que se dibuja mientras el teclado está delante: la misma
+// pantalla que el usuario tenía, no un color plano.
 //
-// La leyenda de botones se sustituye por la del abandono. Cuando el diálogo
-// compone, el teclado la tapa; cuando no compone, es lo único en pantalla, y
-// es justo entonces cuando el usuario necesita saber por dónde salir.
+// Con el teclado compuesto no se ve nada de esto, porque el diálogo lo cubre
+// (ver arriba). Se sigue dibujando por el caso contrario, que es el que dio
+// origen a este change: cuando el diálogo NO compone, esto es lo único que
+// queda en pantalla, y entonces la diferencia entre la carpeta con su leyenda
+// de salida y un color plano es la diferencia entre poder salir o no.
+//
+// Por eso la leyenda de botones se sustituye aquí por la del abandono.
 static void Menu_DrawFilterFrame(void) {
 	vita2d_clear_screen();
 	Menu_DrawFoldersContent();
@@ -388,11 +375,7 @@ void Menu_DisplayFiles(void) {
 		const char *back_hint = Dirbrowse_HasFilter() ? "Quitar filtro"
 			: ((strcmp(cwd, root_path) != 0) ? "Carpeta superior" : NULL);
 
-		// ANDAMIO TEMPORAL: el tercer hueco muestra lo que el diálogo rechazó,
-		// si rechazó algo. Se retira con el resto del andamio.
-		const char *hints[] = { open_hint, back_hint,
-			filter_init_note[0] ? filter_init_note : NULL, NULL,
-			"SELECT - Ajustes", "START - Salir" };
+		const char *hints[] = { open_hint, back_hint, NULL, NULL, "SELECT - Ajustes", "START - Salir" };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);

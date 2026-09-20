@@ -50,7 +50,9 @@ En los tres casos el filtro queda exactamente como estaba antes de abrir el diá
 
 En lugar de limpiar el fotograma, el lazo del diálogo dibuja la misma pantalla de carpetas que dibujaría el lazo normal. No se captura una imagen previa: se reutilizan las funciones de dibujo existentes, que ya son puras respecto de la entrada del usuario.
 
-La consecuencia deliberada es que el mini-reproductor sigue animándose detrás del diálogo, lo cual es correcto: la reproducción no se detiene porque el usuario abra el buscador.
+**Corregido con la consola delante:** el teclado del sistema cubre lo que haya debajo y no se consiguió que dejara de hacerlo. Pedirle un fondo transparente se acepta y no cambia nada; pedirle un atenuador propio se rechaza con `SCE_COMMON_DIALOG_ERROR_INVALID_DIMMER_COLOR` y tumba la apertura entera, de modo que lo que cubre es su propio atenuador y los valores que admitiría para uno ajeno quedaron sin averiguar. El requisito de ver la lista detrás salió del delta de `ui/folder-browser`.
+
+El redibujado se mantiene igualmente, y no por inercia: cuando el diálogo **no** compone —el caso que originó este change— no hay nada que cubra la pantalla, y entonces esto es lo único que se ve. La diferencia entre la carpeta con su leyenda de salida y un color plano es, en ese caso, la diferencia entre que el usuario pueda salir o no. El fondo transparente se queda puesto porque es correcto y no cuesta nada, no porque se note.
 
 La regla que acompaña a esto y que conviene no perder: **mientras el diálogo está abierto se dibuja pero no se procesa entrada de pantalla**. El pad se lee solo para el abandono descrito arriba, y ninguna pulsación ni toque se encamina a los controles de la pantalla de fondo, que el usuario no puede ver que está pulsando.
 

@@ -64,10 +64,16 @@ static void Menu_DrawFoldersContent(void);
 // Pidiéndole un fondo transparente, lo que se ve detrás es la carpeta; el
 // atenuador se queda para que el teclado siga legible encima de ella.
 //
-// Son punteros que el diálogo conserva, así que el almacenamiento vive fuera
+// Es un puntero que el diálogo conserva, así que el almacenamiento vive fuera
 // de la función que abre el teclado y no en su marco de pila.
+//
+// El atenuador se deja en NULL a propósito. Darle uno propio hizo que la
+// consola devolviera SCE_COMMON_DIALOG_ERROR_INVALID_DIMMER_COLOR y rechazara
+// los parámetros enteros; como hay un error distinto para el fondo
+// (SCE_COMMON_DIALOG_ERROR_INVALID_BG_COLOR) y no fue ese el que salió, el
+// fondo transparente sí es válido y solo sobraba el atenuador. El del diálogo
+// sirve igual: lo que hacía falta era que no tapara, no elegir cuánto atenúa.
 static SceCommonDialogColor filter_bg_color = { 0, 0, 0, 0 };
-static SceCommonDialogColor filter_dimmer_color = { 0, 0, 0, 160 };
 
 // ANDAMIO TEMPORAL - retirar antes de archivar el change.
 //
@@ -81,7 +87,6 @@ static char filter_init_note[40] = "";
 
 static int Menu_OpenFilterDialog(SceImeDialogParam *param) {
 	param->commonParam.bgColor = &filter_bg_color;
-	param->commonParam.dimmerColor = &filter_dimmer_color;
 
 	int ret = sceImeDialogInit(param);
 	if (ret >= 0) {
@@ -92,7 +97,6 @@ static int Menu_OpenFilterDialog(SceImeDialogParam *param) {
 	snprintf(filter_init_note, sizeof(filter_init_note), "IME rechazo 0x%08X", (unsigned int)ret);
 
 	param->commonParam.bgColor = NULL;
-	param->commonParam.dimmerColor = NULL;
 
 	ret = sceImeDialogInit(param);
 	if (ret < 0)

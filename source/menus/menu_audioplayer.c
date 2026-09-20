@@ -38,7 +38,9 @@ static int Menu_GetMusicList(void) {
 		int entryCount = 0, i = 0;
 		SceIoDirent *entries = (SceIoDirent *)calloc(MAX_FILES, sizeof(SceIoDirent));
 
-		while (sceIoDread(dir, &entries[entryCount]) > 0)
+		// Acotado antes de leer, por lo mismo que Dirbrowse_PopulateFiles: la
+		// cola se construye sobre la misma reserva de MAX_FILES entradas.
+		while ((entryCount < MAX_FILES) && (sceIoDread(dir, &entries[entryCount]) > 0))
 			entryCount++;
 
 		sceIoDclose(dir);

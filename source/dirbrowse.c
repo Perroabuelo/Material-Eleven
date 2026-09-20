@@ -66,7 +66,10 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 		int entryCount = 0;
 		SceIoDirent *entries = (SceIoDirent *)calloc(MAX_FILES, sizeof(SceIoDirent));
 
-		while (sceIoDread(dir, &entries[entryCount]) > 0)
+		// El hueco se comprueba antes de leer y no despues: sceIoDread escribe
+		// en entries[entryCount], asi que una carpeta con mas de MAX_FILES
+		// entradas escribia fuera del calloc en vez de quedarse corta.
+		while ((entryCount < MAX_FILES) && (sceIoDread(dir, &entries[entryCount]) > 0))
 			entryCount++;
 
 		sceIoDclose(dir);

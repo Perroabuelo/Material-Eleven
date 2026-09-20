@@ -46,6 +46,7 @@ link_directories(
 add_executable(${PROJECT_NAME}
   source/common.c
   source/config.c
+  source/cover.c
   source/dirbrowse.c
   source/fs.c
   source/library.c

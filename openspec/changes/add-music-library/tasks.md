@@ -43,20 +43,20 @@
 
 ## 5. Fase 2 — tags
 
-- [ ] 5.1 Implementar la segunda pasada del escaneo, que recorre el índice leyendo tags y persiste cada cierto número de pistas, y verificar interrumpiéndola que lo leído queda guardado y que la siguiente pasada continúa por las pistas pendientes
-- [ ] 5.2 Implementar la lectura de título, artista y álbum para MP3, OGG, OPUS y FLAC, y verificar contra archivos de cada formato con tags conocidos que los tres campos llegan a la biblioteca
-- [ ] 5.3 Implementar el título de los módulos de tracker con `xmp_test_module`, y verificar contra un módulo con nombre interno conocido que la biblioteca muestra ese nombre y no el del archivo
-- [ ] 5.4 Implementar el respaldo por nombre de archivo para WAV y para archivos sin tags, y verificar con un MP3 sin ID3 y con un WAV que ambos aparecen con su nombre de archivo
-- [ ] 5.5 Verificar que un archivo con cabecera de tags dañada no interrumpe la pasada y queda con su respaldo por nombre de archivo
+- [x] 5.1 Implementar la segunda pasada del escaneo, que recorre el índice leyendo tags y persiste cada cierto número de pistas, y verificar interrumpiéndola que lo leído queda guardado y que la siguiente pasada continúa por las pistas pendientes
+- [x] 5.2 Implementar la lectura de título, artista y álbum para MP3, OGG, OPUS y FLAC, y verificar contra archivos de cada formato con tags conocidos que los tres campos llegan a la biblioteca
+- [x] 5.3 Implementar el título de los módulos de tracker con `xmp_test_module`, y verificar contra un módulo con nombre interno conocido que la biblioteca muestra ese nombre y no el del archivo
+- [x] 5.4 Implementar el respaldo por nombre de archivo para WAV y para archivos sin tags, y verificar con un MP3 sin ID3 y con un WAV que ambos aparecen con su nombre de archivo
+- [x] 5.5 Verificar que un archivo con cabecera de tags dañada no interrumpe la pasada y queda con su respaldo por nombre de archivo
 
 ## 6. Fase 2 — vistas
 
-- [ ] 6.1 Implementar las vistas de artistas y de álbumes sobre el índice, con artista y álbum vacíos agrupados bajo "Desconocido" puesto por la vista y no guardado en el índice, y verificar que un artista realmente llamado "Desconocido" no se mezcla con el cubo
-- [ ] 6.2 Verificar que "Desconocido" queda al final de ambas listas y no intercalado alfabéticamente
-- [ ] 6.3 Implementar la vista de recientes a partir de la fecha de modificación, con el criterio de desempate elegido, y verificar que el orden va de lo más reciente a lo más antiguo
-- [ ] 6.4 Implementar el cambio entre las cuatro vistas y la entrada a un artista y a un álbum, y verificar que se navega entre ellas sin salir de la pantalla de biblioteca
-- [ ] 6.5 Verificar que reproducir desde un álbum repartido en varias carpetas encadena las pistas del álbum y no las de la carpeta del archivo que suena
-- [ ] 6.6 Verificar que la previsualización de próximas pistas de Now Playing muestra la cola de la vista de biblioteca cuando la reproducción salió de ahí, y la de la carpeta cuando salió del navegador
+- [x] 6.1 Implementar las vistas de artistas y de álbumes sobre el índice, con artista y álbum vacíos agrupados bajo "Desconocido" puesto por la vista y no guardado en el índice, y verificar que un artista realmente llamado "Desconocido" no se mezcla con el cubo
+- [x] 6.2 Verificar que "Desconocido" queda al final de ambas listas y no intercalado alfabéticamente
+- [x] 6.3 Implementar la vista de recientes a partir de la fecha de modificación, con el criterio de desempate elegido, y verificar que el orden va de lo más reciente a lo más antiguo
+- [x] 6.4 Implementar el cambio entre las cuatro vistas y la entrada a un artista y a un álbum, y verificar que se navega entre ellas sin salir de la pantalla de biblioteca
+- [x] 6.5 Verificar que reproducir desde un álbum repartido en varias carpetas encadena las pistas del álbum y no las de la carpeta del archivo que suena
+- [x] 6.6 Verificar que la previsualización de próximas pistas de Now Playing muestra la cola de la vista de biblioteca cuando la reproducción salió de ahí, y la de la carpeta cuando salió del navegador
 
 ## 7. Fase 3 — carátulas (solo si el grupo 0 la autorizó)
 

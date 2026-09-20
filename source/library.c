@@ -10,6 +10,7 @@
 #include "common.h"
 #include "fs.h"
 #include "library.h"
+#include "cover.h"
 #include "nav_rail.h"
 #include "tags.h"
 #include "ui_theme.h"
@@ -686,6 +687,84 @@ SceBool Library_RunTagPass(void) {
 		Library_Save();
 
 	return !abandoned && (Library_PendingTags() == 0);
+}
+
+// ---------------------------------------------------------------------------
+// la tercera pasada: las caratulas
+
+static void Library_DrawCoverProgress(int done, int total, const char *path) {
+	char detail[128];
+
+	vita2d_start_drawing();
+	vita2d_clear_screen();
+
+	float x = 80.0f, y = 200.0f;
+
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, "Extrayendo caratulas");
+	y += 44.0f;
+
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26), 960.0f - x - 80.0f,
+		UI_COLOR_TEXT_SECONDARY, Utils_Basename(path));
+	y += 34.0f;
+
+	snprintf(detail, sizeof(detail), "%d de %d", done, total);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, 24), UI_COLOR_TEXT_TERTIARY, detail);
+	y += 30.0f;
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
+		"Una vez por album, y se guarda: no se repite al arrancar");
+
+	const char *hints[] = { NULL, "Abandonar", NULL, NULL, NULL };
+	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+
+	vita2d_end_drawing();
+	vita2d_swap_buffers();
+}
+
+// Los formatos con extraccion escrita van primero. Si no, un album cuyo primer
+// archivo sea un OGG se quedaria marcado como "sin caratula" y su FLAC hermano,
+// que si la lleva, no llegaria a mirarse nunca.
+static SceBool Library_FormatCarriesCover(const char *ext) {
+	return (!strcasecmp(ext, "flac") || !strcasecmp(ext, "mp3") || !strcasecmp(ext, "opus")) ? SCE_TRUE : SCE_FALSE;
+}
+
+SceBool Library_RunCoverPass(void) {
+	if (!library_built || library_count == 0)
+		return SCE_TRUE;
+
+	SceBool abandoned = SCE_FALSE;
+	int done = 0;
+
+	for (int sweep = 0; sweep < 2 && !abandoned; sweep++) {
+		for (int i = 0; i < library_count && !abandoned; i++) {
+			Library_Track *track = &library_tracks[i];
+			SceBool carries = Library_FormatCarriesCover(track->ext);
+
+			if ((sweep == 0) != (carries == SCE_TRUE))
+				continue;
+
+			done++;
+
+			// Ya resuelto: o lo hizo otra pista del mismo album, o viene de un
+			// arranque anterior.
+			if (Cover_IsCached(track->album, track->path))
+				continue;
+
+			Library_DrawCoverProgress(done, library_count * 2, track->path);
+			Cover_Build(track->album, track->path, track->ext);
+
+			Utils_ReadControls();
+
+			if (pressed & SCE_CTRL_CANCEL)
+				abandoned = SCE_TRUE;
+		}
+	}
+
+	// Lo que quedo cargado en RAM es de antes de esta pasada, y puede decir que
+	// no habia caratula donde ahora si la hay.
+	Cover_Free();
+
+	return !abandoned;
 }
 
 // ---------------------------------------------------------------------------

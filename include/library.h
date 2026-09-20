@@ -140,4 +140,12 @@ int Library_PendingTags(void);
 // SCE_TRUE si no quedo ninguna pendiente.
 SceBool Library_RunTagPass(void);
 
+// La tercera pasada: extrae la caratula de cada album que aun no la tenga
+// cacheada, y deja marcado tambien el "no hay" para no reintentarlo. Se apoya
+// en que la clave de cache es el album, asi que la segunda pista de un disco
+// ya la encuentra hecha.
+//
+// SCE_TRUE si termino, SCE_FALSE si el usuario la abandono.
+SceBool Library_RunCoverPass(void);
+
 #endif

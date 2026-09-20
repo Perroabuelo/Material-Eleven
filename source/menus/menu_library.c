@@ -3,6 +3,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "cover.h"
 #include "fs.h"
 #include "library.h"
 #include "menu_audioplayer.h"
@@ -21,6 +22,13 @@
 #define CONTENT_X   (UI_RAIL_WIDTH)
 #define TOPBAR_H    64
 #define ROW_H       64
+#define ROW_ART     46
+
+// Cuantas miniaturas se admiten de disco por fotograma. Cada una son 64 KB de
+// lectura; dos por fotograma llenan una pagina de cinco filas en tres
+// fotogramas sin que el desplazamiento llegue a notarse detenido. Las que no
+// llegan se dibujan con el marcador y aparecen en cuanto entran.
+#define COVER_BUDGET_PER_FRAME 2
 #define ROWS_PER_PAGE 5
 #define LIST_TOP    (TOPBAR_H + 8)
 
@@ -191,11 +199,25 @@ static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
 
 // Una fila: la linea de arriba es lo que la vista lista, y la de abajo lo que
 // ayuda a distinguirlo de sus vecinas.
-static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary) {
+static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary,
+		const char *album, const char *path, int *budget) {
 	if (i == selection)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
-	float x = CONTENT_X + 22;
+	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
+	vita2d_texture *art = (album != NULL || path != NULL) ? Cover_Get(album, path, budget) : NULL;
+
+	if (art != NULL) {
+		vita2d_draw_texture_scale(art, art_x, art_y, ROW_ART / (float)COVER_SIZE, ROW_ART / (float)COVER_SIZE);
+	}
+	else {
+		// El marcador por defecto, coherente con el resto de la interfaz. Es lo que
+		// se ve cuando no hay caratula y tambien mientras una que si hay todavia no
+		// ha llegado de disco.
+		UI_DrawRoundedRect(art_x, art_y, ROW_ART, ROW_ART, 12, UI_COLOR_SURFACE_2);
+	}
+
+	float x = art_x + ROW_ART + 14;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
 		960 - x - 100, UI_COLOR_TEXT_PRIMARY, primary);
@@ -210,6 +232,7 @@ static void Menu_DrawLibraryList(void) {
 	int count = Menu_LibraryBuild();
 	int first = selection - (selection % ROWS_PER_PAGE);
 	float y = LIST_TOP;
+	int budget = COVER_BUDGET_PER_FRAME;
 
 	for (int i = first; i < first + ROWS_PER_PAGE && i < count; i++) {
 		if (Menu_LibraryShowsNames()) {
@@ -217,7 +240,13 @@ static void Menu_DrawLibraryList(void) {
 			int n = Library_NameTrackCount(i);
 
 			snprintf(sub, sizeof(sub), (n == 1) ? "%d pista" : "%d pistas", n);
-			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? UNKNOWN_LABEL : Library_NameAt(i), sub);
+
+			// En la vista de albumes la fila ES un album, asi que su caratula es la
+			// del cubo. En la de artistas no hay una sola imagen que la represente.
+			const char *art_album = (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) ? Library_NameAt(i) : NULL;
+
+			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? UNKNOWN_LABEL : Library_NameAt(i), sub,
+				art_album, NULL, &budget);
 		}
 		else {
 			const Library_Track *track = Library_ViewTrack(i);
@@ -226,7 +255,7 @@ static void Menu_DrawLibraryList(void) {
 				break;
 
 			const char *artist = (track->artist[0] != '\0') ? track->artist : UNKNOWN_LABEL;
-			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist);
+			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, &budget);
 		}
 
 		y += ROW_H;
@@ -275,10 +304,11 @@ static void Menu_LibraryPickRoot(void) {
 	selection = 0;
 	Menu_LibrarySetView(VIEW_SONGS);
 
-	// La primera pasada deja la biblioteca utilizable; la segunda la completa.
-	// Encadenadas, pero separadas: abandonar la de tags no tira el recorrido.
-	if (Library_RunScan())
-		Library_RunTagPass();
+	// La primera pasada deja la biblioteca utilizable; la segunda la completa y
+	// la tercera la ilustra. Encadenadas, pero separadas: abandonar una no tira
+	// lo que hicieron las anteriores.
+	if (Library_RunScan() && Library_RunTagPass())
+		Library_RunCoverPass();
 
 	if (Library_IsTruncated())
 		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
@@ -297,8 +327,8 @@ static void Menu_LibraryRescan(void) {
 
 	selection = 0;
 
-	if (Library_RunScan())
-		Library_RunTagPass();
+	if (Library_RunScan() && Library_RunTagPass())
+		Library_RunCoverPass();
 
 	if (Library_IsTruncated())
 		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");

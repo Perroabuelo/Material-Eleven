@@ -13,6 +13,7 @@
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "cover.h"
 #include "library.h"
 #include "menu_displayfiles.h"
 #include "touch.h"
@@ -119,6 +120,8 @@ int main(int argc, char *argv[]) {
 	sceAppMgrReleaseBgmPort();
 	Utils_TermAppUtil();
 
+	Cover_Free();
+	Library_Free();
 	UI_Debug_Free();
 	UI_Theme_Free();
 	vita2d_fini();

@@ -1,4 +1,5 @@
 #include <psp2/apputil.h>
+#include <psp2/common_dialog.h>
 #include <psp2/io/dirent.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/kernel/processmgr.h>
@@ -61,6 +62,25 @@ int Utils_TermAppUtil(void) {
 		return ret;
 	
 	return 0;
+}
+
+// Los diálogos del sistema no heredan las preferencias de la consola: hay que
+// dárselas una vez, antes de abrir el primero. Sin esto el teclado se dibuja
+// en el idioma y con la asignación de botones por defecto del diálogo, no con
+// los que el usuario eligió y que el resto de la aplicación ya respeta.
+void Utils_InitCommonDialog(void) {
+	SceCommonDialogConfigParam param;
+	int language = 0, enter_button = 0;
+
+	sceCommonDialogConfigParamInit(&param);
+
+	if (R_SUCCEEDED(sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, &language)))
+		param.language = (SceSystemParamLang)language;
+
+	if (R_SUCCEEDED(sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_ENTER_BUTTON, &enter_button)))
+		param.enterButtonAssign = (SceSystemParamEnterButtonAssign)enter_button;
+
+	sceCommonDialogSetConfigParam(&param);
 }
 
 int Utils_GetEnterButton(void) {

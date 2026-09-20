@@ -9,6 +9,9 @@ int Utils_ReadControls(void);
 // edge cannot be distinguished from a stray tap.
 SceUInt32 Utils_HeldButtons(void);
 int Utils_InitAppUtil(void);
+// Una vez al arrancar, después de Utils_InitAppUtil: pasa al subsistema de
+// diálogos comunes el idioma y la asignación de botones de la consola.
+void Utils_InitCommonDialog(void);
 int Utils_TermAppUtil(void);
 int Utils_GetEnterButton(void);
 int Utils_GetCancelButton(void);

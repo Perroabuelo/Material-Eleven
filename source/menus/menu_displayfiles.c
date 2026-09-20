@@ -70,8 +70,8 @@ static void Menu_AbandonFilterDialog(void) {
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 		Menu_DrawFilterFrame();
-		vita2d_common_dialog_update();
 		vita2d_end_drawing();
+		vita2d_common_dialog_update();
 		vita2d_swap_buffers();
 	}
 }
@@ -107,8 +107,12 @@ static void Menu_PromptFilter(void) {
 		vita2d_start_drawing();
 		vita2d_clear_screen();
 		Menu_DrawFilterFrame();
-		int composed = vita2d_common_dialog_update();
 		vita2d_end_drawing();
+		// Detrás del cierre de la escena y delante de la presentación: la
+		// composición escribe en el buffer de pantalla, no en la escena, así
+		// que pedirla con una escena abierta es inválido y falla en silencio.
+		// Ese era el defecto, y esta línea es la corrección.
+		int composed = vita2d_common_dialog_update();
 		vita2d_swap_buffers();
 
 		// El pad se lee aquí y solo para el abandono: la pantalla de fondo no

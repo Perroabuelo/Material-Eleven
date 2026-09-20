@@ -83,6 +83,9 @@ int main(int argc, char *argv[]) {
 	Utils_InitAppUtil();
 	SCE_CTRL_ENTER = Utils_GetEnterButton();
 	SCE_CTRL_CANCEL = Utils_GetCancelButton();
+	// La misma preferencia que las dos líneas de arriba, dicha ahora también al
+	// subsistema de diálogos, que no la hereda por su cuenta.
+	Utils_InitCommonDialog();
 
 	sceAppMgrAcquireBgmPort();
 

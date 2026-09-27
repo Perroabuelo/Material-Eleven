@@ -1,3 +1,9 @@
+/*
+ * The audio settings menu (EQ preset and limiter toggle) is derived from
+ * ElevenMPV-A (https://github.com/GrapheneCt/ElevenMPV-A), (C) 2020-2022
+ * GrapheneCt and contributors, GPL-3.0-or-later. See NOTICE.
+ */
+
 #include <psp2/io/fcntl.h>
 #include <stdio.h>
 #include <string.h>

@@ -110,6 +110,16 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 vita_create_self(${PROJECT_NAME}.self ${PROJECT_NAME} UNSAFE)
+
+# The .vpk carries the object code of every library above, so it also
+# carries their licenses (see NOTICE).
+set(LICENSE_FILES FILE LICENSE licenses/LICENSE FILE NOTICE licenses/NOTICE)
+file(GLOB LICENSE_TEXTS RELATIVE ${CMAKE_SOURCE_DIR} LICENSES/*.txt res/OFL-*.txt)
+foreach(text ${LICENSE_TEXTS})
+  get_filename_component(text_name ${text} NAME)
+  list(APPEND LICENSE_FILES FILE ${text} licenses/${text_name})
+endforeach()
+
 vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   VERSION ${VITA_VERSION}
   NAME ${VITA_APP_NAME}
@@ -119,4 +129,5 @@ vita_create_vpk(${PROJECT_NAME}.vpk ${VITA_TITLEID} ${PROJECT_NAME}.self
   FILE sce_sys/livearea/contents/template.xml sce_sys/livearea/contents/template.xml
   FILE res/Manrope.ttf Manrope.ttf
   FILE res/IBMPlexMono-Medium.ttf IBMPlexMono-Medium.ttf
+  ${LICENSE_FILES}
 )

@@ -25,3 +25,5 @@ Primera versión de Material-Eleven, el fork de ElevenMPV 2.10 de Joel16.
 - El proyecto tiene su propio repositorio, Perroabuelo/Material-Eleven.
 - El proyecto se distribuye bajo GPL-3.0-or-later, con créditos completos a ElevenMPV (Joel16),
   a ElevenMPV-A (GrapheneCt) y a las bibliotecas que usa (ver NOTICE).
+- El `.vpk` incluye, en `licenses/`, la licencia del proyecto, el NOTICE y las licencias de
+  todas las bibliotecas y tipografías que lleva.

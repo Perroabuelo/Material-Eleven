@@ -33,12 +33,12 @@
 
 - [x] 5.1 En el repo local: `origin` pasa a apuntar a Material-Eleven y `upstream` a `joel16/ElevenMPV`, con `fetch`. `main` local sigue a `origin/main` y el árbol queda igual al de `origin/main`. Listo cuando `git status -sb` muestre `## main...origin/main` sin diferencias.
 - [x] 5.2 Borrar las ramas locales `master` y `vitasdk-legacy`, y los tags locales que no se publicaron (`v3.0`–`v7.10`). Listo cuando `git branch` muestre solo `main` y `git tag` solo `v1.00`–`v2.10`.
-- [ ] 5.3 Reindexar Repowise sobre el historial nuevo. Listo cuando el bloque de `AGENTS.md` cite un commit de `main`.
+- [x] 5.3 Reindexar Repowise sobre el historial nuevo. Listo cuando el bloque de `AGENTS.md` cite un commit de `main`.
 
 ## 6. Retirar el fork viejo y etiquetar (requiere confirmación del usuario)
 
 - [x] 6.1 Con confirmación explícita y el bundle de 2.2 verificado, ejecutar `gh auth refresh -s delete_repo` y luego `gh repo delete Perroabuelo/ElevenMPV`. Listo cuando `gh repo view Perroabuelo/ElevenMPV` responda que no existe.
 - [x] 6.2 Completar los avisos de licencia para distribuir el `.vpk`, según la revisión de D5: los textos de las bibliotecas enlazadas desde VitaSDK van a `LICENSES/`, el NOTICE lleva sus versiones y las atribuciones de FreeType e IJG, el README las nombra, `vitaaudiolib.c` y `menu_settings.c` citan a ElevenMPV-A, y `CMakeLists.txt` copia `LICENSE`, `NOTICE`, `LICENSES/*.txt` y `res/OFL-*.txt` a `licenses/` dentro del `.vpk`. Listo cuando el `.vpk` compile desde cero sin warnings y su listado muestre esos archivos en `licenses/`.
 - [x] 6.3 Renombrar el directorio según D10: `Proyectos/ElevenMPV` pasa a `Proyectos/Material-Eleven`, y el historial de sesiones de `~/.claude/projects/C--Users-fotos-Documents-Proyectos-ElevenMPV` se mueve a `…-Material-Eleven` (la carpeta `memory/` estaba vacía en ambas). Las rutas fijas de `scripts/build.sh` y `scripts/vita.ps1`, que son locales y no se versionan, pasan a la ruta nueva. Listo cuando la carpeta vieja no exista y `scripts/build.sh` compile desde la ruta nueva.
-- [ ] 6.4 Archivar este cambio (`openspec archive migrate-to-material-eleven`) en la rama `change/migrate-to-material-eleven` con su PR, que es el primer uso del flujo nuevo. El CI todavía no existe (lo agrega `add-ci-build`), así que en su lugar vale la compilación local de 6.2. Listo cuando el PR esté fusionado en `main`.
-- [ ] 6.5 Crear el tag anotado `v3.0.0` sobre el commit de merge de 6.4 y publicarlo. Crear el GitHub Release con el `.vpk` compilado desde ese commit. Listo cuando el Release muestre el `.vpk` descargable.
+- [x] 6.4 Archivar este cambio (`openspec archive migrate-to-material-eleven`) en la rama `change/migrate-to-material-eleven` con su PR, que es el primer uso del flujo nuevo. El CI todavía no existe (lo agrega `add-ci-build`), así que en su lugar vale la compilación local de 6.2. Listo cuando el PR esté fusionado en `main`.
+- [x] 6.5 Crear el tag anotado `v3.0.0` sobre el commit de merge de 6.4 y publicarlo. Crear el GitHub Release con el `.vpk` compilado desde ese commit. Listo cuando el Release muestre el `.vpk` descargable.

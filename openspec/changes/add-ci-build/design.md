@@ -25,6 +25,8 @@ La motivación está en proposal.md, en la sección Why. Estos son los hechos de
 
 ### D1. La imagen es `vitasdk/vitasdk:<serie>`, completa y fijada
 Se usa como `container:` del job, fijada a una serie concreta (`2026.08` o la vigente al implementar) y no a `latest`. Así, un cambio del toolchain no rompe PRs que no tocaron nada. Actualizar la serie es un cambio deliberado de una línea.
+*Inspección (2026-09-27):* la serie elegida es `2026.08` (digest `sha256:fd82d88ff456d118eef16533ebf9a3a6ae0e292684fb8a3a35f15f0707b4692d`, publicada el 2026-09-25). Trae Ubuntu 24.04.5, CMake 3.28.3 y `arm-vita-eabi-gcc` 15.2.0, igual que el build local. `$VITASDK` es `/usr/local/vitasdk` y el job corre como `root`. `libvita2d.a`, `libFLAC.a`, `libmpg123.a`, `libvorbisfile.a` y `libfreetype.a` están en `$VITASDK/arm-vita-eabi/lib/`, y la imagen trae `make` y `git`. El árbol compila en el contenedor sin errores: da un `.vpk` de 2 053 841 bytes (2 053 502 en local) con `APP_VER 03.00` y `TITLE_ID ELEVENMPV`. La serie se reconstruye con sufijos fechados (`2026.08-20260925`), pero el toolchain de la serie no cambia.
+
 *Alternativas descartadas:* instalar VitaSDK en cada run con `vdpm`, que es más lento y más frágil. Usar la variante `-minimal` más `vdpm` de los paquetes, que es más ligera pero obliga a mantener a mano la lista de paquetes. `latest`, que no es reproducible.
 
 ### D2. Un workflow reutilizable de build y otro de release que lo llama
@@ -57,6 +59,7 @@ El ruleset exige PR para actualizar `main` (sin exigir aprobaciones, porque hay 
 
 ### D7. Solo se sube el mínimo de CMake si la imagen lo exige
 Si la imagen trae CMake 4 o superior, `cmake_minimum_required(VERSION 2.8)` pasa a `VERSION 3.10`, que es compatible con 3.28 local y quita la advertencia actual. Si trae CMake 3.x, no se toca, porque no es necesario para este cambio.
+*Resultado (1.1):* `vitasdk/vitasdk:2026.08` trae CMake 3.28.3, así que `CMakeLists.txt` no se toca. La advertencia de compatibilidad sigue saliendo en el CI y en local, pero no es un error.
 
 ## Risks / Trade-offs
 
@@ -79,4 +82,4 @@ Este cambio crea el pipeline: `build.yml` (PR y main) y `release.yml` (tags y ej
 
 ## Open Questions
 
-- ¿Cuál es la serie exacta de la imagen? Se fija a la más reciente que compile limpio al implementar (se espera `2026.08`). No cambia ni el enfoque ni las tareas.
+- ~~¿Cuál es la serie exacta de la imagen?~~ Resuelta en 1.1: `2026.08` (ver D1).

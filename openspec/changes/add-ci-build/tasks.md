@@ -1,6 +1,6 @@
 ## 1. Reconocer la imagen
 
-- [ ] 1.1 Inspeccionar `vitasdk/vitasdk:<serie>` (con `docker run` local o con un run temporal de `workflow_dispatch` en la rama del cambio): `cmake --version`, `arm-vita-eabi-gcc --version`, `echo $VITASDK` y la presencia de `libvita2d.a`, `libFLAC.a`, `libmpg123.a`, `libvorbisfile.a` y `libfreetype.a`. Listo cuando la serie elegida y los valores reales queden anotados en design.md (D1 y D7).
+- [x] 1.1 Inspeccionar `vitasdk/vitasdk:<serie>` (con `docker run` local o con un run temporal de `workflow_dispatch` en la rama del cambio): `cmake --version`, `arm-vita-eabi-gcc --version`, `echo $VITASDK` y la presencia de `libvita2d.a`, `libFLAC.a`, `libmpg123.a`, `libvorbisfile.a` y `libfreetype.a`. Listo cuando la serie elegida y los valores reales queden anotados en design.md (D1 y D7).
 
 ## 2. Compilación en CI
 

@@ -26,9 +26,17 @@
 static char **queue_paths = NULL;
 // En paralelo a las rutas, y con NULL donde el productor no trajo nombre.
 static char **queue_titles = NULL;
+// El plan de reproduccion: queue_order[slot] es el indice natural de la pista
+// que suena en ese puesto. Sin barajado es la identidad. Se guarda aparte en vez
+// de barajar las rutas en sitio para que apagar el barajado no tenga que
+// recuperar un orden natural que ya se habria perdido.
+static int *queue_order = NULL;
 static int queue_count = 0;
 static int queue_capacity = 0;
-static int queue_position = 0;
+// Puesto dentro del plan, no indice en queue_paths. Por eso no sale de aqui:
+// fuera de este archivo la cola solo habla en rutas.
+static int queue_slot = 0;
+static SceBool queue_shuffled = SCE_FALSE;
 
 // Une carpeta y nombre acotando a mano, que es lo mismo que hace el navegador
 // de carpetas y evita que el compilador tenga que razonar sobre el truncado de
@@ -54,6 +62,12 @@ static SceBool Queue_Grow(void) {
 	if (next <= queue_capacity)
 		return SCE_FALSE;
 
+	// Los tres arreglos crecen juntos o no crece ninguno a efectos de la cola.
+	// Un realloc que sale bien ya movio su bloque, asi que se guarda aunque el
+	// siguiente falle - soltarlo dejaria el puntero viejo colgando -, pero la
+	// capacidad solo se publica cuando los tres la tienen. Antes la de rutas se
+	// aplicaba sola si fallaba la de titulos, y los dos quedaban de tamaños
+	// distintos bajo una misma capacidad.
 	char **grown = (char **)realloc(queue_paths, (size_t)next * sizeof(char *));
 
 	if (grown == NULL)
@@ -67,6 +81,13 @@ static SceBool Queue_Grow(void) {
 		return SCE_FALSE;
 
 	queue_titles = grown_titles;
+
+	int *grown_order = (int *)realloc(queue_order, (size_t)next * sizeof(int));
+
+	if (grown_order == NULL)
+		return SCE_FALSE;
+
+	queue_order = grown_order;
 	queue_capacity = next;
 	return SCE_TRUE;
 }
@@ -79,11 +100,15 @@ void Queue_Clear(void) {
 
 	free(queue_paths);
 	free(queue_titles);
+	free(queue_order);
 	queue_paths = NULL;
 	queue_titles = NULL;
+	queue_order = NULL;
 	queue_count = 0;
 	queue_capacity = 0;
-	queue_position = 0;
+	queue_slot = 0;
+	// El barajado sobrevive: es un modo de la sesion, no de esta cola. La
+	// siguiente se baraja cuando quien la llena salta a la pista elegida.
 }
 
 static char *Queue_Dup(const char *s) {
@@ -117,6 +142,9 @@ SceBool Queue_Add(const char *path, const char *title) {
 
 	queue_paths[queue_count] = copy;
 	queue_titles[queue_count] = Queue_Dup(title);
+	// Entra al final del plan con su indice natural. Si el barajado esta
+	// encendido, el salto a la pista elegida rebaraja la cola ya completa.
+	queue_order[queue_count] = queue_count;
 	queue_count++;
 	return SCE_TRUE;
 }
@@ -140,23 +168,110 @@ const char *Queue_GetTitle(int index) {
 }
 
 int Queue_GetPosition(void) {
-	return queue_position;
+	return queue_slot;
 }
 
-void Queue_SetPosition(int index) {
-	queue_position = index;
-}
-
-int Queue_IndexOf(const char *path) {
+// Indice natural de esa ruta, o -1 si no esta. A diferencia del viejo
+// Queue_IndexOf, que devolvia 0, no puede disfrazar un fallo de "volver al
+// principio".
+static int Queue_Find(const char *path) {
 	if (path == NULL)
-		return 0;
+		return -1;
 
 	for (int i = 0; i < queue_count; i++) {
 		if (!strcmp(queue_paths[i], path))
 			return i;
 	}
 
-	return 0;
+	return -1;
+}
+
+void Queue_SetPosition(int index) {
+	queue_slot = index;
+}
+
+int Queue_IndexOf(const char *path) {
+	int natural = Queue_Find(path);
+
+	return (natural < 0) ? 0 : natural;
+}
+
+// Rehace el plan dejando `first` (indice natural) en el slot 0. Sin barajado
+// es la identidad y `first` no se mueve de su sitio; con barajado va al frente
+// y el resto se baraja detras con Fisher-Yates. El generador lo siembra una sola
+// vez el reproductor, asi que aqui no se vuelve a sembrar.
+static void Queue_Plan(int first) {
+	for (int i = 0; i < queue_count; i++)
+		queue_order[i] = i;
+
+	if (!queue_shuffled || queue_count == 0) {
+		queue_slot = (first >= 0 && first < queue_count) ? first : 0;
+		return;
+	}
+
+	if (first >= 0 && first < queue_count) {
+		queue_order[first] = 0;
+		queue_order[0] = first;
+	}
+
+	for (int i = queue_count - 1; i > 1; i--) {
+		int j = 1 + rand() % i;
+		int tmp = queue_order[i];
+		queue_order[i] = queue_order[j];
+		queue_order[j] = tmp;
+	}
+
+	queue_slot = 0;
+}
+
+void Queue_SetShuffle(SceBool on) {
+	int current = (queue_count > 0) ? queue_order[queue_slot] : -1;
+
+	queue_shuffled = on;
+	Queue_Plan(current);
+}
+
+SceBool Queue_IsShuffled(void) {
+	return queue_shuffled;
+}
+
+const char *Queue_Advance(SceBool forward) {
+	if (queue_count == 0)
+		return NULL;
+
+	queue_slot += forward ? 1 : -1;
+
+	if (queue_slot >= queue_count)
+		queue_slot = 0;
+	else if (queue_slot < 0)
+		queue_slot = queue_count - 1;
+
+	return queue_paths[queue_order[queue_slot]];
+}
+
+SceBool Queue_SeekToPath(const char *path) {
+	int natural = Queue_Find(path);
+
+	if (natural < 0)
+		return SCE_FALSE;
+
+	Queue_Plan(natural);
+	return SCE_TRUE;
+}
+
+SceBool Queue_PeekAhead(int n, const char **path, const char **title) {
+	if (queue_count == 0 || n < 0)
+		return SCE_FALSE;
+
+	int natural = queue_order[(queue_slot + n) % queue_count];
+
+	if (path != NULL)
+		*path = queue_paths[natural];
+
+	if (title != NULL)
+		*title = queue_titles[natural];
+
+	return SCE_TRUE;
 }
 
 // Productor de carpeta. Es el Menu_GetMusicList de menu_audioplayer.c movido

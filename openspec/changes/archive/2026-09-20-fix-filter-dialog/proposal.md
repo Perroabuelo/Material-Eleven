@@ -2,7 +2,7 @@
 
 El buscador de la pantalla de carpetas nunca ha funcionado. Al tocar la píldora "Buscar en esta carpeta" la pantalla queda en un color plano, no aparece ningún teclado, no responde ningún botón y la única salida es cerrar la aplicación con el botón PS. La causa está identificada y es única: el lazo que atiende el diálogo de teclado del sistema pide la actualización del diálogo **dentro de la escena de dibujo abierta**, de modo que el diálogo nunca se compone ni avanza de estado, el lazo gira indefinidamente y se queda con el control de la aplicación.
 
-Se descartó el multisampling como causa: fue introducido después del buscador (`0409e82` frente a `472c2c9`) y el usuario confirma que el buscador nunca llegó a funcionar, ni antes ni después de ese commit.
+Se descartó el multisampling como causa: fue introducido después del buscador (`be14190` frente a `fa77f56`) y el usuario confirma que el buscador nunca llegó a funcionar, ni antes ni después de ese commit.
 
 ## What Changes
 

@@ -105,7 +105,7 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 4.4 margen del pool | **medido; el pool está sobredimensionado 22x** | Agotado **0 veces**, así que ninguna geometría se dejó de dibujar. Marca de agua `1999776 B` libres sobre 2 MB, o sea un **pico de 97376 B (95 KB) por fotograma, el 4.6% del pool**. La justificación que escribí al fijarlo en 2 MB —que el chrome vectorial gasta mucho más por fotograma que las texturas que reemplazó— **no se sostiene contra la medición**: el default de 1 MB de vita2d sobraba, y 512 KB dejarían aún 5x de holgura. La marca de agua sólo cubre los fotogramas realmente dibujados en la sesión. |
 | 4.5 purga de recursos | implementado | Fuera 16 PNG de batería, 4 de íconos, 2 de radio, 2 de carátula por defecto y `Roboto-Regular.ttf` (se cargaba en cada arranque y no lo dibujaba nadie). `source/textures.c`, `include/textures.h` y la maquinaria `ADD_RESOURCES` quedaron sin contenido y se eliminaron. El .vpk pasa de 2 885 058 a 1 981 814 bytes, y ya no se reservan 24 texturas ni un handle de fuente al arrancar. Pendiente de consola: confirmar la mejora de memoria libre contra la línea base. |
 | 4.6 comentario sobre recorte | implementado | Corregido en `Menu_RunNowPlayingLoop`: el recorte rectangular existe y el change lo usa; lo que no hay es stencil ni recorte por forma arbitraria. |
-| 4.7 PPH etapa 4 | **superado** | Misma pasada. Sin volcado. El cambio repetido de track alternando con y sin carátula embebida es el caso exacto de `f3d908e`, y no se reprodujo. |
+| 4.7 PPH etapa 4 | **superado** | Misma pasada. Sin volcado. El cambio repetido de track alternando con y sin carátula embebida es el caso exacto de `03cd9ae`, y no se reprodujo. |
 | 5.1 cobertura del firmware | **verificado en consola** | La sonda carga el PVF del sistema (cabecera `sistema x1.0`) y **se dibujaron las cinco filas**: latín, cirílico, coreano, japonés y chino. La consola representa todo lo esperado, así que no hay que acotar el alcance de la etapa por cobertura. El despacho multi-fuente por predicado de codepoint también funciona: un solo `vita2d_load_system_pvf` con cuatro configs resolvió las cuatro escrituras. |
 | 5.2 carga del respaldo | implementado, **con desvío del diseño** | **Un solo handle**, no uno por tamaño: `scePvfSetCharSize` está fijo en la biblioteca, así que varios handles serían atlas idénticos de 18 px. Se dibuja a la escala de cada token (`ui_text_px[ts] / 18`). |
 | 5.3 partición y dibujo por tramos | implementado, **con desvío del diseño** | Partición **por codepoint**, no por rango: el cirílico está cubierto a medias por la tipografía propia. La cobertura se consulta a FreeType (`FT_Get_Char_Index`) sobre una `FT_Face` abierta sólo para eso, nunca para dibujar. Dibujo y medición comparten el mismo recorrido (`UI_TextRuns`), así que no pueden discrepar. |
@@ -113,10 +113,10 @@ qué resultado, y es lo que la tarea 6.5 recorre al cerrar el change.
 | 5.4 verificación en consola | **verificado** | Los nombres y tags coreanos se dibujan en la lista, el título, el artista y el mini reproductor. `RESPALDO ok`, 22 codepoints distintos, 0 renovaciones. El cambio entre tracks con y sin coreano no cae. |
 | tirón al cambiar de track | **corregido, pendiente de reconfirmar** | Reportado en consola: al pasar de un track latino a uno coreano hay un corte brevísimo. No es la renovación (`renovado 0x`) sino la rasterización de primer uso: un título CJK trae una docena de glifos nuevos que el atlas genera dentro de ese fotograma. `vita2d_pvf_text_width` llama a `generic_pvf_draw_text`, única función que alcanza `scePvfGetCharGlyphImage` y `texture_atlas_insert`, así que **medir puebla el atlas**: se mide el título y el artista en `Menu_InitMusic`, que corre entre fotogramas dentro de la pausa que el cambio de track ya tiene. |
 | 5.5 renovación del handle | implementado | Bitmap de 8 KB sobre el BMP para contar codepoints distintos, umbral en 480 sobre los ~600 que entran en la hoja. La renovación pasa por `UI_GpuFreePvf` y se agenda en `Dirbrowse_PopulateFiles`, que siempre corre después de `vita2d_swap_buffers`. |
-| 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `f3d908e`. |
+| 5.6 prueba de la renovación | **superada** | Probado con 12 archivos de nombre construido, 70 codepoints CJK y hangul distintos cada uno. Se alcanzaron 718 glifos y **se cruzó el umbral dos veces seguidas** (`renovado 2x`). Tras cada renovación los caracteres se siguieron dibujando correctamente, no se generó ningún volcado y la aplicación no cayó. Es la ruta que `design.md` señala como la más peligrosa del change, y es la misma operación —destruir y recrear una textura de GPU a mitad de sesión— que produjo el crasheo de `03cd9ae`. |
 | tirón al repoblar el atlas | **resuelto por el arreglo de agenda** | Tras una renovación el atlas queda vacío, así que volver a recorrer los archivos lo repuebla y la carga se nota más lenta; al pasar de un archivo a otro apareció un glitch visual muy corto. Es la misma rasterización de primer uso del tirón al cambiar de track, pero en la lista de carpetas, donde el adelanto no aplica: precalentar sólo las filas visibles no sirve porque el scroll trae filas nuevas, y precalentar la carpeta entera rasterizaría cientos de glifos de golpe, que es peor. **El caso probado es patológico a propósito**: 70 caracteres distintos por nombre y ninguno repetido entre archivos, muy por encima de lo que produce una biblioteca musical real, donde los caracteres se repiten entre títulos. Quedó resuelto al mover la renovación al límite de fotograma: como el atlas nunca se acerca a llenarse, los inserts no se degradan y no quedan glifos reintentándose. Confirmado en consola: el glitch ya no ocurre. |
 | 5.7 PPH etapa 5 | **superado** | Protocolo completo con contenido coreano en el medio. Sin volcado, la interfaz siguió respondiendo. |
-| glitch al cambiar de canción | **atribuido al MSAA** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Bisecado en consola con una compilación por etapa: **ausente en `341709b` y en la etapa 1, presente desde la etapa 2**. Dentro de la etapa 2 se hizo un A/B sobre el árbol actual variando sólo el modo de suavizado, con el mismo pool de 2 MB y los mismos atlas: **sin MSAA no aparece, con MSAA 2x aparece, con MSAA 4x aparece**. La causa es el suavizado, y bajar el modo no lo evita. El pool queda descartado. |
+| glitch al cambiar de canción | **atribuido al MSAA** | Reportado como un corte visual muy breve al cambiar de track, **independiente del título** y ocasional. Eso descarta la rasterización de primer uso, que era el diagnóstico anterior y sí dependía del contenido. Sospecha actual: el stall sincrónico del cambio de track — `Audio_Term` duerme 100 ms y la carátula siguiente se decodifica — durante el cual el bucle no dibuja ningún fotograma. Ese camino es anterior a este change. Bisecado en consola con una compilación por etapa: **ausente en `97acc0f` y en la etapa 1, presente desde la etapa 2**. Dentro de la etapa 2 se hizo un A/B sobre el árbol actual variando sólo el modo de suavizado, con el mismo pool de 2 MB y los mismos atlas: **sin MSAA no aparece, con MSAA 2x aparece, con MSAA 4x aparece**. La causa es el suavizado, y bajar el modo no lo evita. El pool queda descartado. |
 
 ## El suavizado y el corte al cambiar de track: un conflicto real
 
@@ -124,9 +124,9 @@ Bisección en hardware, una compilación por etapa:
 
 | Build | Glitch |
 |---|---|
-| `341709b` (previo al change) | no (pero crashea antes de poder observar mucho) |
-| etapa 1 `0cbc7a5` | no |
-| etapa 2 `0409e82` | **sí** |
+| `97acc0f` (previo al change) | no (pero crashea antes de poder observar mucho) |
+| etapa 1 `0a04738` | no |
+| etapa 2 `be14190` | **sí** |
 
 Dentro de la etapa 2, A/B sobre el árbol actual variando **sólo** el modo de
 suavizado —mismo pool de 2 MB, mismos atlas por tamaño, mismo todo lo demás:
@@ -162,13 +162,13 @@ significaría volver asincrónico el desmontaje de audio, que excede este change
 
 ## El crasheo que motivo el change: confirmado por comparacion directa
 
-Se compilo `341709b` —el commit inmediatamente anterior a la etapa 1— y se probo
+Se compilo `97acc0f` —el commit inmediatamente anterior a la etapa 1— y se probo
 en la consola junto al arbol actual. **El baseline crashea al cambiar de cancion
 repetidamente**, con el apagado duro de la consola. El arbol actual paso ese
 mismo caso en dos PPH completos.
 
-El detalle que lo hace concluyente: `341709b` **ya contiene** el arreglo de
-`f3d908e`, y los tres commits entre ambos (`910d3ac`, `69ac7c1`, `77fcc0a`)
+El detalle que lo hace concluyente: `97acc0f` **ya contiene** el arreglo de
+`03cd9ae`, y los tres commits entre ambos (`828da23`, `efd6631`, `d950f73`)
 tocan unicamente documentacion y archivos de seguimiento, ningun fuente. Es
 decir, el arreglo que en su momento se dio por suficiente para el segundo
 crasheo **no lo era**: la carrera seguia viva y el cambio repetido de track la

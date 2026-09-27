@@ -2,7 +2,7 @@
 
 El reskin (`add-ui-skin`) y la vectorización (`vectorize-ui-controls`) dejaron la interfaz nueva en pie, pero tres defectos verificados impiden darla por cerrada: el texto se dibuja borroso por un comportamiento del motor de fuentes de vita2d, la escala tipográfica completa está ~1.38x por debajo del tamaño físico que el lenguaje de diseño asume, y las formas vectoriales se rasterizan sin antialiasing porque la aplicación inicializa vita2d sin MSAA. A eso se suma que quedan dos islas de PNG (batería e íconos de fila), que no existe cobertura de glifos no latinos, y que ningún spec vigente dice una palabra sobre tipografía, antialiasing, densidad ni targets táctiles — así que cada pantalla nueva puede reintroducir los mismos defectos sin violar nada.
 
-Además, `vectorize-ui-controls` produjo dos crasheos de GPU en hardware (`ac8f53d`, `f3d908e`), ambos de la misma clase: la CPU liberó o reutilizó memoria que la GPU todavía estaba leyendo. Este change amplía exactamente las mismas superficies, así que el ciclo de vida de los recursos GPU pasa a ser parte del contrato en vez de una convención oral.
+Además, `vectorize-ui-controls` produjo dos crasheos de GPU en hardware (`b982263`, `03cd9ae`), ambos de la misma clase: la CPU liberó o reutilizó memoria que la GPU todavía estaba leyendo. Este change amplía exactamente las mismas superficies, así que el ciclo de vida de los recursos GPU pasa a ser parte del contrato en vez de una convención oral.
 
 ## What Changes
 

@@ -19,7 +19,7 @@ El shuffle solo se gatilla cuando la pista termina sola: ningún salto manual lo
 
 ### New Capabilities
 
-- `playback/queue`: qué es la cola de reproducción y en qué orden se recorre. Hoy `source/queue.c` existe desde `8139100` sin ninguna capability que lo describa, y su comportamiento solo aparece de refilón dentro de `ui/now-playing` —un spec de una pantalla que no gobierna al mini reproductor ni a la biblioteca, que también avanzan por la cola—. Cubre: quién la llena y con qué orden natural, el orden barajado y su estabilidad, qué significa avanzar y retroceder en cada modo, qué ocurre al llegar a los extremos, cómo se resuelve saltar a una pista concreta, y qué pasa cuando una pista de la cola no se puede abrir.
+- `playback/queue`: qué es la cola de reproducción y en qué orden se recorre. Hoy `source/queue.c` existe desde `a180578` sin ninguna capability que lo describa, y su comportamiento solo aparece de refilón dentro de `ui/now-playing` —un spec de una pantalla que no gobierna al mini reproductor ni a la biblioteca, que también avanzan por la cola—. Cubre: quién la llena y con qué orden natural, el orden barajado y su estabilidad, qué significa avanzar y retroceder en cada modo, qué ocurre al llegar a los extremos, cómo se resuelve saltar a una pista concreta, y qué pasa cuando una pista de la cola no se puede abrir.
 
 ### Modified Capabilities
 
@@ -31,4 +31,4 @@ El shuffle solo se gatilla cuando la pista termina sola: ningún salto manual lo
 - `source/menus/menu_audioplayer.c`: `Music_HandleNext` deja de sortear y pasa a solo avanzar y abrir; `Music_Next`/`Music_Previous` dejan de forzar el modo; los cuatro puntos de avance y el bloque de fin de pista se reescriben; `Menu_DrawUpNext` pasa a leer el plan; `Menu_InitMusic` deja de fijar la posición; el `int state` de tres valores se parte en dos banderas.
 - `source/mini_player.c`: sin cambios. Sigue llamando a `Music_Previous`/`Music_Next`, que es precisamente lo que pasa a comportarse bien.
 - `source/menus/menu_library.c`: el `Queue_SetPosition` de la línea 371 queda cubierto por el salto a ruta y deja de ser necesario.
-- Sin dependencias nuevas. `Music_SeedOnce` ya siembra el generador una sola vez desde `d403dba`, que es justo lo que necesita un barajado de Fisher-Yates.
+- Sin dependencias nuevas. `Music_SeedOnce` ya siembra el generador una sola vez desde `cbf3783`, que es justo lo que necesita un barajado de Fisher-Yates.

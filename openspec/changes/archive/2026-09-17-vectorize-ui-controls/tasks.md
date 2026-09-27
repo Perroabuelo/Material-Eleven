@@ -108,14 +108,14 @@
 
 | Commit | Sección |
 |---|---|
-| `c3db26a` Draw transport, nav rail and toggle controls as vectors | 2 |
-| `d8740f4` Compose rounded corners from vector arcs, not the 9-slice atlas | 3 |
-| `bec379f` Drop the control PNGs the vector drawing replaced | 4 |
-| `c37e3c6` Derive a legible accent color from cover art | 5 |
-| `60b8ca2` Make the interface accent follow the current cover art | 6 |
-| `e608d81` Split cover sampling into smaller functions | (limpieza posterior, ver abajo) |
-| `ac8f53d` Fix GPU crash: vector vertices must come from the frame pool | (corrección de 2/3, ver abajo) |
-| `f3d908e` Retire the in-flight frame before tearing a track down | (corrección de 8.1) |
+| `24327e0` Draw transport, nav rail and toggle controls as vectors | 2 |
+| `8ba6c7c` Compose rounded corners from vector arcs, not the 9-slice atlas | 3 |
+| `e996da2` Drop the control PNGs the vector drawing replaced | 4 |
+| `c86fe9d` Derive a legible accent color from cover art | 5 |
+| `76964cd` Make the interface accent follow the current cover art | 6 |
+| `4dc46d6` Split cover sampling into smaller functions | (limpieza posterior, ver abajo) |
+| `b982263` Fix GPU crash: vector vertices must come from the frame pool | (corrección de 2/3, ver abajo) |
+| `03cd9ae` Retire the in-flight frame before tearing a track down | (corrección de 8.1) |
 
 ### Fallo encontrado en hardware (primera instalación)
 
@@ -133,18 +133,18 @@ El último commit no corresponde a una tarea: el self-check de salud con RepoWis
 
 ## 8. Pendientes tras la primera prueba en hardware (2026-09-16)
 
-> **Cierre (2026-09-17):** 8.1 era la única regresión de este change y quedó resuelta en `f3d908e`.
+> **Cierre (2026-09-17):** 8.1 era la única regresión de este change y quedó resuelta en `03cd9ae`.
 > 8.2 y 8.3 se sacan del alcance por decisión del usuario: ninguna es regresión de esta vectorización
 > (8.2 viene de `add-ui-skin`; 8.3 es el riesgo de aliasing que `design.md` ya aceptaba), y se retoman
 > en un change aparte. Se conservan aquí, con sus puntos de partida, para que ese change pueda arrancar
 > desde esta investigación en vez de repetirla.
 
-La app **ya arranca y se ve** con `ac8f53d`. Quedan tres cosas abiertas, diferidas a otra sesión por decisión del usuario.
+La app **ya arranca y se ve** con `b982263`. Quedan tres cosas abiertas, diferidas a otra sesión por decisión del usuario.
 
-- [x] 8.1 **[Regresión — RESUELTA en `f3d908e`] Crash de GPU al cambiar de canción varias veces.**
+- [x] 8.1 **[Regresión — RESUELTA en `03cd9ae`] Crash de GPU al cambiar de canción varias veces.**
   - Evidencia: `ux0:/data/psp2core-1789610094-GPUCRASH.psp2dmp`, 2026-09-16 22:54:56, **322 KB**. Sigue siendo `GPUCRASH` (no excepción de CPU), igual que los dos del arranque (22:44:08 y 22:45:45, 94 y 98 KB) — pero mucho más grande, lo que probablemente indique un estado de GPU distinto al del fallo ya corregido.
   - No hay volcados `GPUCRASH` anteriores a las 22:44 de hoy en la tarjeta, así que es una regresión de este change, no algo preexistente. El `.vpk` anterior está en `ux0:/ElevenMPV-prev-add-ui-skin.vpk` si se necesita comparar.
-  - **No diagnosticado.** No asumir que es la misma causa que `ac8f53d`: eso ya está corregido y verificado. Sitios a mirar primero, por orden de sospecha:
+  - **No diagnosticado.** No asumir que es la misma causa que `b982263`: eso ya está corregido y verificado. Sitios a mirar primero, por orden de sospecha:
     1. `UI_CoverDominantColor` leyendo la textura de carátula en `Audio_Init` — es lo único nuevo en la ruta de cambio de pista, y toca memoria de GPU desde CPU.
     2. `Music_FreeCurrentTrack` (`menu_audioplayer.c`) libera `metadata.cover_image` y **no lo pone a NULL**; lo limpia después `Audio_Term` vía `metadata = empty_metadata`. Verificar que no queda ninguna ventana en la que se dibuje o muestree la textura ya liberada.
     3. Agotamiento del pool de frame: `UI_VertexBuffer` devuelve `NULL` y omite la figura, lo que debería degradar en vez de crashear — confirmar que efectivamente no crashea por esa vía.
@@ -170,14 +170,14 @@ La app **ya arranca y se ve** con `ac8f53d`. Quedan tres cosas abiertas, diferid
 
   **Por qué apareció recién ahora:** antes de este change la interfaz ponía unas pocas reservas por frame en ese pool; dibujar cada ícono y cada esquina como vectores pone decenas, lo que ensancha muchísimo la ventana de riesgo. La carrera era latente, la vectorización la hizo alcanzable.
 
-  **Arreglo (`f3d908e`):** el sync se sube al principio de `Music_FreeCurrentTrack`, fuera de la rama. Se eligió esa ubicación en vez de `Music_HandleNext` (que fue donde se probó) porque cubre la misma ventana y además la ruta del navegador: `Menu_PlayAudio` ejecuta el mismo teardown al abrir un archivo con otro ya sonando, y tenía el mismo agujero.
-- **8.2 (FUERA DE ALCANCE — diferido a un change propio).** Texto borroso y poco definido. Reportado en hardware, pero **no es regresión de este change**: el diff `29903bc..HEAD` no toca carga de fuentes, atlas de glifos ni dibujo de texto (solo comentarios y constantes de color coinciden con la búsqueda). Viene de `add-ui-skin`. Puntos de partida: `UI_Theme_Load` carga las TTF con `vita2d_load_font_file`, se dibuja con `vita2d_font_draw_text`, y los tamaños en uso son `UI_FONT_SIZE_*` (11 a 22 px). Hipótesis a verificar, no confirmadas: el rasterizado de vita2d a esos tamaños pequeños sin hinting ni corrección de gamma, y/o el propio tamaño elegido para el panel de 960x544. Probablemente merezca su propio change.
+  **Arreglo (`03cd9ae`):** el sync se sube al principio de `Music_FreeCurrentTrack`, fuera de la rama. Se eligió esa ubicación en vez de `Music_HandleNext` (que fue donde se probó) porque cubre la misma ventana y además la ruta del navegador: `Menu_PlayAudio` ejecuta el mismo teardown al abrir un archivo con otro ya sonando, y tenía el mismo agujero.
+- **8.2 (FUERA DE ALCANCE — diferido a un change propio).** Texto borroso y poco definido. Reportado en hardware, pero **no es regresión de este change**: el diff `6070b10..HEAD` no toca carga de fuentes, atlas de glifos ni dibujo de texto (solo comentarios y constantes de color coinciden con la búsqueda). Viene de `add-ui-skin`. Puntos de partida: `UI_Theme_Load` carga las TTF con `vita2d_load_font_file`, se dibuja con `vita2d_font_draw_text`, y los tamaños en uso son `UI_FONT_SIZE_*` (11 a 22 px). Hipótesis a verificar, no confirmadas: el rasterizado de vita2d a esos tamaños pequeños sin hinting ni corrección de gamma, y/o el propio tamaño elegido para el panel de 960x544. Probablemente merezca su propio change.
 - **8.3 (FUERA DE ALCANCE — diferido a un change propio).** Resto de los renders menos definidos de lo buscado (aunque el usuario los reporta como claramente mejores que antes). Es el riesgo de aliasing que `design.md` ya había marcado: las primitivas GXM no garantizan antialiasing, y los bordes diagonales de triángulos e íconos quedan "en escalera". Opciones a evaluar: MSAA vía `vita2d_init_advanced_with_msaa` (existe en el header, `vita2d.h:62`), o dibujar los bordes con un pequeño degradado.
 
 ## 7. Validación final
 
 - [x] 7.1 Recorrer manualmente cada escenario de `specs/ui/dynamic-accent/spec.md` en hardware real (o el emulador usado por el proyecto) y confirmar que se cumple.
-  - **Confirmado en hardware por el usuario (2026-09-17)**, sobre la build `f3d908e` instalada en la Vita: reproducción con carátula, cambios repetidos de pista entre distintas carátulas, y pistas sin carátula embebida, todo con comportamiento correcto.
+  - **Confirmado en hardware por el usuario (2026-09-17)**, sobre la build `03cd9ae` instalada en la Vita: reproducción con carátula, cambios repetidos de pista entre distintas carátulas, y pistas sin carátula embebida, todo con comportamiento correcto.
   - **Alcance exacto de lo verificado, para que el registro no diga de más:** se confirmó el comportamiento observable de los escenarios. Los valores hexadecimales concretos de la tabla de predicción (i-dle `#EF3979`, Interdimensional Portal `#99EBD3`, sin carátula `#FF9166`) no se contrastaron uno a uno contra la pantalla. Esa predicción sí quedó verificada por otra vía: ejecutando el `ui_theme.c` real contra las carátulas reales extraídas de la tarjeta (tabla en 5.2).
   - Respaldo adicional sin dispositivo, ya registrado: trazado de los 5 escenarios contra el código (tabla en 6.2) y la suite del arnés de host (5.2).
 - [x] 7.2 Confirmar que ningún requirement existente de `ui/nav-shell`, `ui/now-playing`, `ui/folder-browser` o `ui/settings` cambió de comportamiento observable como efecto colateral de la vectorización.

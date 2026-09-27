@@ -7,7 +7,7 @@ Ver `proposal.md` — Why para la motivación. Lo que importa aquí es el estado
 - Cuatro caminos avanzan de pista y solo uno consulta el modo. `Music_Next`/`Music_Previous` (`:194-201`) —la puerta del mini reproductor— pasan `MUSIC_STATE_NONE` escrito a mano, igual que el transporte táctil (`:349-358`) y los gatillos (`:503-509`).
 - `Menu_DrawUpNext` (`:273-305`) lee `posición+1` y `posición+2` del arreglo de rutas.
 - `Utils_SetMax`/`Utils_SetMin` (`source/utils.c:15-23`) no acotan: envuelven. La cola ya se recorre de forma circular.
-- `Music_SeedOnce` (`:110-120`) siembra el generador una sola vez desde `d403dba`.
+- `Music_SeedOnce` (`:110-120`) siembra el generador una sola vez desde `cbf3783`.
 
 Restricciones del proyecto: C sobre VITA, sin dependencias nuevas, y una cola con techo declarado de 4000 pistas cuya memoria se reserva por crecimiento (`Queue_Grow`).
 

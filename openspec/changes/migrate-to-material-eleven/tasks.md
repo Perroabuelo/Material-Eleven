@@ -7,7 +7,7 @@
 - [x] 1.5 Commit del README según D6: título Material-Eleven, aviso de fork modificado con el resumen de cambios, sección de licencia y créditos ampliados. Listo cuando el README enlace a `joel16/ElevenMPV` y a `GrapheneCt/ElevenMPV-A`.
 - [x] 1.6 Commit de `.gitignore` y `.claude/` según D9. Listo cuando `git ls-files .claude` salga vacío y `.claude/CLAUDE.md` siga existiendo en disco.
 - [x] 1.7 Commit de `openspec/config.yaml` según D7. Listo cuando `openspec context --json` devuelva el contexto nuevo sin errores y `openspec validate migrate-to-material-eleven` pase.
-- [ ] 1.8 Commit de versión según D8: `VITA_VERSION "03.00"` y un `CHANGELOG.md` nuevo con la sección `## [3.0.0]` que lleve las notas de versión de la propuesta. Listo cuando el `.vpk` compile en WSL con VitaSDK y el `param.sfo` generado tenga `APP_VER 03.00`.
+- [x] 1.8 Commit de versión según D8: `VITA_VERSION "03.00"` y un `CHANGELOG.md` nuevo con la sección `## [3.0.0]` que lleve las notas de versión de la propuesta. Listo cuando el `.vpk` compile en WSL con VitaSDK y el `param.sfo` generado tenga `APP_VER 03.00`.
 - [ ] 1.9 Verificar que ninguno de los commits de este grupo tenga trailer de co-autor: `git log 6476e2e..HEAD --format=%B | grep -ci anthropic` debe dar 0.
 
 ## 2. Respaldo y reescritura (fuera del repo, sin publicar nada)

@@ -21,12 +21,12 @@
 
 ## 4. Etapa 4 — La previsualización dice la verdad
 
-- [ ] 4.1 Pasar `Menu_DrawUpNext` a `Queue_PeekAhead`; verificar que con el barajado apagado muestra las mismas pistas que mostraba antes del change
-- [ ] 4.2 Verificar en consola que encender el barajado a mitad de una pista cambia la lista de próximas en el acto, sin esperar a que la pista en curso termine
-- [ ] 4.3 Retirar el mensaje de final de cola y mostrar en su lugar las pistas por las que la reproducción va a continuar; verificar en la última pista de una carpeta que anuncia la primera, y con el barajado encendido que anuncia la primera del plan
+- [x] 4.1 Pasar `Menu_DrawUpNext` a `Queue_PeekAhead`; verificar que con el barajado apagado muestra las mismas pistas que mostraba antes del change
+- [x] 4.2 Verificar en consola que encender el barajado a mitad de una pista cambia la lista de próximas en el acto, sin esperar a que la pista en curso termine
+- [x] 4.3 Retirar el mensaje de final de cola y mostrar en su lugar las pistas por las que la reproducción va a continuar; verificar en la última pista de una carpeta que anuncia la primera, y con el barajado encendido que anuncia la primera del plan
 
 ## 5. Cierre
 
-- [ ] 5.1 Ejecutar `openspec validate fix-shuffle-order --strict` y verificar que pasa
-- [ ] 5.2 Verificar en consola un recorrido completo sobre una colección real: reproducir desde carpeta y desde vista de biblioteca, encender y apagar el barajado a mitad de pista, avanzar y retroceder desde el transporte, desde los gatillos y desde el mini reproductor, recorrer una cola hasta el final y comprobar por dónde continúa
-- [ ] 5.3 Verificar que el navegador de carpetas y la biblioteca se comportan igual que antes del change en todo lo que no sea el orden de reproducción, y que al reiniciar la aplicación el barajado y la repetición nacen apagados
+- [x] 5.1 Ejecutar `openspec validate fix-shuffle-order --strict` y verificar que pasa
+- [x] 5.2 Verificar en consola un recorrido completo sobre una colección real: reproducir desde carpeta y desde vista de biblioteca, encender y apagar el barajado a mitad de pista, avanzar y retroceder desde el transporte, desde los gatillos y desde el mini reproductor, recorrer una cola hasta el final y comprobar por dónde continúa
+- [x] 5.3 Verificar que el navegador de carpetas y la biblioteca se comportan igual que antes del change en todo lo que no sea el orden de reproducción, y que al reiniciar la aplicación el barajado y la repetición nacen apagados

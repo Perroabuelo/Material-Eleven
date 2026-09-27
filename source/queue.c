@@ -153,24 +153,6 @@ int Queue_Count(void) {
 	return queue_count;
 }
 
-const char *Queue_GetPath(int index) {
-	if (index < 0 || index >= queue_count)
-		return NULL;
-
-	return queue_paths[index];
-}
-
-const char *Queue_GetTitle(int index) {
-	if (index < 0 || index >= queue_count)
-		return NULL;
-
-	return queue_titles[index];
-}
-
-int Queue_GetPosition(void) {
-	return queue_slot;
-}
-
 // Indice natural de esa ruta, o -1 si no esta. A diferencia del viejo
 // Queue_IndexOf, que devolvia 0, no puede disfrazar un fallo de "volver al
 // principio".

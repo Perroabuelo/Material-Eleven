@@ -22,16 +22,6 @@ SceBool Queue_Add(const char *path, const char *title);
 
 int Queue_Count(void);
 
-// NULL si el indice cae fuera de la cola.
-const char *Queue_GetPath(int index);
-
-// El nombre con el que se metio, o NULL si quien la lleno no traia ninguno.
-const char *Queue_GetTitle(int index);
-
-// Puesto dentro del plan, que con el barajado apagado coincide con el indice
-// natural. Se retira cuando nadie lea ya vecinos por indice.
-int Queue_GetPosition(void);
-
 // El orden de reproduccion. Por dentro la cola tiene dos espacios de indice -
 // el natural, en que puesto entro cada pista, y el slot, en que puesto del plan
 // suena -, y por eso por fuera solo habla en rutas: un indice que no dice en cual

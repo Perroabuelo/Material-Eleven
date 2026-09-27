@@ -262,24 +262,18 @@ static void Menu_DrawUpNext(void) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
 	y += 30;
 
-	int selection = Queue_GetPosition();
-	int upcoming = Queue_Count() - selection - 1;
+	// Lo que dice el plan, sin casos especiales: el recorrido envuelve, asi que
+	// siempre hay algo que va a sonar despues, y una cola de una sola pista
+	// anuncia esa misma pista porque es literalmente lo que sonara.
+	for (int i = 1; i <= 2 && i <= Queue_Count(); i++) {
+		const char *path = NULL, *queued = NULL;
 
-	if (upcoming <= 0) {
-		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, UPNEXT_ROW_H), RIGHT_PANEL_R - x, UI_COLOR_TEXT_TERTIARY, "No hay mas pistas en esta carpeta");
-		return;
-	}
-
-	for (int i = 0; i < 2 && i < upcoming; i++) {
-		const char *path = Queue_GetPath(selection + 1 + i);
-
-		if (path == NULL)
+		if (!Queue_PeekAhead(i, &path, &queued))
 			break;
 
 		// El nombre que trajo el productor, para que esta lista y la vista de la
 		// que salio digan lo mismo. Una cola de carpeta no trae ninguno, y ahi el
 		// respaldo sigue siendo el nombre de archivo, como siempre.
-		const char *queued = Queue_GetTitle(selection + 1 + i);
 		const char *name = (queued != NULL) ? queued : Utils_Basename(path);
 
 		UI_DrawRoundedRect(x, y + 7, 34, 34, 9, UI_COLOR_SURFACE_2);

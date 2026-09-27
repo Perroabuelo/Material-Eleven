@@ -5,7 +5,7 @@
 ## 2. Compilación en CI
 
 - [x] 2.1 Si 1.1 muestra CMake 4 o superior, cambiar `cmake_minimum_required` a `VERSION 3.10` (D7). Listo cuando `scripts/build.sh --clean` compile en local sin la advertencia de compatibilidad y el `.vpk` siga teniendo `APP_VER 03.00`. Si la imagen trae CMake 3.x, marcar la tarea como no necesaria, con la evidencia. No necesaria: la imagen `2026.08` trae CMake 3.28.3 (ver D7).
-- [ ] 2.2 Crear `.github/workflows/build.yml` según D1 y D2: disparadores `pull_request` hacia `main`, `push` a `main` y `workflow_call`, un job `build` en la imagen fijada y el artefacto `ElevenMPV.vpk`. Listo cuando el push de la rama y el PR hacia `main` muestren el check `build` en verde y el artefacto descargado tenga `APP_VER 03.00`.
+- [x] 2.2 Crear `.github/workflows/build.yml` según D1 y D2: disparadores `pull_request` hacia `main`, `push` a `main` y `workflow_call`, un job `build` en la imagen fijada y el artefacto `ElevenMPV.vpk`. Listo cuando el push de la rama y el PR hacia `main` muestren el check `build` en verde y el artefacto descargado tenga `APP_VER 03.00`. Run verde en el PR #3: https://github.com/Perroabuelo/Material-Eleven/actions/runs/36359167846 (artefacto de 2 052 688 bytes, `APP_VER 03.00`).
 - [ ] 2.3 Probar que el check falla ante un warning. En una rama desechable creada desde `change/add-ci-build`, agregar una variable sin usar en `source/main.c`, empujar y ver el run en rojo por `-Werror`. Después borrar la rama local y la remota. Listo cuando el run rojo esté enlazado en esta tarea y la rama ya no exista.
 
 ## 3. Release

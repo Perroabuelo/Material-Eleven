@@ -47,7 +47,18 @@ Se publican `v1.00`–`v2.10`. Los tags de ElevenMPV-A no se llevan, porque apun
 - `LICENSE` pasa a ser el texto completo de GPL-3.0.
 - El `NOTICE` nuevo indica que Material-Eleven es GPL-3.0-or-later. También declara que se basa en ElevenMPV, © Joel16 bajo Apache-2.0 (y que el código original sigue cubierto también por esos términos), que incluye código derivado de ElevenMPV-A, © GrapheneCt y colaboradores bajo GPL-3.0 (en `vitaaudiolib.c` y el menú de EQ), y lista los componentes de terceros con su licencia.
 - El texto de Apache-2.0 se conserva en `LICENSES/Apache-2.0.txt`, porque §4a exige entregarlo junto con el código de Joel16. Las licencias de las bibliotecas de `libs/` van en `LICENSES/` después de identificar la versión y la licencia de cada una (mpg123, dr_libs, libogg, libvorbis, libopus, libxmp-lite). Si no se puede identificar alguna, queda anotado en el NOTICE en lugar de inventarse.
-*Por qué "or later":* es lo que usa ElevenMPV-A. Hay que confirmarlo en su LICENSE y sus fuentes antes de fijarlo. Si ElevenMPV-A es "only", Material-Eleven también debe serlo.
+Inventario verificado en la tarea 1.3. `libs/` contiene solo `libopus.a`, `libopusfile.a`, `libxmp-lite.a` y los headers `dr_flac.h`, `dr_wav.h` y `opus/*`. mpg123, libFLAC, libvorbis y libogg no están vendorizadas: se enlazan desde VitaSDK.
+
+| Componente | Versión | Licencia | Evidencia |
+|---|---|---|---|
+| dr_flac / dr_wav | v0.12.2 / v0.11.1 | Dominio público (Unlicense) o MIT-0 | Bloque final de cada header |
+| libopus | 1.3 | BSD-3-Clause (Xiph y otros) | Cadena `libopus 1.3` en el `.a`, `COPYING` de v1.3 |
+| libopusfile | sin versión en el `.a` | BSD-3-Clause (Xiph) | Cabecera de `opusfile.h` y `COPYING` upstream |
+| libxmp-lite | 4.4.1 | MIT | `XMP_VERSION` en `xmp.h` y `lite/README` del tag `libxmp-4.4.1` (la libxmp completa es LGPL, la lite es MIT) |
+
+Todas son compatibles con GPLv3. El NOTICE también nombra, sin copiar sus textos, las bibliotecas que se enlazan estáticamente desde VitaSDK: mpg123 (LGPL-2.1), libFLAC, libvorbis y libogg (BSD-3-Clause), vita2d (MIT), FreeType (FTL), libpng, libjpeg (IJG), zlib y bzip2.
+
+*Por qué "or later":* es lo que declara ElevenMPV-A, verificado en `master` (tarea 1.2). La única cabecera de licencia del árbol, en `ElevenMPV-A-DE/download_enabler.cpp`, dice "either version 3 of the License, or (at your option) any later version". `ElevenMPV-A/source/audio/vitaaudiolib.cpp`, el archivo del que deriva el código portado, no tiene cabecera. En ese caso la GPLv3 §14 permite elegir cualquier versión publicada. En ningún lugar aparece una restricción a "version 3 only".
 
 ### D6. El README se reescribe como fork modificado
 El título pasa a ser "Material-Eleven". El primer párrafo dice que es un fork modificado de ElevenMPV de Joel16 y resume qué cambió: el skin estilo Material You, la biblioteca, la cola y shuffle, y el audio portado de ElevenMPV-A. Tiene una sección "Licencia" y la sección "Créditos" se amplía. Con eso se cumplen Apache-2.0 §4b y GPLv3 §5a de forma visible.

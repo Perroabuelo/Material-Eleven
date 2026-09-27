@@ -1,36 +1,71 @@
 schema: spec-driven
 
 context: |
-  Language: Spanish (pt-BR)
+  Language: Spanish
   Todos los artefactos deben escribirse en Español
   Keep OpenSpec structural headings and SHALL/MUST keywords in English.
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  App: Material-Eleven, reproductor de música homebrew para PS VITA. Es un fork
+  modificado de ElevenMPV (Joel16, Apache-2.0) que incluye código derivado de
+  ElevenMPV-A (GrapheneCt, GPL-3.0-or-later).
+  Licencia: GPL-3.0-or-later. NOTICE registra el origen de cada parte. Todo código
+  de terceros que se agregue MUST ser compatible con GPLv3, y su licencia se
+  registra en NOTICE y en LICENSES/.
+  Stack: C + CMake + VitaSDK (arm-vita-eabi-gcc), vita2d, compilado en WSL.
+  Se compila con -Wall -Werror. El producto es el .vpk (Title ID ELEVENMPV).
+  Decodificadores: dr_flac/dr_wav, libopus/opusfile y libxmp-lite en libs/;
+  mpg123, libFLAC y libvorbis/libogg vienen de VitaSDK.
+  Pruebas: por ahora, compilación limpia más verificación manual en la consola.
+  Los tests en PC para la lógica pura (cola, biblioteca) se agregan cuando existan.
+  CI: GitHub Actions compila el .vpk con VitaSDK. Un release adjunta el .vpk al
+  GitHub Release de su tag.
+  Repo: Perroabuelo/Material-Eleven. La rama principal es main.
+  Git: cada cambio de OpenSpec vive en su propia rama change/<nombre-del-cambio>,
+  creada desde main al proponerlo, y se integra a main solo mediante PR con CI en verde.
+  Los commits no llevan trailers de co-autoría de agentes.
+  La carpeta .claude/ no se versiona.
+  Artefactos de OpenSpec en español. README y código en inglés, como el proyecto original.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+rules:
+  proposal:
+    - Indicar el nombre de la rama git del cambio (change/<nombre-del-cambio>)
+    - Incluir una seccion "Fuera de alcance"
+    - >-
+      Incluir una seccion "Notas de version" con la version objetivo (vX.Y.Z), el tipo de
+      salto SemVer (major, minor o patch: una funcionalidad nueva sube el minor y una
+      correccion sube el patch) y bullets en lenguaje de usuario
+  design:
+    - Describir la estrategia de pruebas del cambio (compilacion, pruebas en consola, tests en PC si aplica)
+    - Indicar cualquier cambio necesario en el pipeline de CI
+    - Mantener la logica (cola, biblioteca, parsing) como codigo puro, sin llamadas a vita2d ni SCE, para poder probarla en PC
+    - Si se incorpora codigo o assets de terceros, indicar su licencia y su compatibilidad con GPLv3
+  specs:
+    - Cada requirement debe tener al menos un scenario verificable por un test o por una prueba en consola descrita paso a paso
+  tasks:
+    - Cada tarea es del tamano de un commit (una parte logica, revisable sola)
+    - Cada tarea incluye sus pruebas y el criterio de listo (que debe compilar, que test debe pasar o que se verifica en consola)
+    - Ninguna tarea se marca completa si la compilacion (-Werror) o los tests fallan
+    - Si el CI aun no existe, la configuracion de CI es de las primeras tareas
+
+operations:
+  apply:
+    guidance:
+      - Trabajar siempre en la rama change/<nombre-del-cambio>, nunca en main
+      - Un commit por tarea, solo cuando compila y sus pruebas pasan localmente
+      - Compilar el .vpk (y correr los tests en PC si existen) antes de cada commit
+      - Hacer push de la rama y verificar que el CI quede en verde
+  archive:
+    guidance:
+      - Archivar solo con el CI en verde en la rama del cambio
+      - Fusionar a main mediante PR
+      - >-
+        Mover los bullets de "Notas de version" de la propuesta a CHANGELOG.md, en una seccion
+        nueva "## [X.Y.Z] - AAAA-MM-DD" bajo "Sin publicar", agrupados en Agregado, Cambiado o
+        Corregido
+      - >-
+        Subir VITA_VERSION en CMakeLists.txt a "XX.YZ" para la version X.Y.Z (por ejemplo, 3.1.0
+        queda como "03.10"; Y y Z valen como maximo 9)
+      - >-
+        Despues de fusionar el PR, crear el tag anotado vX.Y.Z sobre el commit de merge en main
+        (git tag -a vX.Y.Z -m "vX.Y.Z" <merge>), publicarlo (git push origin vX.Y.Z) y adjuntar
+        el .vpk compilado desde ese commit al GitHub Release del tag

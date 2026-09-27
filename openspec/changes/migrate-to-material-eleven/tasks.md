@@ -1,12 +1,12 @@
 ## 1. Preparar el árbol en `vitasdk-legacy`
 
-- [ ] 1.1 Resolver los cambios sin commit en `.claude/CLAUDE.md` y `AGENTS.md`, y hacer commit de este cambio de OpenSpec (proposal, design, tasks, `.openspec.yaml`). Listo cuando `git status` esté limpio.
-- [ ] 1.2 Confirmar la variante de GPLv3 de ElevenMPV-A, "only" u "or later", revisando su `LICENSE` y las cabeceras de sus fuentes en `master`. Registrar el resultado en design.md (D5). Listo cuando D5 cite la evidencia.
-- [ ] 1.3 Inventariar las bibliotecas de `libs/`: para mpg123, dr_libs, libogg, libvorbis, libopus y libxmp-lite, anotar la versión (desde los headers o el `.a`) y la licencia. Listo cuando cada una tenga licencia identificada o esté marcada como "no identificada".
-- [ ] 1.4 Commit de licencia: `LICENSE` pasa a GPL-3.0, el texto Apache-2.0 va a `LICENSES/Apache-2.0.txt`, las licencias identificadas en 1.3 van a `LICENSES/` y se crea el `NOTICE` según D5. Listo cuando el NOTICE nombre a Joel16, a GrapheneCt/ElevenMPV-A (con `vitaaudiolib.c` y el menú de EQ), cada componente de `libs/`, las fuentes OFL, el banner de Preetisketch y LineageOS Eleven.
-- [ ] 1.5 Commit del README según D6: título Material-Eleven, aviso de fork modificado con el resumen de cambios, sección de licencia y créditos ampliados. Listo cuando el README enlace a `joel16/ElevenMPV` y a `GrapheneCt/ElevenMPV-A`.
-- [ ] 1.6 Commit de `.gitignore` y `.claude/` según D9. Listo cuando `git ls-files .claude` salga vacío y `.claude/CLAUDE.md` siga existiendo en disco.
-- [ ] 1.7 Commit de `openspec/config.yaml` según D7. Listo cuando `openspec context --json` devuelva el contexto nuevo sin errores y `openspec validate migrate-to-material-eleven` pase.
+- [x] 1.1 Resolver los cambios sin commit en `.claude/CLAUDE.md` y `AGENTS.md`, y hacer commit de este cambio de OpenSpec (proposal, design, tasks, `.openspec.yaml`). Listo cuando `git status` esté limpio.
+- [x] 1.2 Confirmar la variante de GPLv3 de ElevenMPV-A, "only" u "or later", revisando su `LICENSE` y las cabeceras de sus fuentes en `master`. Registrar el resultado en design.md (D5). Listo cuando D5 cite la evidencia.
+- [x] 1.3 Inventariar las bibliotecas de `libs/`: para mpg123, dr_libs, libogg, libvorbis, libopus y libxmp-lite, anotar la versión (desde los headers o el `.a`) y la licencia. Listo cuando cada una tenga licencia identificada o esté marcada como "no identificada".
+- [x] 1.4 Commit de licencia: `LICENSE` pasa a GPL-3.0, el texto Apache-2.0 va a `LICENSES/Apache-2.0.txt`, las licencias identificadas en 1.3 van a `LICENSES/` y se crea el `NOTICE` según D5. Listo cuando el NOTICE nombre a Joel16, a GrapheneCt/ElevenMPV-A (con `vitaaudiolib.c` y el menú de EQ), cada componente de `libs/`, las fuentes OFL, el banner de Preetisketch y LineageOS Eleven.
+- [x] 1.5 Commit del README según D6: título Material-Eleven, aviso de fork modificado con el resumen de cambios, sección de licencia y créditos ampliados. Listo cuando el README enlace a `joel16/ElevenMPV` y a `GrapheneCt/ElevenMPV-A`.
+- [x] 1.6 Commit de `.gitignore` y `.claude/` según D9. Listo cuando `git ls-files .claude` salga vacío y `.claude/CLAUDE.md` siga existiendo en disco.
+- [x] 1.7 Commit de `openspec/config.yaml` según D7. Listo cuando `openspec context --json` devuelva el contexto nuevo sin errores y `openspec validate migrate-to-material-eleven` pase.
 - [ ] 1.8 Commit de versión según D8: `VITA_VERSION "03.00"` y un `CHANGELOG.md` nuevo con la sección `## [3.0.0]` que lleve las notas de versión de la propuesta. Listo cuando el `.vpk` compile en WSL con VitaSDK y el `param.sfo` generado tenga `APP_VER 03.00`.
 - [ ] 1.9 Verificar que ninguno de los commits de este grupo tenga trailer de co-autor: `git log 6476e2e..HEAD --format=%B | grep -ci anthropic` debe dar 0.
 
@@ -39,5 +39,5 @@
 
 - [ ] 6.1 Con confirmación explícita y el bundle de 2.2 verificado, ejecutar `gh auth refresh -s delete_repo` y luego `gh repo delete Perroabuelo/ElevenMPV`. Listo cuando `gh repo view Perroabuelo/ElevenMPV` responda que no existe.
 - [ ] 6.2 Crear el tag anotado `v3.0.0` sobre `main` y publicarlo. Crear el GitHub Release con el `.vpk` compilado en 4.3 adjunto. Listo cuando el Release muestre el `.vpk` descargable.
-- [ ] 6.3 Renombrar el directorio según D10. Lo hace el usuario con la sesión cerrada: `Proyectos/ElevenMPV` pasa a `Proyectos/Material-Eleven` y `~/.claude/projects/C--Users-fotos-Documents-Proyectos-ElevenMPV` pasa a `…-Material-Eleven`. En la sesión nueva se reindexa Repowise. Listo cuando la sesión nueva recuerde la memoria del proyecto y `git status` esté limpio.
+- [ ] 6.3 Renombrar el directorio según D10. Lo hace el usuario con la sesión cerrada: `Proyectos/ElevenMPV` pasa a `Proyectos/Material-Eleven` y `~/.claude/projects/C--Users-fotos-Documents-Proyectos-ElevenMPV` pasa a `…-Material-Eleven`. También se actualiza `SRC_DIR` en `scripts/build.sh` (que es local y no se versiona), porque tiene la ruta vieja fija. En la sesión nueva se reindexa Repowise. Listo cuando la sesión nueva recuerde la memoria del proyecto y `git status` esté limpio.
 - [ ] 6.4 Archivar este cambio (`openspec archive migrate-to-material-eleven`) en una rama `change/…` con su PR, que es el primer uso del flujo nuevo. Listo cuando el PR esté fusionado en `main`.

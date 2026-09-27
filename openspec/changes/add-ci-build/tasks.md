@@ -10,7 +10,7 @@
 
 ## 3. Release
 
-- [ ] 3.1 Crear `.github/scripts/check-version.sh` y `.github/scripts/changelog-section.sh` según D3. Listo cuando pasen en local (bash en WSL) los casos de la estrategia de pruebas: `v3.0.0` pasa, y fallan `v3.0.1`, `v3.10.0` y `3.0.0`; `3.0.0` imprime su sección y `9.9.9` falla.
+- [x] 3.1 Crear `.github/scripts/check-version.sh` y `.github/scripts/changelog-section.sh` según D3. Listo cuando pasen en local (bash en WSL) los casos de la estrategia de pruebas: `v3.0.0` pasa, y fallan `v3.0.1`, `v3.10.0` y `3.0.0`; `3.0.0` imprime su sección y `9.9.9` falla. Probados en WSL y en Git Bash: `v3.0.0` da 0, `v3.0.1`, `v3.10.0` y `3.0.0` dan 1; `3.0.0` imprime su sección y `9.9.9` da 1. `.gitattributes` fija `*.sh` en LF para que `autocrlf` no los rompa en WSL, y `.gitignore` ancla `/scripts/` a la raíz para no ignorar `.github/scripts/`.
 - [ ] 3.2 Crear `.github/workflows/release.yml` según D2, D4 y D5: disparador `push` de tags `v*` y `workflow_dispatch` (`tag`, `dry_run`); llama a `build.yml`, ejecuta los dos scripts y crea el Release con `gh` y el asset `Material-Eleven-X.Y.Z.vpk`. Listo cuando un `workflow_dispatch` con `tag=v3.0.0 dry_run=true` sobre la rama quede en verde sin crear ningún Release (`gh release list` vacío).
 ## 4. Archivar, integrar y proteger `main` (requiere confirmación del usuario)
 

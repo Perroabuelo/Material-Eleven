@@ -58,4 +58,4 @@ build/
 .codex/config.toml
 .vscode/
 templates/
-scripts/
+/scripts/

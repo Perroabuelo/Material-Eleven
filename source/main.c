@@ -74,6 +74,7 @@ static void UI_InitGraphics(void) {
 }
 
 int main(int argc, char *argv[]) {
+	int ci_werror_probe;
 	UI_InitGraphics();
 	UI_Theme_Load();
 

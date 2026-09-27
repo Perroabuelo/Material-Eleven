@@ -7,11 +7,11 @@
 
 ## 2. Etapa 2 — El reproductor pasa a la API nueva
 
-- [ ] 2.1 Reescribir `Music_HandleNext` para que solo avance y abra, pidiendo la ruta a la cola en vez de sortear; verificar que el avance al terminar una pista se comporta igual que hoy con el barajado apagado
-- [ ] 2.2 Pasar `Menu_InitMusic` a `Queue_SeekToPath` y retirar `Queue_GetPosition` y `Queue_SetPosition` del header; verificar que el proyecto compila sin ellas y que reproducir desde una carpeta y desde una vista de biblioteca sigue colocando la cola en la pista correcta
-- [ ] 2.3 Hacer que los cuatro caminos de avance —transporte táctil, gatillos L/R, `Music_Next`/`Music_Previous` del mini reproductor y el fin natural de la pista— recorran el orden vigente; verificar en consola con el barajado encendido que los cuatro saltan a la pista del plan, que es el defecto reportado
-- [ ] 2.4 Pasar el bucle de rescate de pistas que no abren a caminar en slots; verificar borrando un archivo de la cola que se salta y la reproducción continúa por el plan, y provocando que ninguna abra que el sistema avisa en vez de quedarse sin pantalla
-- [ ] 2.5 Retirar el `Queue_SetPosition` de `source/menus/menu_library.c:371`, que queda cubierto por el salto a ruta; verificar que reproducir desde una vista de biblioteca arranca por la pista que el usuario tocó
+- [x] 2.1 Reescribir `Music_HandleNext` para que solo avance y abra, pidiendo la ruta a la cola en vez de sortear; verificar que el avance al terminar una pista se comporta igual que hoy con el barajado apagado
+- [x] 2.2 Pasar `Menu_InitMusic` a `Queue_SeekToPath` y retirar `Queue_GetPosition` y `Queue_SetPosition` del header; verificar que el proyecto compila sin ellas y que reproducir desde una carpeta y desde una vista de biblioteca sigue colocando la cola en la pista correcta
+- [x] 2.3 Hacer que los cuatro caminos de avance —transporte táctil, gatillos L/R, `Music_Next`/`Music_Previous` del mini reproductor y el fin natural de la pista— recorran el orden vigente; verificar en consola con el barajado encendido que los cuatro saltan a la pista del plan, que es el defecto reportado
+- [x] 2.4 Pasar el bucle de rescate de pistas que no abren a caminar en slots; verificar borrando un archivo de la cola que se salta y la reproducción continúa por el plan, y provocando que ninguna abra que el sistema sale de la pantalla de reproducción sin colgarse ni quedarse sin pantalla
+- [x] 2.5 Retirar el `Queue_SetPosition` de `source/menus/menu_library.c:371`, que queda cubierto por el salto a ruta; verificar que reproducir desde una vista de biblioteca arranca por la pista que el usuario tocó
 
 ## 3. Etapa 3 — Barajado y repetición como banderas independientes
 

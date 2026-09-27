@@ -368,8 +368,6 @@ static void Menu_LibraryPlaySelected(void) {
 			break;
 	}
 
-	Queue_SetPosition(selection);
-
 	// La biblioteca indexa por extension sin abrir nada, asi que lista tambien
 	// lo que no se puede decodificar. Decirlo es mejor que no hacer nada.
 	if (!Menu_PlayQueued(track->path))

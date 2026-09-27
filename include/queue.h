@@ -32,13 +32,6 @@ const char *Queue_GetTitle(int index);
 // natural. Se retira cuando nadie lea ya vecinos por indice.
 int Queue_GetPosition(void);
 
-// Sin acotar: quien llama decide que significa salirse por cada extremo, que
-// no es lo mismo al avanzar que al repetir.
-void Queue_SetPosition(int index);
-
-// Indice de esa ruta exacta dentro de la cola, o 0 si no esta.
-int Queue_IndexOf(const char *path);
-
 // El orden de reproduccion. Por dentro la cola tiene dos espacios de indice -
 // el natural, en que puesto entro cada pista, y el slot, en que puesto del plan
 // suena -, y por eso por fuera solo habla en rutas: un indice que no dice en cual

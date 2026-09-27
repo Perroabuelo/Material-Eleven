@@ -186,16 +186,6 @@ static int Queue_Find(const char *path) {
 	return -1;
 }
 
-void Queue_SetPosition(int index) {
-	queue_slot = index;
-}
-
-int Queue_IndexOf(const char *path) {
-	int natural = Queue_Find(path);
-
-	return (natural < 0) ? 0 : natural;
-}
-
 // Rehace el plan dejando `first` (indice natural) en el slot 0. Sin barajado
 // es la identidad y `first` no se mueve de su sitio; con barajado va al frente
 // y el resto se baraja detras con Fisher-Yates. El generador lo siembra una sola

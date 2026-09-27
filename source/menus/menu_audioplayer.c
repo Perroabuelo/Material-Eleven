@@ -61,7 +61,6 @@ static SceBool Menu_InitMusic(const char *path) {
 
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
 	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, length_time);
-	Queue_SetPosition(Queue_IndexOf(path));
 
 	// The fallback rasterises each glyph the first time it is asked for, and a
 	// CJK title brings a dozen new ones at once - enough to show as a hitch on
@@ -121,53 +120,45 @@ static void Music_SeedOnce(void) {
 	seeded = SCE_TRUE;
 }
 
-static void Music_HandleNext(SceBool forward, int next_state) {
+// Solo avanza y abre: que pista toca lo decide la cola, venga el avance del
+// transporte, de los gatillos, del mini reproductor o del fin de la pista.
+// `replay` reabre la que suena en vez de moverse, que es lo que pide la
+// repeticion.
+static void Music_HandleNext(SceBool forward, SceBool replay) {
 	int count = Queue_Count();
-	int selection = Queue_GetPosition();
-
-	if (next_state == MUSIC_STATE_NONE) {
-		if (forward)
-			selection++;
-		else
-			selection--;
-	}
-	else if (next_state == MUSIC_STATE_SHUFFLE && count > 1) {
-		Music_SeedOnce();
-
-		// Se sortea entre las OTRAS, y el hueco de la actual se salta corriendo el
-		// resultado un puesto. Asi todas las demas salen con la misma probabilidad,
-		// la actual no se repite, y la ultima de la cola es alcanzable.
-		//
-		// Antes era "rand() % (count - 1)" y, si coincidia con la actual,
-		// "selection--": el modulo dejaba la ultima pista fuera del sorteo para
-		// siempre, y el decremento convertia la coincidencia en la pista anterior
-		// en vez de en otra cualquiera.
-		int pick = rand() % (count - 1);
-		selection = (pick >= selection) ? pick + 1 : pick;
-	}
+	const char *next = NULL;
 
 	Audio_Stop();
 	Music_FreeCurrentTrack();
 	Audio_Term();
 
+	if (replay)
+		Queue_PeekAhead(0, &next, NULL);
+	else
+		next = Queue_Advance(forward);
+
 	// Una pista que no abre no puede quedarse con la pantalla: se salta y se
-	// prueba la siguiente en la misma direccion. Como mucho una vuelta
+	// prueba la siguiente del plan en la misma direccion. Como mucho una vuelta
 	// entera a la cola, que es lo que acota esto cuando no abre ninguna.
 	for (int tries = 0; tries < count; tries++) {
-		Utils_SetMax(&selection, 0, (count - 1));
-		Utils_SetMin(&selection, (count - 1), 0);
-
-		const char *next = Queue_GetPath(selection);
-
-		if (next != NULL && Menu_InitMusic(next)) {
-			Queue_SetPosition(selection);
+		if (next != NULL && Menu_InitMusic(next))
 			return;
-		}
 
-		selection += forward ? 1 : -1;
+		next = Queue_Advance(forward);
 	}
 
 	track_failed = SCE_TRUE;
+}
+
+// Barajar sigue siendo uno de los tres modos, pero el orden ya lo guarda la
+// cola: por eso el cambio de modo se le pasa, y al encenderlo baraja con la
+// pista en curso al frente sin cortarla.
+static void Music_SetState(int next) {
+	state = next;
+	Music_SeedOnce();
+
+	if (Queue_IsShuffled() != (state == MUSIC_STATE_SHUFFLE))
+		Queue_SetShuffle(state == MUSIC_STATE_SHUFFLE);
 }
 
 const char *Music_GetDisplayTitle(void) {
@@ -193,12 +184,12 @@ void Music_TogglePlayPause(void) {
 
 void Music_Previous(void) {
 	if (Audio_HasTrack() && Queue_Count() != 0)
-		Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
+		Music_HandleNext(SCE_FALSE, SCE_FALSE);
 }
 
 void Music_Next(void) {
 	if (Audio_HasTrack() && Queue_Count() != 0)
-		Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
+		Music_HandleNext(SCE_TRUE, SCE_FALSE);
 }
 
 // ---- Now Playing rendering ----
@@ -348,23 +339,23 @@ static SceBool Menu_HandleTransportTouch(void) {
 
 	if (UI_TouchTarget(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
 		if (Queue_Count() != 0)
-			Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
+			Music_HandleNext(SCE_FALSE, SCE_FALSE);
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(next_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
 		if (Queue_Count() != 0)
-			Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
+			Music_HandleNext(SCE_TRUE, SCE_FALSE);
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(shuffle_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
-		state = (state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE;
+		Music_SetState((state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE);
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(repeat_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
-		state = (state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT;
+		Music_SetState((state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT);
 		return SCE_TRUE;
 	}
 
@@ -446,18 +437,10 @@ static void Menu_RunNowPlayingLoop(void) {
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 
-		if (!playing) {
-			if (state == MUSIC_STATE_NONE) {
-				if (Queue_Count() != 0)
-					Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
-			}
-			else if (state == MUSIC_STATE_REPEAT)
-				Music_HandleNext(SCE_FALSE, MUSIC_STATE_REPEAT);
-			else if (state == MUSIC_STATE_SHUFFLE) {
-				if (Queue_Count() != 0)
-					Music_HandleNext(SCE_FALSE, MUSIC_STATE_SHUFFLE);
-			}
-		}
+		// La pista termino sola. La repeticion la reabre; si no, se avanza por
+		// el plan vigente, barajado o no, igual que en un salto manual.
+		if (!playing && Queue_Count() != 0)
+			Music_HandleNext(SCE_TRUE, state == MUSIC_STATE_REPEAT);
 
 		Utils_ReadControls();
 		Touch_Update();
@@ -495,17 +478,17 @@ static void Menu_RunNowPlayingLoop(void) {
 		}
 
 		if (pressed & SCE_CTRL_TRIANGLE)
-			state = (state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE;
+			Music_SetState((state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE);
 		else if (pressed & SCE_CTRL_SQUARE)
-			state = (state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT;
+			Music_SetState((state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT);
 
 		if (pressed & SCE_CTRL_LTRIGGER) {
 			if (Queue_Count() != 0)
-				Music_HandleNext(SCE_FALSE, MUSIC_STATE_NONE);
+				Music_HandleNext(SCE_FALSE, SCE_FALSE);
 		}
 		else if (pressed & SCE_CTRL_RTRIGGER) {
 			if (Queue_Count() != 0)
-				Music_HandleNext(SCE_TRUE, MUSIC_STATE_NONE);
+				Music_HandleNext(SCE_TRUE, SCE_FALSE);
 		}
 
 		if (pressed & SCE_CTRL_START)
@@ -537,6 +520,11 @@ SceBool Menu_PlayAudio(char *path) {
 	if (!Menu_InitMusic(path))
 		return SCE_FALSE;
 
+	// La cola arranca en la pista que se toco, y con el barajado encendido la
+	// baraja detras de ella. Si esa ruta no entro en la cola - una carpeta por
+	// encima del techo - la pista suena igual y la cola sigue desde su principio.
+	Queue_SeekToPath(path);
+
 	Menu_RunNowPlayingLoop();
 	return SCE_TRUE;
 }
@@ -545,9 +533,12 @@ SceBool Menu_PlayQueued(const char *path) {
 	Menu_StopCurrentTrack();
 
 	// Sin tocar la cola: la trae hecha quien llama, y rehacerla desde cwd
-	// es justamente lo que dejo de ser obligatorio.
+	// es justamente lo que dejo de ser obligatorio. Lo que si se hace aqui es
+	// plantar la cola en la pista elegida, como en el camino de carpeta.
 	if (!Menu_InitMusic(path))
 		return SCE_FALSE;
+
+	Queue_SeekToPath(path);
 
 	Menu_RunNowPlayingLoop();
 	return SCE_TRUE;

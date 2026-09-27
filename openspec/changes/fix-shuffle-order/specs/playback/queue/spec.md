@@ -71,7 +71,7 @@ Cuando el usuario elige una pista concreta de una lista, SHALL sonar esa pista. 
 - **THEN** suena la pista que tocó, y las siguientes son las del orden barajado que arranca en ella
 
 ### Requirement: Pistas que no se pueden abrir
-Cuando la pista a la que toca avanzar no se puede abrir, la cola SHALL continuar por la siguiente del orden vigente en la misma dirección del movimiento, probando como mucho una vuelta completa. Si ninguna pista de la cola se puede abrir, el sistema SHALL avisar en vez de quedarse sin reproducir nada ni cerrarse.
+Cuando la pista a la que toca avanzar no se puede abrir, la cola SHALL continuar por la siguiente del orden vigente en la misma dirección del movimiento, probando como mucho una vuelta completa. Si ninguna pista de la cola se puede abrir, el sistema SHALL salir de la pantalla de reproducción y devolver el control al usuario, sin colgarse, sin quedarse en una pantalla sin pista y sin cerrarse. No se muestra ningún mensaje.
 
 #### Scenario: Una pista ilegible no detiene la reproducción
 - **WHEN** la pista a la que toca avanzar ya no existe o su decodificador no la abre
@@ -79,7 +79,7 @@ Cuando la pista a la que toca avanzar no se puede abrir, la cola SHALL continuar
 
 #### Scenario: Ninguna pista de la cola se puede abrir
 - **WHEN** ninguna de las pistas de la cola se puede abrir
-- **THEN** el sistema avisa y devuelve el control al usuario
+- **THEN** el sistema sale de la pantalla de reproducción y devuelve el control al usuario, sin mostrar ningún mensaje
 
 ### Requirement: Techo de la cola
 La cola SHALL tener un techo declarado de pistas. Cuando el origen trae más pistas de las que caben, SHALL conservar las que cupieron y permitir reproducirlas, en vez de rechazar la reproducción o escribir fuera de lo reservado.

@@ -1,0 +1,82 @@
+Material-Eleven
+Copyright (C) 2026 Diego Ordenes
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version. See LICENSE.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details.
+
+
+ORIGIN
+======
+
+Material-Eleven is a modified version of ElevenMPV.
+
+  ElevenMPV - Eleven Music Player VITA
+  Copyright (C) 2019 Joel16
+  https://github.com/joel16/ElevenMPV
+  Licensed under the Apache License, Version 2.0 (LICENSES/Apache-2.0.txt).
+
+The code that originates in ElevenMPV remains available under the terms of
+the Apache License, Version 2.0. The combined work, including every
+modification made since, is distributed under the GNU GPL version 3 or later.
+
+Material-Eleven also contains code derived from ElevenMPV-A, adapted from
+C++ to C for the open VitaSDK toolchain:
+
+  ElevenMPV-A
+  Copyright (C) 2020-2022 GrapheneCt and contributors
+  https://github.com/GrapheneCt/ElevenMPV-A
+  Licensed under the GNU GPL version 3 or later.
+
+  Derived parts:
+  - source/audio/vitaaudiolib.c: configurable output grain, following the
+    system volume, and the volume limiter for EQ presets.
+  - source/menus/menu_settings.c: the audio settings menu (EQ preset and
+    limiter toggle).
+
+Material-Eleven has changed ElevenMPV substantially: a new interface in
+the style of Material You with a dynamic accent colour, a music library, a
+playback queue with shuffle and repeat, vector-drawn controls and new font
+rendering. The full list of changes is in the git history and in
+openspec/changes/archive/.
+
+
+THIRD-PARTY COMPONENTS
+======================
+
+Distributed in this repository (libs/):
+
+  dr_flac, dr_wav (David Reid)         Public domain or MIT-0   LICENSES/dr_libs.txt
+  libopus 1.3 (Xiph.Org and others)    BSD-3-Clause             LICENSES/opus.txt
+  libopusfile (Xiph.Org)               BSD-3-Clause             LICENSES/opusfile.txt
+  libxmp-lite 4.4.1 (C. Matsuoka,
+    H. Carraro Jr)                     MIT                      LICENSES/libxmp-lite.txt
+
+Distributed in this repository (res/):
+
+  Manrope                              SIL OFL 1.1              res/OFL-Manrope.txt
+  IBM Plex Mono                        SIL OFL 1.1              res/OFL-IBMPlexMono.txt
+
+Linked statically from the VitaSDK toolchain (not distributed here):
+
+  mpg123                               LGPL-2.1
+  libFLAC, libvorbis, libogg           BSD-3-Clause
+  vita2d                               MIT
+  FreeType                             FreeType License (FTL)
+  libpng                               libpng License
+  libjpeg                              IJG License
+  zlib                                 zlib License
+  bzip2                                bzip2 License
+
+
+ARTWORK AND DESIGN
+==================
+
+  LiveArea banner (startup.png)        Preetisketch
+  Design elements                      LineageOS Eleven Music Player contributors

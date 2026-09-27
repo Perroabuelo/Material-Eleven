@@ -1,6 +1,12 @@
-# ElevenMPV - Eleven Music Player VITA
+# Material-Eleven
 
 A homebrew music player for Playstation VITA that aims to support many different audio formats compared to the offical PS VITA music application.
+
+Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/ElevenMPV) by Joel16. On top of the original player it adds:
+- A new interface in the style of Material You, with an accent colour taken from the cover art.
+- A music library, and a playback queue with independent shuffle and repeat.
+- Vector-drawn controls and new font rendering (Manrope, IBM Plex Mono).
+- Audio improvements ported from [ElevenMPV-A](https://github.com/GrapheneCt/ElevenMPV-A) by GrapheneCt: following the system volume, hardware EQ presets with an optional limiter, and a configurable output buffer.
 
 
 # Currently supported formats: (16 bit signed samples)
@@ -45,10 +51,19 @@ A homebrew music player for Playstation VITA that aims to support many different
 - Touch: Touch anywhere on the progress bar to seek to that location.
 
 
+# License:
+Material-Eleven is distributed under the GNU General Public License, version 3 or (at your option) any later version. See [LICENSE](LICENSE).
+
+It is based on ElevenMPV, whose original code is © 2019 Joel16 under the [Apache License 2.0](LICENSES/Apache-2.0.txt), and it includes code derived from ElevenMPV-A, © 2020-2022 GrapheneCt and contributors, under the GPL-3.0-or-later. [NOTICE](NOTICE) records which part comes from where, and lists every third-party component and its license.
+
+
 # Credits:
+- Joel16, for ElevenMPV, the player this project is built on.
+- GrapheneCt and the ElevenMPV-A contributors, for the audio pipeline improvements ported from ElevenMPV-A.
 - MPG123 contributors.
 - dr_libs by mackron.
 - libvorbis, libogg and libopus contributors.
 - libxmp-lite contributors.
 - Preetisketch for startup.png (banner).
 - LineageOS's Eleven Music Player contributors for design elements.
+- Manrope and IBM Plex Mono authors, fonts under the SIL Open Font License 1.1.

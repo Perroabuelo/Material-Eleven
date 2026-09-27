@@ -56,7 +56,6 @@ build/
 .claude/
 .mcp.json
 .codex/config.toml
-.repowise/
 .vscode/
 templates/
 scripts/

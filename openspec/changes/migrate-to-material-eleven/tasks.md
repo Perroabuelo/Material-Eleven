@@ -8,20 +8,20 @@
 - [x] 1.6 Commit de `.gitignore` y `.claude/` según D9. Listo cuando `git ls-files .claude` salga vacío y `.claude/CLAUDE.md` siga existiendo en disco.
 - [x] 1.7 Commit de `openspec/config.yaml` según D7. Listo cuando `openspec context --json` devuelva el contexto nuevo sin errores y `openspec validate migrate-to-material-eleven` pase.
 - [x] 1.8 Commit de versión según D8: `VITA_VERSION "03.00"` y un `CHANGELOG.md` nuevo con la sección `## [3.0.0]` que lleve las notas de versión de la propuesta. Listo cuando el `.vpk` compile en WSL con VitaSDK y el `param.sfo` generado tenga `APP_VER 03.00`.
-- [ ] 1.9 Verificar que ninguno de los commits de este grupo tenga trailer de co-autor: `git log 6476e2e..HEAD --format=%B | grep -ci anthropic` debe dar 0.
+- [x] 1.9 Verificar que ninguno de los commits de este grupo tenga trailer de co-autor: `git log 6476e2e..HEAD --format=%B | grep -ci anthropic` debe dar 0.
 
 ## 2. Respaldo y reescritura (fuera del repo, sin publicar nada)
 
-- [ ] 2.1 Instalar `git filter-repo`, por ejemplo con `pip install git-filter-repo`. Listo cuando `git filter-repo --version` responda.
-- [ ] 2.2 Crear el respaldo `git bundle create <fuera-del-repo>/ElevenMPV-pre-migracion.bundle --all`. Listo cuando `git bundle verify` sobre el archivo pase.
-- [ ] 2.3 Clonar en el scratchpad con `--no-local`, trayendo solo `vitasdk-legacy` y los tags `v1.00`–`v2.10`. Listo cuando `git branch -a` y `git tag` del clon muestren solo eso.
-- [ ] 2.4 Ejecutar `filter-repo` con el `--message-callback` de D2 y renombrar la rama a `main`. Listo cuando `git log main --format=%B | grep -ci anthropic` dé 0 y `git diff <hash-original-de-vitasdk-legacy> main` salga vacío (se compara contra el repo original agregado como remoto temporal).
-- [ ] 2.5 Revisar que los commits anteriores a `3ea284a` conserven su hash, por ejemplo `65d2fca` y `11a7ec2`, y que los tags apunten a los mismos commits. Listo cuando `git rev-parse v2.10^{commit}` coincida con el original.
+- [x] 2.1 Instalar `git filter-repo`, por ejemplo con `pip install git-filter-repo`. Listo cuando `git filter-repo --version` responda.
+- [x] 2.2 Crear el respaldo `git bundle create <fuera-del-repo>/ElevenMPV-pre-migracion.bundle --all`. Listo cuando `git bundle verify` sobre el archivo pase.
+- [x] 2.3 Clonar en el scratchpad con `--no-local`, trayendo solo `vitasdk-legacy` y los tags `v1.00`–`v2.10`. Listo cuando `git branch -a` y `git tag` del clon muestren solo eso.
+- [x] 2.4 Ejecutar `filter-repo` con el `--message-callback` de D2 y renombrar la rama a `main`. Listo cuando `git log main --format=%B | grep -ci anthropic` dé 0 y `git diff <hash-original-de-vitasdk-legacy> main` salga vacío (se compara contra el repo original agregado como remoto temporal).
+- [x] 2.5 Revisar que los commits anteriores a `3ea284a` conserven su hash, por ejemplo `65d2fca` y `11a7ec2`, y que los tags apunten a los mismos commits. Listo cuando `git rev-parse v2.10^{commit}` coincida con el original.
 
 ## 3. Hashes de los documentos archivados
 
-- [ ] 3.1 Escribir en el scratchpad el script de D3: lee `.git/filter-repo/commit-map` y reemplaza en `openspec/changes/archive/**/*.md` solo los tokens entre backticks que sean prefijo único de un hash cambiado, conservando el largo abreviado. Listo cuando una ejecución en seco liste cada reemplazo con su archivo y línea.
-- [ ] 3.2 Aplicar el script en el clon, revisar con `git diff --word-diff` y hacer commit con "Point archived records at the rewritten history". Listo cuando cada hash citado en los archivos archivados resuelva con `git rev-parse --verify <hash>^{commit}` en el clon.
+- [x] 3.1 Escribir en el scratchpad el script de D3: lee `.git/filter-repo/commit-map` y reemplaza en `openspec/changes/archive/**/*.md` solo los tokens entre backticks que sean prefijo único de un hash cambiado, conservando el largo abreviado. Listo cuando una ejecución en seco liste cada reemplazo con su archivo y línea.
+- [x] 3.2 Aplicar el script en el clon, revisar con `git diff --word-diff` y hacer commit con "Point archived records at the rewritten history". Listo cuando cada hash citado en los archivos archivados resuelva con `git rev-parse --verify <hash>^{commit}` en el clon.
 
 ## 4. Publicar el repo nuevo (requiere confirmación del usuario)
 

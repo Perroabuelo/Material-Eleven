@@ -1,6 +1,10 @@
 name: release
 
 on:
+  # TEMPORARY (add-ci-build 3.2): stands in for the dry-run dispatch, which
+  # GitHub refuses until this file is on main. Reverted right after.
+  pull_request:
+    branches: [main]
   push:
     tags: ['v*']
   # A dry run builds and runs both checks without publishing, so the workflow
@@ -29,8 +33,8 @@ jobs:
     permissions:
       contents: write
     env:
-      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      TAG: ${{ github.event_name == 'pull_request' && 'v3.0.0' || (github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name) }}
+      DRY_RUN: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7

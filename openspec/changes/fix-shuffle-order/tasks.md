@@ -15,9 +15,9 @@
 
 ## 3. Etapa 3 — Barajado y repetición como banderas independientes
 
-- [ ] 3.1 Partir el `int state` de tres valores en dos banderas independientes y conectar los dos toggles táctiles y los botones Triángulo y Cuadrado; verificar en consola que encender una no apaga la otra y que ambos glifos pueden aparecer activos a la vez
-- [ ] 3.2 Reescribir el bloque de fin de pista para que la repetición reabra la misma pista y, cuando está apagada, se avance por el orden vigente; verificar en consola las cuatro combinaciones de las dos banderas
-- [ ] 3.3 Verificar que con la repetición y el barajado encendidos, pedir la pista siguiente a mano avanza por el plan barajado en vez de repetir la actual
+- [x] 3.1 Partir el `int state` de tres valores en dos banderas independientes y conectar los dos toggles táctiles y los botones Triángulo y Cuadrado; verificar en consola que encender una no apaga la otra y que ambos glifos pueden aparecer activos a la vez
+- [x] 3.2 Reescribir el bloque de fin de pista para que la repetición reabra la misma pista y, cuando está apagada, se avance por el orden vigente; verificar en consola las cuatro combinaciones de las dos banderas
+- [x] 3.3 Verificar que con la repetición y el barajado encendidos, pedir la pista siguiente a mano avanza por el plan barajado en vez de repetir la actual
 
 ## 4. Etapa 4 — La previsualización dice la verdad
 

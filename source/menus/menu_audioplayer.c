@@ -21,13 +21,11 @@
 #include "ui_theme.h"
 #include "utils.h"
 
-typedef enum {
-	MUSIC_STATE_NONE,   // 0
-	MUSIC_STATE_REPEAT, // 1
-	MUSIC_STATE_SHUFFLE // 2
-} Music_State;
-
-static int state = 0;
+// La repeticion es una politica sobre el fin de la pista, y por eso vive aqui.
+// El barajado es una propiedad del orden y vive en la cola, que es lo que deja
+// al mini reproductor respetarlo sin conocer esta pantalla. Antes eran un solo
+// int de tres valores, y encender uno apagaba el otro.
+static SceBool repeat = SCE_FALSE;
 static int length_time_width = 0;
 static char *position_time = NULL, *length_time = NULL, *filename = NULL;
 
@@ -150,15 +148,11 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 	track_failed = SCE_TRUE;
 }
 
-// Barajar sigue siendo uno de los tres modos, pero el orden ya lo guarda la
-// cola: por eso el cambio de modo se le pasa, y al encenderlo baraja con la
-// pista en curso al frente sin cortarla.
-static void Music_SetState(int next) {
-	state = next;
+// Se baraja al encenderlo, y ahi es donde hace falta el generador ya sembrado.
+// La pista en curso no se corta: la cola la deja al frente del plan.
+static void Music_ToggleShuffle(void) {
 	Music_SeedOnce();
-
-	if (Queue_IsShuffled() != (state == MUSIC_STATE_SHUFFLE))
-		Queue_SetShuffle(state == MUSIC_STATE_SHUFFLE);
+	Queue_SetShuffle(!Queue_IsShuffled());
 }
 
 const char *Music_GetDisplayTitle(void) {
@@ -316,11 +310,11 @@ static void Menu_DrawTransportControls(void) {
 
 	float shuffle_x = prev_x - TOGGLE_ICON_GAP - TOGGLE_ICON_SIZE;
 	Menu_DrawShuffleGlyph(shuffle_x + TOGGLE_ICON_SIZE / 2.0f, TRANSPORT_CY, STATE_GLYPH_SIZE,
-		(state == MUSIC_STATE_SHUFFLE) ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
+		Queue_IsShuffled() ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
 
 	float repeat_x = next_x + SIDE_BTN_SIZE + TOGGLE_ICON_GAP;
 	Menu_DrawRepeatGlyph(repeat_x + TOGGLE_ICON_SIZE / 2.0f, TRANSPORT_CY, STATE_GLYPH_SIZE,
-		(state == MUSIC_STATE_REPEAT) ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
+		repeat ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_TERTIARY);
 }
 
 static SceBool Menu_HandleTransportTouch(void) {
@@ -350,12 +344,12 @@ static SceBool Menu_HandleTransportTouch(void) {
 	}
 
 	if (UI_TouchTarget(shuffle_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
-		Music_SetState((state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE);
+		Music_ToggleShuffle();
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(repeat_x, toggle_y, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE)) {
-		Music_SetState((state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT);
+		repeat = !repeat;
 		return SCE_TRUE;
 	}
 
@@ -440,7 +434,7 @@ static void Menu_RunNowPlayingLoop(void) {
 		// La pista termino sola. La repeticion la reabre; si no, se avanza por
 		// el plan vigente, barajado o no, igual que en un salto manual.
 		if (!playing && Queue_Count() != 0)
-			Music_HandleNext(SCE_TRUE, state == MUSIC_STATE_REPEAT);
+			Music_HandleNext(SCE_TRUE, repeat);
 
 		Utils_ReadControls();
 		Touch_Update();
@@ -478,9 +472,9 @@ static void Menu_RunNowPlayingLoop(void) {
 		}
 
 		if (pressed & SCE_CTRL_TRIANGLE)
-			Music_SetState((state == MUSIC_STATE_SHUFFLE) ? MUSIC_STATE_NONE : MUSIC_STATE_SHUFFLE);
+			Music_ToggleShuffle();
 		else if (pressed & SCE_CTRL_SQUARE)
-			Music_SetState((state == MUSIC_STATE_REPEAT) ? MUSIC_STATE_NONE : MUSIC_STATE_REPEAT);
+			repeat = !repeat;
 
 		if (pressed & SCE_CTRL_LTRIGGER) {
 			if (Queue_Count() != 0)

@@ -1,3 +1,10 @@
+/*
+ * The configurable output grain, the system volume tracking and the volume
+ * limiter for EQ presets are derived from ElevenMPV-A
+ * (https://github.com/GrapheneCt/ElevenMPV-A), (C) 2020-2022 GrapheneCt and
+ * contributors, GPL-3.0-or-later, and were adapted from C++ to C. See NOTICE.
+ */
+
 #include <psp2/apputil.h>
 #include <psp2/kernel/threadmgr.h>
 #include <stdlib.h>

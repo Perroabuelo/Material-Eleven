@@ -54,7 +54,7 @@ Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/Elev
 # License:
 Material-Eleven is distributed under the GNU General Public License, version 3 or (at your option) any later version. See [LICENSE](LICENSE).
 
-It is based on ElevenMPV, whose original code is © 2019 Joel16 under the [Apache License 2.0](LICENSES/Apache-2.0.txt), and it includes code derived from ElevenMPV-A, © 2020-2022 GrapheneCt and contributors, under the GPL-3.0-or-later. [NOTICE](NOTICE) records which part comes from where, and lists every third-party component and its license.
+It is based on ElevenMPV, whose original code is © 2019 Joel16 under the [Apache License 2.0](LICENSES/Apache-2.0.txt), and it includes code derived from ElevenMPV-A, © 2020-2022 GrapheneCt and contributors, under the GPL-3.0-or-later. [NOTICE](NOTICE) records which part comes from where, and lists every third-party component and its license. The license texts are in [LICENSES](LICENSES), and the .vpk carries them, together with LICENSE and NOTICE, in its `licenses/` directory.
 
 
 # Credits:
@@ -62,8 +62,9 @@ It is based on ElevenMPV, whose original code is © 2019 Joel16 under the [Apach
 - GrapheneCt and the ElevenMPV-A contributors, for the audio pipeline improvements ported from ElevenMPV-A.
 - MPG123 contributors.
 - dr_libs by mackron.
-- libvorbis, libogg and libopus contributors.
+- libFLAC, libvorbis, libogg, libopus and opusfile contributors (Xiph.Org).
 - libxmp-lite contributors.
+- vita2d by xerpi, and the FreeType, libpng, libjpeg-turbo, zlib and bzip2 projects. This software is based in part on the work of the Independent JPEG Group.
 - Preetisketch for startup.png (banner).
 - LineageOS's Eleven Music Player contributors for design elements.
 - Manrope and IBM Plex Mono authors, fonts under the SIL Open Font License 1.1.

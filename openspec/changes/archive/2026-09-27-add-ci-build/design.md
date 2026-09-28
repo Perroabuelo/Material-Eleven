@@ -57,7 +57,7 @@ GitHub solo acepta el `workflow_dispatch` cuando el workflow ya está en `main` 
 Un run manual que no sea en seco solo publica si corre sobre `refs/tags/<tag>`, para que el asset salga siempre del commit del tag.
 
 ### D6. `main` se protege con un ruleset
-El ruleset exige PR para actualizar `main` (sin exigir aprobaciones, porque hay un solo mantenedor), exige el check `build / build` en verde y con la rama al día, y bloquea el force push y el borrado de la rama. No hay bypass: el flujo del config también vale para el dueño. Se aplica con `gh api` después de que el primer run del check exista, porque GitHub solo ofrece como requeridos los checks que ya corrieron.
+El ruleset exige PR para actualizar `main` (sin exigir aprobaciones, porque hay un solo mantenedor), exige el check `build` en verde (así se reporta en los PRs; `build / build` es solo el nombre dentro de `release.yml`) y con la rama al día, y bloquea el force push y el borrado de la rama. No hay bypass: el flujo del config también vale para el dueño. Se aplica con `gh api` después de que el primer run del check exista, porque GitHub solo ofrece como requeridos los checks que ya corrieron.
 *Consecuencia:* desde que se aplica, todo cambio entra por PR, también los del dueño.
 
 ### D7. Solo se sube el mínimo de CMake si la imagen lo exige

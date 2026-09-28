@@ -1,8 +1,10 @@
 #include <psp2/appmgr.h>
+#include <psp2/apputil.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/shellutil.h>
+#include <psp2/system_param.h>
 #include <psp2/sysmodule.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +15,7 @@
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "lang.h"
 #include "cover.h"
 #include "library.h"
 #include "menu_displayfiles.h"
@@ -93,6 +96,16 @@ int main(int argc, char *argv[]) {
 	// La misma preferencia que las dos líneas de arriba, dicha ahora también al
 	// subsistema de diálogos, que no la hereda por su cuenta.
 	Utils_InitCommonDialog();
+
+	// El idioma de la consola solo se puede leer con AppUtil ya iniciado, y hay
+	// que resolverlo antes de Menu_DisplayFiles(): nada se dibuja hasta ahi, asi
+	// que no queda ningun fotograma en el idioma equivocado. Si no se puede leer,
+	// -1 no es espanol y la app sale en ingles.
+	int system_lang = -1;
+	if (R_FAILED(sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, &system_lang)))
+		system_lang = -1;
+	Lang_SetSystemLanguage(system_lang);
+	Lang_Apply(config.language);
 
 	sceAppMgrAcquireBgmPort();
 

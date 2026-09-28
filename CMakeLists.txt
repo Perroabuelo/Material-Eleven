@@ -49,6 +49,7 @@ add_executable(${PROJECT_NAME}
   source/cover.c
   source/dirbrowse.c
   source/fs.c
+  source/lang.c
   source/library.c
   source/main.c
   source/mini_player.c

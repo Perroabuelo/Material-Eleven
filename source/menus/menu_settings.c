@@ -13,6 +13,7 @@
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "lang.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_library.h"
@@ -41,7 +42,7 @@ typedef enum {
 } SettingsItemKind;
 
 typedef struct {
-	const char *label;
+	LangString label;
 	int item_count;
 	int divider_before; // index a divider is drawn above, or -1 for none
 	void (*get_hint)(char *buf, int size);
@@ -69,21 +70,21 @@ static void device_item_activate(int i) {
 }
 
 // ---- Orden (sort) ----
-static const char *sort_items[] = { "Nombre (A-Z)", "Nombre (Z-A)", "Tamaño (mayor primero)", "Tamaño (menor primero)" };
-static const char *sort_hints[] = { "A-Z", "Z-A", "Tam. v", "Tam. ^" };
-static void sort_hint(char *buf, int size) { snprintf(buf, size, "%s", sort_hints[config.sort]); }
-static const char *sort_item_label(int i) { return sort_items[i]; }
+static const LangString sort_items[] = { STR_SORT_NAME_AZ, STR_SORT_NAME_ZA, STR_SORT_SIZE_DESC, STR_SORT_SIZE_ASC };
+static const LangString sort_hints[] = { STR_SORT_HINT_NAME_AZ, STR_SORT_HINT_NAME_ZA, STR_SORT_HINT_SIZE_DESC, STR_SORT_HINT_SIZE_ASC };
+static void sort_hint(char *buf, int size) { snprintf(buf, size, "%s", Lang_Get(sort_hints[config.sort])); }
+static const char *sort_item_label(int i) { return Lang_Get(sort_items[i]); }
 static SettingsItemKind sort_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
 static SceBool sort_item_active(int i) { return config.sort == i; }
 static void sort_item_activate(int i) { config.sort = i; Config_Save(config); Dirbrowse_PopulateFiles(SCE_TRUE); }
 
 // ---- Metadatos ----
-static const char *meta_items[] = { "Metadatos FLAC", "Metadatos MP3", "Metadatos OPUS" };
+static const LangString meta_items[] = { STR_META_FLAC, STR_META_MP3, STR_META_OPUS };
 static void meta_hint(char *buf, int size) {
 	int enabled = (config.meta_flac ? 1 : 0) + (config.meta_mp3 ? 1 : 0) + (config.meta_opus ? 1 : 0);
 	snprintf(buf, size, "%d/3", enabled);
 }
-static const char *meta_item_label(int i) { return meta_items[i]; }
+static const char *meta_item_label(int i) { return Lang_Get(meta_items[i]); }
 static SettingsItemKind meta_item_kind(int i) { (void)i; return SETTINGS_ITEM_TOGGLE; }
 static SceBool meta_item_active(int i) {
 	switch (i) {
@@ -103,17 +104,25 @@ static void meta_item_activate(int i) {
 }
 
 // ---- Normalizador (ALC) ----
-static const char *alc_items[] = { "Normalizador desactivado", "Normalizador activado" };
-static void alc_hint(char *buf, int size) { snprintf(buf, size, "%s", config.alc_mode == 0 ? "Off" : "On"); }
-static const char *alc_item_label(int i) { return alc_items[i]; }
+static const LangString alc_items[] = { STR_ALC_OFF, STR_ALC_ON };
+static void alc_hint(char *buf, int size) { snprintf(buf, size, "%s", Lang_Get(config.alc_mode == 0 ? STR_ALC_HINT_OFF : STR_ALC_HINT_ON)); }
+static const char *alc_item_label(int i) { return Lang_Get(alc_items[i]); }
 static SettingsItemKind alc_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
 static SceBool alc_item_active(int i) { return config.alc_mode == i; }
 static void alc_item_activate(int i) { config.alc_mode = i; Config_Save(config); Dirbrowse_PopulateFiles(SCE_TRUE); }
 
 // ---- Ecualizador ----
-static const char *eq_items[] = { "Apagado", "Heavy", "Pop", "Jazz", "Unique", "Limitar volumen con EQ" };
-static void eq_hint(char *buf, int size) { snprintf(buf, size, "%s", eq_items[config.eq_mode]); }
-static const char *eq_item_label(int i) { return eq_items[i]; }
+// The preset names are proper names and read the same in both languages; only
+// "Off" and the volume toggle go through the string table.
+static const char *eq_presets[] = { NULL, "Heavy", "Pop", "Jazz", "Unique" };
+static const char *eq_item_label(int i) {
+	if (i == 0)
+		return Lang_Get(STR_EQ_OFF);
+	if (i == 5)
+		return Lang_Get(STR_EQ_LIMIT_VOLUME);
+	return eq_presets[i];
+}
+static void eq_hint(char *buf, int size) { snprintf(buf, size, "%s", eq_item_label(config.eq_mode)); }
 static SettingsItemKind eq_item_kind(int i) { return i == 5 ? SETTINGS_ITEM_TOGGLE : SETTINGS_ITEM_RADIO; }
 static SceBool eq_item_active(int i) { return i == 5 ? config.eq_volume : (config.eq_mode == i); }
 static void eq_item_activate(int i) {
@@ -129,11 +138,11 @@ static void eq_item_activate(int i) {
 }
 
 static const SettingsCategory categories[] = {
-	{ "Almacenamiento", 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
-	{ "Orden", 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
-	{ "Metadatos", 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
-	{ "Normalizador", 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
-	{ "Ecualizador", 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
+	{ STR_SETTINGS_STORAGE, 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
+	{ STR_SETTINGS_SORT, 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
+	{ STR_SETTINGS_METADATA, 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
+	{ STR_SETTINGS_NORMALIZER, 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
+	{ STR_SETTINGS_EQUALIZER, 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
 };
 #define CATEGORY_COUNT (sizeof(categories) / sizeof(categories[0]))
 
@@ -163,7 +172,7 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 	vita2d_draw_rectangle(CAT_COL_X + CAT_COL_W - 1, 0, 1, 544, UI_COLOR_HAIRLINE);
 	vita2d_draw_rectangle(CAT_COL_X, HEADER_H - 1, CAT_COL_W, 1, UI_COLOR_HAIRLINE);
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, CAT_COL_X + 18, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, "Ajustes");
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, CAT_COL_X + 18, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SETTINGS_TITLE));
 
 	float y = HEADER_H + 10;
 
@@ -179,7 +188,7 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 		categories[i].get_hint(hint, sizeof(hint));
 		int hint_w = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, hint);
 
-		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, row_x + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, CAT_ROW_H), row_w - 28 - hint_w - 12, text_color, categories[i].label);
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, row_x + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, CAT_ROW_H), row_w - 28 - hint_w - 12, text_color, Lang_Get(categories[i].label));
 		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, row_x + row_w - 14 - hint_w, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, CAT_ROW_H), is_active ? ui_color_accent : UI_COLOR_TEXT_MUTED, hint);
 
 		y += CAT_ROW_H;
@@ -190,7 +199,7 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 	const SettingsCategory *cat = &categories[category_index];
 
 	vita2d_draw_rectangle(DETAIL_X, HEADER_H - 1, 960 - DETAIL_X, 1, UI_COLOR_HAIRLINE);
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, cat->label);
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, Lang_Get(cat->label));
 
 	float y = HEADER_H + 18;
 
@@ -237,7 +246,7 @@ void Menu_DisplaySettings(void) {
 		Menu_DrawSettingsCategoryColumn(category_index);
 		Menu_DrawSettingsDetail(category_index, item_index);
 
-		const char *hints[] = { "Seleccionar", "Atrás", NULL, "L . R - cambiar de categoria" };
+		const char *hints[] = { Lang_Get(STR_HINT_SELECT), Lang_Get(STR_HINT_BACK), NULL, Lang_Get(STR_HINT_SETTINGS_CATEGORY) };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 4);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_SETTINGS);

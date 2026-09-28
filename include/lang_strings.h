@@ -21,6 +21,7 @@ X(STR_SETTINGS_SORT,         "Sort order",               "Orden")
 X(STR_SETTINGS_METADATA,     "Metadata",                 "Metadatos")
 X(STR_SETTINGS_NORMALIZER,   "Normalizer",               "Normalizador")
 X(STR_SETTINGS_EQUALIZER,    "Equalizer",                "Ecualizador")
+X(STR_SETTINGS_LANGUAGE,     "Language",                 "Idioma")
 
 X(STR_SORT_NAME_AZ,          "Name (A-Z)",               "Nombre (A-Z)")
 X(STR_SORT_NAME_ZA,          "Name (Z-A)",               "Nombre (Z-A)")
@@ -42,6 +43,10 @@ X(STR_ALC_HINT_ON,           "On",                       "Activado")
 
 X(STR_EQ_OFF,                "Off",                      "Apagado")
 X(STR_EQ_LIMIT_VOLUME,       "Limit volume with EQ",     "Limitar volumen con EQ")
+
+// "English" y "Español" no estan aqui: se muestran siempre en su propio idioma,
+// para que cualquiera reconozca el suyo (menu_settings.c).
+X(STR_LANG_SYSTEM,           "System",                   "Sistema")
 
 X(STR_HINT_SELECT,           "Select",                   "Seleccionar")
 X(STR_HINT_BACK,             "Back",                     "Atrás")

@@ -137,12 +137,33 @@ static void eq_item_activate(int i) {
 	}
 }
 
+// ---- Idioma ----
+// "English" and "Español" are written in their own language whatever the active
+// one is, so anyone can find their way back to theirs; only "System" is
+// translated. The index is the LANG_PREF_* value stored in config.language.
+static const char *language_names[] = { NULL, "English", "Español" };
+static int language_choice(void) {
+	return (config.language == LANG_PREF_ENGLISH || config.language == LANG_PREF_SPANISH) ? config.language : LANG_PREF_SYSTEM;
+}
+static const char *language_item_label(int i) { return (i == LANG_PREF_SYSTEM) ? Lang_Get(STR_LANG_SYSTEM) : language_names[i]; }
+static void language_hint(char *buf, int size) { snprintf(buf, size, "%s", language_item_label(language_choice())); }
+static SettingsItemKind language_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
+// An out-of-range value is not corrected on load: it behaves as System, and so
+// it is shown as System.
+static SceBool language_item_active(int i) { return language_choice() == i; }
+static void language_item_activate(int i) {
+	config.language = i;
+	Config_Save(config);
+	Lang_Apply(config.language);
+}
+
 static const SettingsCategory categories[] = {
 	{ STR_SETTINGS_STORAGE, 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
 	{ STR_SETTINGS_SORT, 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
 	{ STR_SETTINGS_METADATA, 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
 	{ STR_SETTINGS_NORMALIZER, 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
 	{ STR_SETTINGS_EQUALIZER, 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
+	{ STR_SETTINGS_LANGUAGE, LANG_PREF_COUNT, -1, language_hint, language_item_label, language_item_kind, language_item_active, language_item_activate },
 };
 #define CATEGORY_COUNT (sizeof(categories) / sizeof(categories[0]))
 

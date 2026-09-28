@@ -3,3 +3,6 @@
 
 # Shell scripts run in WSL and in the CI container, where CRLF breaks bash
 *.sh text eol=lf
+
+# Makefiles run with make in WSL, where CRLF breaks recipes
+Makefile text eol=lf

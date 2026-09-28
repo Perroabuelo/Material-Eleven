@@ -1,19 +1,26 @@
+![Material-Eleven](sce_sys/pic0.png)
+
 # Material-Eleven
 
-A homebrew music player for Playstation VITA that aims to support many different audio formats compared to the offical PS VITA music application.
+A homebrew music player for PlayStation Vita, with a Material You interface, a music library and support for many more audio formats than the official PS Vita music application.
 
-Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/ElevenMPV) by Joel16. On top of the original player it adds:
-- A new interface in the style of Material You, with an accent colour taken from the cover art.
-- A music library, and a playback queue with independent shuffle and repeat.
-- Vector-drawn controls and new font rendering (Manrope, IBM Plex Mono).
-- Audio improvements ported from [ElevenMPV-A](https://github.com/GrapheneCt/ElevenMPV-A) by GrapheneCt: following the system volume, hardware EQ presets with an optional limiter, and a configurable output buffer.
+Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/ElevenMPV) by Joel16, and it includes audio improvements ported from [ElevenMPV-A](https://github.com/GrapheneCt/ElevenMPV-A) by GrapheneCt.
+
+
+# Screenshots:
+
+| | |
+|---|---|
+| ![Now playing](docs/screenshots/now-playing-sunrise.jpg) | ![Now playing with a different accent colour](docs/screenshots/now-playing-red-rover.jpg) |
+| ![Library, albums view with the mini player](docs/screenshots/library-albums-mini-player.jpg) | ![Library, inside an artist](docs/screenshots/library-artist.jpg) |
+| ![Folder browser](docs/screenshots/folders-es.jpg) | ![Settings, language](docs/screenshots/settings-language.jpg) |
 
 
 # Currently supported formats: (16 bit signed samples)
 - FLAC
 - IT
 - MOD
-- MP3 
+- MP3
 - OGG
 - OPUS
 - S3M
@@ -22,33 +29,83 @@ Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/Elev
 
 
 # Features:
-- Browse ux0:/, ur0:/ and uma0:/ to play the above audio formats.
-- Pause/Play audio.
-- Shuffle/Repeat audio.
-- Next/Previous track in current working directory.
-- Display ID3v1 and ID3v2 metadata for MP3 files. Other tags are displayed for OGG, FLAC, OPUS and XM.
-- Basic touch support.
-- Seeking support using touch screen. (No support for OPUS)
+**Interface**
+- A Material You style interface with a navigation rail for Now Playing, Folders, Library and Settings.
+- An accent colour taken from the cover art of the track that is playing.
+- Vector-drawn controls and new font rendering (Manrope, IBM Plex Mono).
+- A mini player at the bottom of the Folders and Library screens.
+- Available in English and Spanish. On first launch it follows the console language.
+- Touch support for the navigation rail, the transport controls, the mini player and the seek bar.
+
+**Library**
+- Scans a folder of your choice and indexes the music in it.
+- Four views: Songs, Artists, Albums and Recent (most recently added first).
+- Cover art thumbnails, cached on the memory card.
+- Playing from a view makes that view the playback queue, even when an album is spread across several folders.
+
+**Folder browser**
+- Browse ux0:/, ur0:/ and uma0:/ and play any of the supported formats.
+- Search the current folder by name.
+- Sort by name or by size.
+
+**Playback**
+- A playback queue with an "Up next" list, and independent shuffle and repeat.
+- Seeking with the touch screen.
+- Displays ID3v1 and ID3v2 metadata for MP3 files. Other tags are displayed for OGG, FLAC, OPUS and XM.
+- Turn off the display and keep listening in the background.
+
+**Audio** (ported from ElevenMPV-A)
+- The volume follows the system volume control.
+- Hardware EQ presets (Heavy, Pop, Jazz, Unique), with an optional volume limiter.
+- An optional normalizer.
 
 
 # Controls:
-**In file manager:**
+The enter and cancel buttons (cross/circle) follow your console's settings.
 
-- Enter button (cross/circle): enter folder/play supported audio file.
-- Cancel button (cross/circle): go up parent folder.
-- DPAD Up/Down: Navigate files.
-- DPAD Left/Right: Top/Bottom of list.
+**Folders:**
 
-**In audio player: (Note: you can use touch controls here or the following buttons below)**
+- Enter button: open folder / play supported audio file.
+- Cancel button: clear the search filter, or go up to the parent folder.
+- DPAD Up/Down: navigate files.
+- DPAD Left/Right: top/bottom of the list.
+- Select: open Settings.
+- Start: exit the app.
+- Touch the search box to filter the current folder. Hold L + R + Start to cancel the search.
 
-- Enter button (cross/circle): Play/Pause.
-- Cancel button (cross/circle): Return to file manager.
-- L trigger: Previous audio file in current directory.
-- R trigger: Next audio file in current directory.
-- Triangle: Shuffle audio files in current directory.
-- Square: Repeat audio files in current directory.
-- Start: Turn off display and keep playing audio in background.
-- Touch: Touch anywhere on the progress bar to seek to that location.
+**Library:**
+
+- L/R triggers: switch between Songs, Artists, Albums and Recent.
+- Enter button: open an artist or album / play a track.
+- Cancel button: leave the artist or album.
+- DPAD Up/Down: navigate the list.
+- DPAD Left/Right: top/bottom of the list.
+- Triangle: rescan the library.
+- Square: choose the library folder.
+- Select: open Settings.
+- Start: exit the app.
+
+**Now Playing: (you can also use the touch controls)**
+
+- Enter button: play/pause.
+- Cancel button: return to Folders.
+- L trigger: previous track in the queue.
+- R trigger: next track in the queue.
+- Triangle: toggle shuffle.
+- Square: toggle repeat.
+- Start: turn off the display and keep playing audio in the background.
+- Touch: touch anywhere on the progress bar to seek to that location.
+
+**Settings:**
+
+- L/R triggers: switch category (Storage, Sort order, Metadata, Normalizer, Equalizer, Language).
+- DPAD Up/Down: navigate the options.
+- Enter button: select an option.
+- Cancel button: return to Folders.
+
+
+# Installation:
+Download `Material-Eleven-X.Y.Z.vpk` from the [Releases](https://github.com/Perroabuelo/Material-Eleven/releases) page and install it with VitaShell. Installing over a previous version keeps your library and your settings.
 
 
 # License:

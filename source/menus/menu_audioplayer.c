@@ -9,6 +9,7 @@
 #include "common.h"
 #include "config.h"
 #include "fs.h"
+#include "lang.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_library.h"
@@ -259,7 +260,7 @@ static void Menu_DrawRepeatGlyph(float cx, float cy, float size, unsigned int co
 static void Menu_DrawUpNext(void) {
 	float x = RIGHT_PANEL_X, y = 544 - UI_HINT_BAR_HEIGHT - 14 - (2 * UPNEXT_ROW_H) - 30;
 
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, "A CONTINUACION");
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, Lang_Get(STR_UP_NEXT));
 	y += 30;
 
 	// Lo que dice el plan, sin casos especiales: el recorrido envuelve, asi que
@@ -416,7 +417,7 @@ static void Menu_RunNowPlayingLoop(void) {
 		Menu_DrawTransportControls();
 		Menu_DrawUpNext();
 
-		const char *hints[] = { "Menu", "Atras", "Reproducir / Pausa", NULL, "L . R - Anterior / Siguiente" };
+		const char *hints[] = { Lang_Get(STR_HINT_MENU), Lang_Get(STR_HINT_BACK), Lang_Get(STR_HINT_PLAY_PAUSE), NULL, Lang_Get(STR_HINT_PREV_NEXT) };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_NOW_PLAYING);

@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "fs.h"
+#include "lang.h"
 #include "library.h"
 #include "cover.h"
 #include "nav_rail.h"
@@ -616,21 +617,21 @@ static void Library_DrawTagProgress(int done, int total, const char *path) {
 
 	float x = 80.0f, y = 200.0f;
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, "Leyendo etiquetas");
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SCAN_TAGS_TITLE));
 	y += 44.0f;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26), 960.0f - x - 80.0f,
 		UI_COLOR_TEXT_SECONDARY, Utils_Basename(path));
 	y += 34.0f;
 
-	snprintf(detail, sizeof(detail), "%d de %d", done, total);
+	snprintf(detail, sizeof(detail), Lang_Get(STR_COUNTER), done, total);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, 24), UI_COLOR_TEXT_TERTIARY, detail);
 	y += 30.0f;
 
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
-		"Lo leido se guarda: abandonar no obliga a empezar de nuevo");
+		Lang_Get(STR_SCAN_TAGS_NOTE));
 
-	const char *hints[] = { NULL, "Abandonar", NULL, NULL, NULL };
+	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
 	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 	vita2d_end_drawing();
@@ -700,21 +701,21 @@ static void Library_DrawCoverProgress(int done, int total, const char *path) {
 
 	float x = 80.0f, y = 200.0f;
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, "Extrayendo caratulas");
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SCAN_COVERS_TITLE));
 	y += 44.0f;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26), 960.0f - x - 80.0f,
 		UI_COLOR_TEXT_SECONDARY, Utils_Basename(path));
 	y += 34.0f;
 
-	snprintf(detail, sizeof(detail), "%d de %d", done, total);
+	snprintf(detail, sizeof(detail), Lang_Get(STR_COUNTER), done, total);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, 24), UI_COLOR_TEXT_TERTIARY, detail);
 	y += 30.0f;
 
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
-		"Una vez por album, y se guarda: no se repite al arrancar");
+		Lang_Get(STR_SCAN_COVERS_NOTE));
 
-	const char *hints[] = { NULL, "Abandonar", NULL, NULL, NULL };
+	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
 	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 	vita2d_end_drawing();
@@ -799,29 +800,29 @@ static void Library_DrawScanProgress(const char *folder, int found, int skipped)
 
 	float x = 80.0f, y = 200.0f;
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, "Escaneando la biblioteca");
+	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, y, 30), UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SCAN_TITLE));
 	y += 44.0f;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26), 960.0f - x - 80.0f,
 		UI_COLOR_TEXT_SECONDARY, folder);
 	y += 34.0f;
 
-	snprintf(detail, sizeof(detail), "%d pistas encontradas", found);
+	snprintf(detail, sizeof(detail), Lang_Get((found == 1) ? STR_SCAN_FOUND_ONE : STR_SCAN_FOUND_MANY), found);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, 24), UI_COLOR_TEXT_TERTIARY, detail);
 	y += 28.0f;
 
 	if (skipped > 0) {
-		snprintf(detail, sizeof(detail), "%d omitidas por ruta demasiado larga", skipped);
+		snprintf(detail, sizeof(detail), Lang_Get((skipped == 1) ? STR_SCAN_SKIPPED_ONE : STR_SCAN_SKIPPED_MANY), skipped);
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED, detail);
 		y += 26.0f;
 	}
 
 	if (library_truncated) {
-		snprintf(detail, sizeof(detail), "Limite de %d pistas alcanzado", LIBRARY_MAX_TRACKS);
+		snprintf(detail, sizeof(detail), Lang_Get(STR_SCAN_LIMIT), LIBRARY_MAX_TRACKS);
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED, detail);
 	}
 
-	const char *hints[] = { NULL, "Abandonar", NULL, NULL, NULL };
+	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
 	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 	vita2d_end_drawing();

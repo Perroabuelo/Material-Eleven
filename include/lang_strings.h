@@ -100,3 +100,22 @@ X(STR_HINT_RETURN,           "Back",                     "Volver")
 X(STR_HINT_VIEWS,            "L R - Views",              "L R - Vistas")
 X(STR_HINT_RESCAN,           "Triangle - Rescan",        "Triángulo - Reescanear")
 X(STR_HINT_FOLDER,           "Square - Folder",          "Cuadrado - Carpeta")
+
+// ---- Escaneo de la biblioteca ----
+X(STR_SCAN_TITLE,            "Scanning the library",     "Escaneando la biblioteca")
+X(STR_SCAN_FOUND_ONE,        "%d track found",           "%d pista encontrada")
+X(STR_SCAN_FOUND_MANY,       "%d tracks found",          "%d pistas encontradas")
+X(STR_SCAN_SKIPPED_ONE,      "%d skipped: path too long", "%d omitida por ruta demasiado larga")
+X(STR_SCAN_SKIPPED_MANY,     "%d skipped: path too long", "%d omitidas por ruta demasiado larga")
+X(STR_SCAN_LIMIT,            "Limit of %d tracks reached", "Límite de %d pistas alcanzado")
+X(STR_SCAN_TAGS_TITLE,       "Reading tags",             "Leyendo etiquetas")
+X(STR_SCAN_TAGS_NOTE,        "What is read is kept: stopping does not mean starting over", "Lo leído se guarda: abandonar no obliga a empezar de nuevo")
+X(STR_SCAN_COVERS_TITLE,     "Extracting cover art",     "Extrayendo carátulas")
+X(STR_SCAN_COVERS_NOTE,      "Once per album, and kept: not repeated at startup", "Una vez por álbum, y se guarda: no se repite al arrancar")
+X(STR_HINT_STOP,             "Stop",                     "Abandonar")
+
+// ---- Reproduciendo ----
+X(STR_UP_NEXT,               "UP NEXT",                  "A CONTINUACIÓN")
+X(STR_HINT_MENU,             "Menu",                     "Menú")
+X(STR_HINT_PLAY_PAUSE,       "Play / Pause",             "Reproducir / Pausa")
+X(STR_HINT_PREV_NEXT,        "L . R - Previous / Next",  "L . R - Anterior / Siguiente")

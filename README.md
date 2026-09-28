@@ -65,6 +65,5 @@ It is based on ElevenMPV, whose original code is © 2019 Joel16 under the [Apach
 - libFLAC, libvorbis, libogg, libopus and opusfile contributors (Xiph.Org).
 - libxmp-lite contributors.
 - vita2d by xerpi, and the FreeType, libpng, libjpeg-turbo, zlib and bzip2 projects. This software is based in part on the work of the Independent JPEG Group.
-- Preetisketch for startup.png (banner).
 - LineageOS's Eleven Music Player contributors for design elements.
 - Manrope and IBM Plex Mono authors, fonts under the SIL Open Font License 1.1.

@@ -7,7 +7,7 @@
 ## 2. Empaquetado y créditos
 
 - [x] 2.1 En `CMakeLists.txt`, cambiar `VITA_APP_NAME` a `"Material Eleven"` y agregar `FILE sce_sys/pic0.png sce_sys/pic0.png` a `vita_create_vpk`. Listo cuando `scripts/build.sh --clean` compile con `-Werror`, el `.vpk` contenga `sce_sys/pic0.png` y el `param.sfo` generado tenga `TITLE` "Material Eleven".
-- [ ] 2.2 Quitar el crédito del banner de Preetisketch de `NOTICE` (ARTWORK AND DESIGN) y de los créditos de `README.md`, y mantener la línea de LineageOS. Listo cuando `grep -ri preetisketch` no devuelva nada en el repo, salvo en los artefactos archivados de OpenSpec.
+- [x] 2.2 Quitar el crédito del banner de Preetisketch de `NOTICE` (ARTWORK AND DESIGN) y de los créditos de `README.md`, y mantener la línea de LineageOS. Listo cuando `grep -ri preetisketch` no devuelva nada en el repo, salvo en los artefactos archivados de OpenSpec.
 
 ## 3. Verificación en consola
 

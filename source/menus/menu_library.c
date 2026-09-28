@@ -5,6 +5,7 @@
 #include "common.h"
 #include "cover.h"
 #include "fs.h"
+#include "lang.h"
 #include "library.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
@@ -49,11 +50,11 @@ typedef enum {
 	VIEW_COUNT
 } Menu_LibraryTab;
 
-static const char *view_label[VIEW_COUNT] = { "Canciones", "Artistas", "Albumes", "Recientes" };
+static const LangString view_label[VIEW_COUNT] = { STR_VIEW_SONGS, STR_VIEW_ARTISTS, STR_VIEW_ALBUMS, STR_VIEW_RECENT };
 
-// La etiqueta del cubo de las pistas sin ese campo. La pone la vista, no el
-// indice: asi un artista que de verdad se llame asi no se mezcla con el cubo.
-#define UNKNOWN_LABEL "Desconocido"
+// La etiqueta del cubo de las pistas sin ese campo (STR_UNKNOWN). La pone la
+// vista, no el indice: asi un artista que de verdad se llame asi no se mezcla con
+// el cubo, y cambiar de idioma no obliga a reescanear.
 
 static Menu_LibraryTab view = VIEW_SONGS;
 static int selection = 0;
@@ -75,7 +76,9 @@ static SceBool view_dirty = SCE_TRUE;
 static void Menu_LibrarySetView(Menu_LibraryTab next);
 static SceBool root_missing = SCE_FALSE;
 static int root_check_frames = 0;
-static char notice[160] = "";
+// El aviso se guarda como id y se resuelve al dibujar, para que cambiar de
+// idioma con uno en pantalla lo muestre ya traducido.
+static LangString notice = STR_COUNT;
 static int notice_frames = 0;
 
 // Como se llama una pista en la vista: su titulo si lo trae, y el nombre del
@@ -118,8 +121,8 @@ static int Menu_LibraryBuild(void) {
 	return Library_BuildSongs();
 }
 
-static void Menu_LibraryNotice(const char *text) {
-	snprintf(notice, sizeof(notice), "%s", text);
+static void Menu_LibraryNotice(LangString text) {
+	notice = text;
 	notice_frames = NOTICE_FRAMES;
 }
 
@@ -157,7 +160,7 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	// Dentro de un artista o un album manda su nombre, porque es lo que el usuario
 	// acaba de elegir; la pestaña sigue marcada al lado.
-	const char *heading = inside ? (inside_unknown ? UNKNOWN_LABEL : inside_name) : "Biblioteca";
+	const char *heading = inside ? (inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name) : Lang_Get(STR_LIBRARY_TITLE);
 
 	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
 		UI_COLOR_TEXT_PRIMARY, heading);
@@ -167,11 +170,12 @@ static void Menu_DrawLibraryTopBar(void) {
 	float tab_x = 960 - 22;
 
 	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
-		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, view_label[i]);
+		const char *label = Lang_Get(view_label[i]);
+		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, label);
 		tab_x -= w;
 
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
-			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, view_label[i]);
+			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, label);
 
 		tab_x -= 18.0f;
 	}
@@ -239,13 +243,13 @@ static void Menu_DrawLibraryList(void) {
 			char sub[48];
 			int n = Library_NameTrackCount(i);
 
-			snprintf(sub, sizeof(sub), (n == 1) ? "%d pista" : "%d pistas", n);
+			snprintf(sub, sizeof(sub), Lang_Get((n == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), n);
 
 			// En la vista de albumes la fila ES un album, asi que su caratula es la
 			// del cubo. En la de artistas no hay una sola imagen que la represente.
 			const char *art_album = (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) ? Library_NameAt(i) : NULL;
 
-			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? UNKNOWN_LABEL : Library_NameAt(i), sub,
+			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(i), sub,
 				art_album, NULL, &budget);
 		}
 		else {
@@ -254,7 +258,7 @@ static void Menu_DrawLibraryList(void) {
 			if (track == NULL)
 				break;
 
-			const char *artist = (track->artist[0] != '\0') ? track->artist : UNKNOWN_LABEL;
+			const char *artist = (track->artist[0] != '\0') ? track->artist : Lang_Get(STR_UNKNOWN);
 			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, &budget);
 		}
 
@@ -266,11 +270,11 @@ static void Menu_DrawLibraryList(void) {
 	int pending = Library_PendingTags();
 
 	if (Library_IsTruncated())
-		snprintf(counter, sizeof(counter), "%d de %d  -  biblioteca truncada en el maximo", selection + 1, count);
+		snprintf(counter, sizeof(counter), Lang_Get(STR_COUNTER_TRUNCATED), selection + 1, count);
 	else if (pending > 0)
-		snprintf(counter, sizeof(counter), "%d de %d  -  faltan %d etiquetas por leer", selection + 1, count, pending);
+		snprintf(counter, sizeof(counter), Lang_Get((pending == 1) ? STR_COUNTER_PENDING_ONE : STR_COUNTER_PENDING_MANY), selection + 1, count, pending);
 	else
-		snprintf(counter, sizeof(counter), "%d de %d", selection + 1, count);
+		snprintf(counter, sizeof(counter), Lang_Get(STR_COUNTER), selection + 1, count);
 
 	// Justo debajo de la ultima fila y por encima del mini reproductor, que
 	// empieza en MiniPlayer_Top(): asi el contador no queda tapado cuando hay
@@ -281,14 +285,14 @@ static void Menu_DrawLibraryList(void) {
 }
 
 static void Menu_DrawLibraryNotice(void) {
-	if (notice_frames <= 0)
+	if (notice_frames <= 0 || notice >= STR_COUNT)
 		return;
 
 	float h = 44.0f, y = MiniPlayer_Top() - h - 8;
 
 	UI_DrawRoundedRect(CONTENT_X + 16, y, 960 - CONTENT_X - 32, h, 12, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 32, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, h),
-		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, notice);
+		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, Lang_Get(notice));
 }
 
 // ---------------------------------------------------------------------------
@@ -311,7 +315,7 @@ static void Menu_LibraryPickRoot(void) {
 		Library_RunCoverPass();
 
 	if (Library_IsTruncated())
-		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
+		Menu_LibraryNotice(STR_NOTICE_TRUNCATED);
 }
 
 static void Menu_LibraryRescan(void) {
@@ -321,7 +325,7 @@ static void Menu_LibraryRescan(void) {
 	view_dirty = SCE_TRUE;
 
 	if (!Library_RootAvailable()) {
-		Menu_LibraryNotice("Esa carpeta ya no esta disponible. Elegi otra con Cuadrado.");
+		Menu_LibraryNotice(STR_NOTICE_ROOT_GONE);
 		return;
 	}
 
@@ -331,7 +335,7 @@ static void Menu_LibraryRescan(void) {
 		Library_RunCoverPass();
 
 	if (Library_IsTruncated())
-		Menu_LibraryNotice("La coleccion supera el maximo: la biblioteca quedo truncada.");
+		Menu_LibraryNotice(STR_NOTICE_TRUNCATED);
 }
 
 // El productor de biblioteca: vuelca la vista vigente en la cola, en el orden
@@ -352,7 +356,7 @@ static void Menu_LibraryPlaySelected(void) {
 	// desde el ultimo escaneo. Comprobarlo aqui es barato; validar el indice
 	// entero al arrancar seria un escaneo.
 	if (!FS_FileExists(track->path)) {
-		Menu_LibraryNotice("Ese archivo ya no esta. Reescanea para poner la biblioteca al dia.");
+		Menu_LibraryNotice(STR_NOTICE_FILE_GONE);
 		return;
 	}
 
@@ -371,7 +375,7 @@ static void Menu_LibraryPlaySelected(void) {
 	// La biblioteca indexa por extension sin abrir nada, asi que lista tambien
 	// lo que no se puede decodificar. Decirlo es mejor que no hacer nada.
 	if (!Menu_PlayQueued(track->path))
-		Menu_LibraryNotice("No se pudo leer ese archivo. Puede estar danado o incompleto.");
+		Menu_LibraryNotice(STR_NOTICE_UNREADABLE);
 }
 
 // ---------------------------------------------------------------------------
@@ -490,21 +494,18 @@ void Menu_DisplayLibrary(void) {
 		if (root_missing) {
 			UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 22,
 				UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, TOPBAR_H + 10, 24), 960 - CONTENT_X - 44,
-				UI_COLOR_TEXT_SECONDARY, "La carpeta de la biblioteca no esta disponible. Cuadrado - elegir otra.");
+				UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_ROOT_MISSING));
 		}
 
 		switch (state) {
 			case LIBRARY_STATE_NO_ROOT:
-				Menu_DrawLibraryPlaceholder("Todavia no elegiste una carpeta para la biblioteca.",
-					"Cuadrado - Elegir carpeta");
+				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_ROOT), Lang_Get(STR_ACTION_CHOOSE_FOLDER));
 				break;
 			case LIBRARY_STATE_UNBUILT:
-				Menu_DrawLibraryPlaceholder("Esta carpeta todavia no se escaneo.",
-					"Triangulo - Escanear");
+				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_UNBUILT), Lang_Get(STR_ACTION_SCAN));
 				break;
 			case LIBRARY_STATE_EMPTY:
-				Menu_DrawLibraryPlaceholder("En esa carpeta no habia ninguna pista reproducible.",
-					"Cuadrado - Elegir otra carpeta");
+				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_TRACKS), Lang_Get(STR_ACTION_CHOOSE_OTHER));
 				break;
 			case LIBRARY_STATE_READY:
 				Menu_DrawLibraryList();
@@ -514,12 +515,12 @@ void Menu_DisplayLibrary(void) {
 		MiniPlayer_Draw();
 		Menu_DrawLibraryNotice();
 
-		const char *play_hint = (state != LIBRARY_STATE_READY) ? "Empezar"
-			: (Menu_LibraryShowsNames() ? "Abrir" : "Reproducir");
+		const char *play_hint = Lang_Get((state != LIBRARY_STATE_READY) ? STR_HINT_START
+			: (Menu_LibraryShowsNames() ? STR_HINT_OPEN : STR_HINT_PLAY));
 		// La leyenda anuncia lo que el boton hace ahora mismo: retomar etiquetas
 		// solo aparece cuando queda alguna por leer.
-		const char *back_hint = inside ? "Volver" : NULL;
-		const char *hints[] = { play_hint, back_hint, "L R - Vistas", "Triangulo - Reescanear", "Cuadrado - Carpeta" };
+		const char *back_hint = inside ? Lang_Get(STR_HINT_RETURN) : NULL;
+		const char *hints[] = { play_hint, back_hint, Lang_Get(STR_HINT_VIEWS), Lang_Get(STR_HINT_RESCAN), Lang_Get(STR_HINT_FOLDER) };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);

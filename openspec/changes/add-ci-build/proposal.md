@@ -27,17 +27,17 @@ Ninguna.
 - Análisis estático, formato o lint de C.
 - Firmar el `.vpk` o publicarlo en tiendas homebrew como VitaDB.
 - Automatizar la subida de `VITA_VERSION` o la redacción de `CHANGELOG.md`. Siguen siendo pasos de archive.
-- El tag `v3.0.0` y su Release. Se crean al cerrar `migrate-to-material-eleven`, que queda como primer uso del workflow de release.
+- Rehacer el Release `v3.0.0`. Se publicó a mano el 2026-09-27, sobre el merge del PR #1, con el asset `Material-Eleven-v3.0.0.vpk`. El primer uso real del workflow de release será la próxima versión.
 
 ## Notas de versión
 
-- Versión objetivo: **v3.0.0**, sin salto propio. El cambio no tiene efecto visible dentro de la app y viaja en la versión 3.0.0, que todavía no se publica.
+- Versión objetivo: **la próxima versión**, sin salto propio. El cambio no tiene efecto visible dentro de la app; su bullet va en `[Sin publicar]` de `CHANGELOG.md` y viaja en la próxima versión que se publique. 3.0.0 ya se publicó a mano el 2026-09-27, antes de este cambio.
 - Cada versión publica su `.vpk` en la página de Releases de GitHub.
 
 ## Impact
 
-- **Archivos nuevos:** `.github/workflows/build.yml` y `.github/workflows/release.yml`.
-- **Archivos que pueden cambiar:** `CMakeLists.txt`, solo el mínimo de CMake y únicamente si la imagen lo exige. `CHANGELOG.md`, para agregar el bullet de esta versión.
+- **Archivos nuevos:** `.github/workflows/build.yml`, `.github/workflows/release.yml`, `.github/scripts/check-version.sh` y `.github/scripts/changelog-section.sh`.
+- **Archivos que cambian:** `.gitignore`, que ancla `/scripts/` a la raíz para no ignorar `.github/scripts/`. `.gitattributes`, que fija `*.sh` en LF. `CHANGELOG.md`, para agregar el bullet en `[Sin publicar]`. `CMakeLists.txt` solo cambiaría el mínimo de CMake si la imagen lo exigiera, y no lo exige (ver design.md, D7).
 - **GitHub:** Actions habilitado en `Perroabuelo/Material-Eleven` y una regla de protección sobre `main`. Esa regla se aplica con confirmación del usuario, porque desde ese momento también le impide a él hacer push directo.
 - **Dependencia externa:** la imagen Docker `vitasdk/vitasdk` (Ubuntu 24.04 con todos los paquetes de vdpm), fijada a una serie concreta.
 - **Código del reproductor:** no cambia.

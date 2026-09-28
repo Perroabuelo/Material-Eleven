@@ -43,19 +43,22 @@ Se usa como `container:` del job, fijada a una serie concreta (`2026.08` o la vi
 - `check-version.sh <tag>` valida que el tag sea `vX.Y.Z` con Y y Z menores o iguales a 9, calcula `XX.YZ` y lo compara con `VITA_VERSION` en `CMakeLists.txt`. Si algo no calza, termina con un código distinto de cero y un mensaje claro.
 - `changelog-section.sh <X.Y.Z>` imprime la sección `## [X.Y.Z]` de `CHANGELOG.md`, hasta el encabezado `## [` siguiente, y falla si la sección no existe o está vacía.
 
-Son bash puro sobre coreutils, así que corren igual en el contenedor, en WSL y en Git Bash. Se prueban en local con casos buenos y malos (ver la estrategia de pruebas).
+Son bash puro sobre coreutils, así que corren igual en el contenedor, en WSL y en Git Bash. `.gitattributes` fija `*.sh` en LF, porque con `core.autocrlf` un checkout en Windows los dejaría en CRLF y bash fallaría al correrlos desde WSL. Se prueban en local con casos buenos y malos (ver la estrategia de pruebas).
 *Alternativa descartada:* poner esa lógica inline en el YAML, donde no se puede probar sin empujar tags.
 
 ### D4. El Release se crea con `gh` y solo se usan acciones de GitHub
 El job de release ejecuta `gh release create vX.Y.Z Material-Eleven-X.Y.Z.vpk --title "Material-Eleven X.Y.Z" --notes-file <sección>` con `GITHUB_TOKEN`. El asset se renombra a `Material-Eleven-X.Y.Z.vpk` sin tocar `project()`. Solo se usan `actions/checkout`, `actions/upload-artifact` y `actions/download-artifact`, sin acciones de terceros.
 *Por qué:* limita la cadena de suministro a GitHub y a la imagen de VitaSDK.
+*Nota:* el Release `v3.0.0`, publicado a mano antes de este cambio, usó `Material-Eleven-v3.0.0.vpk`. Desde la próxima versión, el nombre es el de este workflow, sin la `v`.
 
 ### D5. `release.yml` también acepta un `workflow_dispatch` en seco
 Con la entrada `tag` y `dry_run: true`, el workflow compila, ejecuta las dos verificaciones y sube el artefacto, pero no crea el Release. Sirve para probar el workflow antes del primer tag real. Hace falta porque GitHub no permite ejecutar un workflow disparado por tag sin empujar el tag.
+GitHub solo acepta el `workflow_dispatch` cuando el workflow ya está en `main` (antes responde HTTP 404). Por eso, antes del merge, el dry run se hace con un disparador `pull_request` temporal que fija `tag` y `dry_run`, y que se revierte en seguida.
+Un run manual que no sea en seco solo publica si corre sobre `refs/tags/<tag>`, para que el asset salga siempre del commit del tag.
 
 ### D6. `main` se protege con un ruleset
 El ruleset exige PR para actualizar `main` (sin exigir aprobaciones, porque hay un solo mantenedor), exige el check `build / build` en verde y con la rama al día, y bloquea el force push y el borrado de la rama. No hay bypass: el flujo del config también vale para el dueño. Se aplica con `gh api` después de que el primer run del check exista, porque GitHub solo ofrece como requeridos los checks que ya corrieron.
-*Consecuencia:* el archive de `migrate-to-material-eleven`, que todavía no pasó por PR, también tendrá que entrar por PR.
+*Consecuencia:* desde que se aplica, todo cambio entra por PR, también los del dueño.
 
 ### D7. Solo se sube el mínimo de CMake si la imagen lo exige
 Si la imagen trae CMake 4 o superior, `cmake_minimum_required(VERSION 2.8)` pasa a `VERSION 3.10`, que es compatible con 3.28 local y quita la advertencia actual. Si trae CMake 3.x, no se toca, porque no es necesario para este cambio.
@@ -73,7 +76,7 @@ Si la imagen trae CMake 4 o superior, `cmake_minimum_required(VERSION 2.8)` pasa
 
 - **Scripts (D3):** probarlos en local con bash. `check-version.sh` con `v3.0.0` (pasa), `v3.0.1` (falla porque no calza), `v3.10.0` (falla porque Y es mayor que 9) y `3.0.0` (falla porque falta la `v`). `changelog-section.sh` con `3.0.0` (imprime la sección) y `9.9.9` (falla).
 - **Build (D2):** el PR de este mismo cambio tiene que quedar en verde, y el `.vpk` del artefacto tiene que coincidir en tamaño aproximado y `APP_VER` con el local. Además, un commit temporal en una rama desechable con un warning deliberado tiene que poner el check en rojo. Después se borra la rama.
-- **Release (D5):** un `workflow_dispatch` en seco con `tag=v3.0.0` tiene que quedar en verde sin crear el Release. El primer Release real es `v3.0.0`, al cerrar `migrate-to-material-eleven`.
+- **Release (D5):** un `workflow_dispatch` en seco con `tag=v3.0.0` tiene que quedar en verde sin crear el Release. `v3.0.0` ya existe (se publicó a mano), así que el dry run usa ese tag solo para verificar la versión y las notas. El primer Release real del workflow será la próxima versión.
 - **Protección (D6):** después de aplicarla, un `git push origin main` directo tiene que ser rechazado.
 
 ## Cambios al pipeline de CI

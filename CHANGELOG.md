@@ -8,6 +8,8 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+## [3.1.0] - 2026-09-27
+
 ### Agregado
 
 - Cada versión publica su `.vpk` en la página de Releases de GitHub.

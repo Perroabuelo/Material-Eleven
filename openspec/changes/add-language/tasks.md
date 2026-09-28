@@ -36,5 +36,5 @@
 
 ## 5. Cierre
 
-- [ ] 5.1 Agregar a `CHANGELOG.md`, en `[Sin publicar]`, los bullets de las notas de versión de la propuesta bajo `### Agregado` y `### Cambiado`, y subir `VITA_VERSION` a `"03.10"` en `CMakeLists.txt`. Listo cuando `changelog-section.sh "Sin publicar"` imprima los bullets, `check-version.sh v3.1.0` pase y el `.vpk` compilado tenga `APP_VER 03.10`.
+- [x] 5.1 Agregar a `CHANGELOG.md`, en `[Sin publicar]`, los bullets de las notas de versión de la propuesta bajo `### Agregado` y `### Cambiado`, y subir `VITA_VERSION` a `"03.10"` en `CMakeLists.txt`. Listo cuando `changelog-section.sh "Sin publicar"` imprima los bullets, `check-version.sh v3.1.0` pase y el `.vpk` compilado tenga `APP_VER 03.10`.
 - [ ] 5.2 Ejecutar `openspec validate add-language --strict`. Listo cuando pase y el check `build` del PR de `change/add-language` hacia `main` esté en verde.

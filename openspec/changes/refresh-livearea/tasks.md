@@ -11,13 +11,15 @@
 
 ## 3. Verificación en consola
 
-- [ ] 3.1 Instalar el `.vpk` con VitaShell sobre la v3.1.0, con una biblioteca escaneada y ajustes cambiados, y recorrer los scenarios de `specs/ui/livearea`:
+- [x] 3.1 Instalar el `.vpk` con VitaShell sobre la v3.1.0, con una biblioteca escaneada y ajustes cambiados, y recorrer los scenarios de `specs/ui/livearea`:
   - Nombre e ícono en la pantalla de inicio, sobre un wallpaper claro y uno oscuro.
   - LiveArea con el fondo, el gate y el botón de inicio, y la barra de progreso del fondo sin choque con lo que dibuja el sistema.
   - Splash al iniciar.
   - Biblioteca y ajustes conservados.
 
   Anotar en esta tarea si hizo falta reiniciar la consola o reconstruir la base de datos para ver el arte nuevo. Listo cuando todos los scenarios se cumplan en consola.
+
+  Resultado: todos los scenarios se cumplen en consola. El arte nuevo apareció al instalar, sin reiniciar la consola ni reconstruir la base de datos.
 
 ## 4. Cierre
 

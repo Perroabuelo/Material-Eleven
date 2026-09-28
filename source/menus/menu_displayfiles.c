@@ -5,6 +5,7 @@
 #include "audio.h"
 #include "common.h"
 #include "dirbrowse.h"
+#include "lang.h"
 #include "menu_audioplayer.h"
 #include "menu_library.h"
 #include "mini_player.h"
@@ -100,7 +101,7 @@ static void Menu_DrawFilterFrame(void) {
 	vita2d_clear_screen();
 	Menu_DrawFoldersContent();
 
-	const char *hints[] = { "L + R + START - Cancelar la búsqueda", NULL };
+	const char *hints[] = { Lang_Get(STR_HINT_CANCEL_SEARCH), NULL };
 	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 2);
 
 	// El riel se dibuja para que la pantalla siga completa, y su resultado se
@@ -122,8 +123,36 @@ static void Menu_AbandonFilterDialog(void) {
 	}
 }
 
+// The IME takes its title in UTF-16 and the string table is UTF-8. Every text
+// in the table sits in the BMP, so a code point is always one UTF-16 unit; a
+// four-byte or malformed sequence is skipped rather than guessed at.
+static void Menu_Utf8ToUtf16(const char *src, SceWChar16 *dst, int cap) {
+	const unsigned char *p = (const unsigned char *)src;
+	int n = 0;
+
+	while (*p && n < cap - 1) {
+		if (p[0] < 0x80) {
+			dst[n++] = p[0];
+			p += 1;
+		}
+		else if ((p[0] & 0xE0) == 0xC0 && (p[1] & 0xC0) == 0x80) {
+			dst[n++] = (SceWChar16)(((p[0] & 0x1F) << 6) | (p[1] & 0x3F));
+			p += 2;
+		}
+		else if ((p[0] & 0xF0) == 0xE0 && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80) {
+			dst[n++] = (SceWChar16)(((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F));
+			p += 3;
+		}
+		else
+			p++;
+	}
+
+	dst[n] = 0;
+}
+
 static void Menu_PromptFilter(void) {
-	SceWChar16 title[] = u"Buscar en esta carpeta";
+	SceWChar16 title[SCE_IME_DIALOG_MAX_TITLE_LENGTH];
+	Menu_Utf8ToUtf16(Lang_Get(STR_SEARCH_FOLDER), title, SCE_IME_DIALOG_MAX_TITLE_LENGTH);
 	SceWChar16 initial[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
 	SceWChar16 input[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
 
@@ -226,7 +255,7 @@ static void Menu_DrawTopBar(void) {
 	float fx = Menu_FilterBoxX(), fy = Menu_FilterBoxY();
 	UI_DrawPill(fx, fy, FILTER_W, FILTER_H, UI_COLOR_SURFACE);
 
-	const char *filter_text = Dirbrowse_HasFilter() ? Dirbrowse_GetFilter() : "Buscar en esta carpeta";
+	const char *filter_text = Dirbrowse_HasFilter() ? Dirbrowse_GetFilter() : Lang_Get(STR_SEARCH_FOLDER);
 	unsigned int filter_color = Dirbrowse_HasFilter() ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED;
 	UI_DrawText(UI_FACE_UI, UI_TS_LABEL, fx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, fy, FILTER_H), filter_color, filter_text);
 }
@@ -297,8 +326,8 @@ SceBool Menu_PickFolder(char *out, int cap) {
 
 		Menu_DrawFoldersContent();
 
-		const char *back_hint = (strcmp(cwd, root_path) != 0) ? "Carpeta superior" : "Cancelar";
-		const char *hints[] = { "Entrar", back_hint, "Triangulo - Elegir esta carpeta", NULL, NULL };
+		const char *back_hint = Lang_Get((strcmp(cwd, root_path) != 0) ? STR_PARENT_FOLDER : STR_HINT_CANCEL);
+		const char *hints[] = { Lang_Get(STR_HINT_ENTER), back_hint, Lang_Get(STR_HINT_CHOOSE_FOLDER), NULL, NULL };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		// El rail se dibuja pero no navega: salir de aqui a media eleccion dejaria
@@ -384,11 +413,11 @@ void Menu_DisplayFiles(void) {
 		// hacer: con un filtro puesto cancelar lo quita, y en la raíz sin
 		// filtro no hay nada que cancelar. Abrir tampoco se anuncia cuando el
 		// filtro no dejó ninguna entrada sobre la que actuar.
-		const char *open_hint = Dirbrowse_GetVisibleCount() > 0 ? "Abrir / Reproducir" : NULL;
-		const char *back_hint = Dirbrowse_HasFilter() ? "Quitar filtro"
-			: ((strcmp(cwd, root_path) != 0) ? "Carpeta superior" : NULL);
+		const char *open_hint = Dirbrowse_GetVisibleCount() > 0 ? Lang_Get(STR_HINT_OPEN_PLAY) : NULL;
+		const char *back_hint = Dirbrowse_HasFilter() ? Lang_Get(STR_HINT_CLEAR_FILTER)
+			: ((strcmp(cwd, root_path) != 0) ? Lang_Get(STR_PARENT_FOLDER) : NULL);
 
-		const char *hints[] = { open_hint, back_hint, NULL, NULL, "SELECT - Ajustes", "START - Salir" };
+		const char *hints[] = { open_hint, back_hint, NULL, NULL, Lang_Get(STR_HINT_SETTINGS), Lang_Get(STR_HINT_EXIT) };
 		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);

@@ -21,5 +21,5 @@
 
 ## 4. Cierre
 
-- [ ] 4.1 Agregar a `CHANGELOG.md`, en `[Sin publicar]` y bajo `### Cambiado`, los bullets de las notas de versión de la propuesta, y subir `VITA_VERSION` a `"03.11"` en `CMakeLists.txt`. Listo cuando `changelog-section.sh "Sin publicar"` imprima los bullets, `check-version.sh v3.1.1` pase y el `.vpk` compilado tenga `APP_VER 03.11`.
+- [x] 4.1 Agregar a `CHANGELOG.md`, en `[Sin publicar]` y bajo `### Cambiado`, los bullets de las notas de versión de la propuesta, y subir `VITA_VERSION` a `"03.11"` en `CMakeLists.txt`. Listo cuando `changelog-section.sh "Sin publicar"` imprima los bullets, `check-version.sh v3.1.1` pase y el `.vpk` compilado tenga `APP_VER 03.11`.
 - [ ] 4.2 Ejecutar `openspec validate refresh-livearea --strict`. Listo cuando pase y el check `build` del PR de `change/refresh-livearea` hacia `main` esté en verde.

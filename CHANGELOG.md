@@ -8,6 +8,8 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+## [3.1.1] - 2026-09-28
+
 ### Cambiado
 
 - Nuevo ícono, nueva LiveArea y nueva pantalla de arranque, con el estilo de la app.

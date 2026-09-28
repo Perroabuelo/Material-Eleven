@@ -6,8 +6,17 @@
 #include "common.h"
 #include "config.h"
 #include "fs.h"
+#include "lang.h"
 
-#define CONFIG_VERSION 2
+// v2 -> v3 added "language". Each version appends its lines at the end of the
+// format, so an older file is a prefix of the newer format and sscanf reads it
+// up to where it ends; CONFIG_FIELDS_V* is how many fields that prefix holds,
+// config_ver included.
+#define CONFIG_VERSION   3
+#define CONFIG_FIELDS_V2 9
+#define CONFIG_FIELDS_V3 10
+
+#define CONFIG_BUFFER_SIZE 256
 
 config_t config;
 static int config_version_holder = 0;
@@ -21,37 +30,49 @@ const char *config_file =
 	"alc_mode = %d\n"
 	"device = %d\n"
 	"eq_mode = %d\n"
-	"eq_volume = %d";
+	"eq_volume = %d\n"
+	"language = %d";
+
+static void Config_SetDefaults(void) {
+	config.meta_flac = SCE_FALSE;
+	config.meta_mp3 = SCE_TRUE;
+	config.meta_opus = SCE_TRUE;
+	config.sort = 0;
+	config.alc_mode = 0;
+	config.device = 0;
+	config.eq_mode = 0;
+	config.eq_volume = SCE_FALSE;
+	config.language = LANG_PREF_SYSTEM;
+}
 
 int Config_Save(config_t config) {
 	int ret = 0;
 
-	char *buf = malloc(128);
-	int len = snprintf(buf, 128, config_file, CONFIG_VERSION, config.meta_flac, config.meta_mp3, config.meta_opus, config.sort,
-		config.alc_mode, config.device, config.eq_mode, config.eq_volume);
+	char *buf = malloc(CONFIG_BUFFER_SIZE);
+	int len = snprintf(buf, CONFIG_BUFFER_SIZE, config_file, CONFIG_VERSION, config.meta_flac, config.meta_mp3, config.meta_opus, config.sort,
+		config.alc_mode, config.device, config.eq_mode, config.eq_volume, config.language);
+
+	// A truncated file would lose its last lines and, with them, the settings
+	// they hold: better to keep the previous file than to write half of this one.
+	if (len < 0 || len >= CONFIG_BUFFER_SIZE) {
+		free(buf);
+		return -1;
+	}
 
 	if (R_FAILED(ret = FS_WriteFile("ux0:data/ElevenMPV/config.cfg", buf, len))) {
 		free(buf);
 		return ret;
 	}
-	
+
 	free(buf);
 	return 0;
-}	
-	
+}
+
 int Config_Load(void) {
 	int ret = 0;
-	
+
 	if (!FS_FileExists("ux0:data/ElevenMPV/config.cfg")) {
-		// set these to the following by default:
-		config.meta_flac = SCE_FALSE;
-		config.meta_mp3 = SCE_TRUE;
-		config.meta_opus = SCE_TRUE;
-		config.sort = 0;
-		config.alc_mode = 0;
-		config.device = 0;
-		config.eq_mode = 0;
-		config.eq_volume = SCE_FALSE;
+		Config_SetDefaults();
 		return Config_Save(config);
 	}
 
@@ -65,25 +86,25 @@ int Config_Load(void) {
 	}
 
 	buf[size] = '\0';
-	sscanf(buf, config_file, &config_version_holder, &config.meta_flac, &config.meta_mp3, &config.meta_opus, &config.sort,
-		&config.alc_mode, &config.device, &config.eq_mode, &config.eq_volume);
+	int fields = sscanf(buf, config_file, &config_version_holder, &config.meta_flac, &config.meta_mp3, &config.meta_opus, &config.sort,
+		&config.alc_mode, &config.device, &config.eq_mode, &config.eq_volume, &config.language);
 	free(buf);
 
-	// Delete config file if config file is updated. This will rarely happen.
-	if (config_version_holder  < CONFIG_VERSION) {
-		sceIoRemove("ux0:data/ElevenMPV/config.cfg");
-		config.meta_flac = SCE_FALSE;
-		config.meta_mp3 = SCE_TRUE;
-		config.meta_opus = SCE_TRUE;
-		config.sort = 0;
-		config.alc_mode = 0;
-		config.device = 0;
-		config.eq_mode = 0;
-		config.eq_volume = SCE_FALSE;
+	if (config_version_holder >= CONFIG_VERSION && fields >= CONFIG_FIELDS_V3)
+		return 0;
+
+	// v2 has everything but the language: keep what it has and write it back
+	// as v3. Updating used to reset every setting here.
+	if (config_version_holder == 2 && fields >= CONFIG_FIELDS_V2) {
+		config.language = LANG_PREF_SYSTEM;
 		return Config_Save(config);
 	}
 
-	return 0;
+	// Older than v2, or not the fields its version promises (a file edited by
+	// hand, say): nothing half-read is kept.
+	sceIoRemove("ux0:data/ElevenMPV/config.cfg");
+	Config_SetDefaults();
+	return Config_Save(config);
 }
 
 int Config_GetLastDirectory(void) {
@@ -93,7 +114,7 @@ int Config_GetLastDirectory(void) {
 		"ur0:/",
 		"uma0:/"
 	};
-	
+
 	if (!FS_FileExists("ux0:data/ElevenMPV/lastdir.txt")) {
 		snprintf(root_path, 8, "ux0:/");
 		FS_WriteFile("ux0:data/ElevenMPV/lastdir.txt", root_path, strlen(root_path) + 1);
@@ -114,14 +135,14 @@ int Config_GetLastDirectory(void) {
 		buf[size] = '\0';
 		char path[512];
 		sscanf(buf, "%[^\n]s", path);
-	
+
 		if (FS_DirExists(path)) // Incase a directory previously visited had been deleted, set start path to sdmc:/ to avoid errors.
 			strcpy(cwd, path);
 		else
 			strcpy(cwd, root_path);
-		
+
 		free(buf);
 	}
-	
+
 	return 0;
 }

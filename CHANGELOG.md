@@ -8,6 +8,10 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+### Agregado
+
+- Cada versión publica su `.vpk` en la página de Releases de GitHub.
+
 ## [3.0.0] - 2026-09-27
 
 Primera versión de Material-Eleven, el fork de ElevenMPV 2.10 de Joel16.

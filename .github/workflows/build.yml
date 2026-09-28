@@ -1,0 +1,33 @@
+name: build
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Pinned to a series, not latest, so a toolchain update cannot turn an
+    # untouched PR red. Bumping it is a deliberate one-line change.
+    container: vitasdk/vitasdk:2026.08
+    steps:
+      - uses: actions/checkout@v7
+
+      # The toolchain file comes from $VITASDK, which the image already sets.
+      - name: Configure
+        run: cmake -S . -B build
+
+      - name: Build
+        run: make -C build -j"$(nproc)"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ElevenMPV.vpk
+          path: build/ElevenMPV.vpk
+          if-no-files-found: error

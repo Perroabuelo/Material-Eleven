@@ -1,7 +1,7 @@
 ## 1. Generación del arte
 
-- [ ] 1.1 Generar `sce_sys/icon0.png` (variante 1a), `sce_sys/livearea/contents/bg.png`, `sce_sys/livearea/contents/startup.png` y `sce_sys/pic0.png` desde el HTML de `docs/assets`, según la decisión 2: recorte por id, captura headless al tamaño exacto con las fuentes de `res/`, y `pngquant 256 --nofs --strip`. Las herramientas quedan fuera del repositorio. Listo cuando existan los cuatro PNG en `sce_sys/`.
-- [ ] 1.2 Verificar los cuatro PNG según la decisión 3: firma PNG, color type 3, bit depth 8 y tamaño exacto, y que el mismo chequeo falle con un PNG RGBA de prueba puesto en lugar de uno. Comparar cada PNG a ojo contra el render del HTML. Versionar los PNG. Listo cuando el chequeo pase, la comparación no muestre diferencias de color ni de posición, y los cuatro PNG estén en un commit.
+- [x] 1.1 Generar `sce_sys/icon0.png` (variante 1a), `sce_sys/livearea/contents/bg.png`, `sce_sys/livearea/contents/startup.png` y `sce_sys/pic0.png` desde el HTML de `docs/assets`, según la decisión 2: recorte por id, captura headless al tamaño exacto con las fuentes de `res/`, y `pngquant 256 --nofs --strip`. Las herramientas quedan fuera del repositorio. Listo cuando existan los cuatro PNG en `sce_sys/`.
+- [x] 1.2 Verificar los cuatro PNG según la decisión 3: firma PNG, color type 3, bit depth 8 y tamaño exacto, y que el mismo chequeo falle con un PNG RGBA de prueba puesto en lugar de uno. Comparar cada PNG a ojo contra el render del HTML. Versionar los PNG. Listo cuando el chequeo pase, la comparación no muestre diferencias de color ni de posición, y los cuatro PNG estén en un commit.
 - [ ] 1.3 Borrar `docs/assets/` (el HTML, `support.js` y `.thumbnail`). `docs/screenshot/` se queda para el cambio del README. Listo cuando `docs/assets/` no exista y `git status` no muestre nada de él.
 
 ## 2. Empaquetado y créditos

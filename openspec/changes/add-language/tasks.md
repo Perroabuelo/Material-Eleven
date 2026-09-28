@@ -18,7 +18,13 @@
 
 ## 4. Verificación integral
 
-- [ ] 4.1 Buscar literales que hayan quedado sin pasar a la tabla con un `grep` de cadenas entre comillas en `source/menus/`, `source/library.c`, `source/dirbrowse.c`, `source/mini_player.c` y `source/status_bar.c`, y justificar cada resto (rutas, formatos, nombres propios, depuración). Listo cuando no quede ningún texto visible fuera de la tabla, con la lista de restos anotada en esta tarea.
+- [x] 4.1 Buscar literales que hayan quedado sin pasar a la tabla con un `grep` de cadenas entre comillas en `source/menus/`, `source/library.c`, `source/dirbrowse.c`, `source/mini_player.c` y `source/status_bar.c`, y justificar cada resto (rutas, formatos, nombres propios, depuración). Listo cuando no quede ningún texto visible fuera de la tabla, con la lista de restos anotada en esta tarea.
+  Restos del `grep`, todos justificados:
+  - Rutas y archivos: `ux0:data/ElevenMPV/...` en `library.c`, `dirbrowse.c` y `menu_settings.c`, y la marca `ELEVENMPV_LIBRARY` y las claves `root`/`count` del índice.
+  - Nombres de dispositivos (`ux0:/`, `ur0:/`, `uma0:/`), de presets de EQ (Heavy, Pop, Jazz, Unique) y de idiomas (English, Español): nombres propios, iguales en ambos idiomas.
+  - Extensiones de formato (`flac`, `mp3`, `opus`, etc.) y las entradas `.` y `..` del sistema de archivos.
+  - Formatos sin palabras: la duración (`%02d:%02d`), el tamaño (`%.1f MB`, `KB`, `B`), el hint de metadatos (`%d/3`), la batería (`%d%%`), el separador del contador de Carpetas (`%s . %s`) y la hora de la barra de estado con `AM`/`PM`, que se usa igual en ambos idiomas.
+  - Formatos del índice de la biblioteca (`"root\t%s\n"` y similares), que no se muestran.
 - [ ] 4.2 Recorridos en consola de los scenarios de `specs/ui/language`, `specs/ui/settings` y `specs/library/index`:
   - Recorrido completo en English y en Español, revisando los textos recortados.
   - Primer arranque sin `config.cfg`, con la consola en español y en inglés.

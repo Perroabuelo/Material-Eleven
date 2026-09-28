@@ -9,6 +9,7 @@
 #include "config.h"
 #include "dirbrowse.h"
 #include "fs.h"
+#include "lang.h"
 #include "menu_audioplayer.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -279,7 +280,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		icon_x + ROW_ICON_SIZE / 2.0f, icon_y + ROW_ICON_SIZE / 2.0f,
 		selected ? ui_color_accent : UI_COLOR_TEXT_TERTIARY);
 
-	const char *name = is_parent ? "Carpeta superior" : file->name;
+	const char *name = is_parent ? Lang_Get(STR_PARENT_FOLDER) : file->name;
 	float text_x = LIST_X + 22 + ROW_ICON_SIZE + 12;
 	float title_y = y + 10;
 	// A name stops before the badge when the row has one and before the row's
@@ -291,7 +292,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	if (!is_parent) {
 		char subtitle[32];
 		if (file->is_dir)
-			snprintf(subtitle, sizeof(subtitle), "Carpeta");
+			snprintf(subtitle, sizeof(subtitle), "%s", Lang_Get(STR_FOLDER));
 		else
 			Dirbrowse_FormatSize(subtitle, sizeof(subtitle), file->size);
 
@@ -305,7 +306,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 void Dirbrowse_DisplayFiles(void) {
 	int visible_count = Dirbrowse_GetVisibleCount();
 
-	char caption[48];
+	char caption[64];
 	int folder_count = 0, track_count = 0;
 	for (File *f = files; f != NULL; f = f->next) {
 		if (!strcmp(f->name, ".."))
@@ -315,7 +316,10 @@ void Dirbrowse_DisplayFiles(void) {
 		else
 			track_count++;
 	}
-	snprintf(caption, sizeof(caption), "%d CARPETAS . %d PISTAS", folder_count, track_count);
+	char folders[24], tracks[24];
+	snprintf(folders, sizeof(folders), Lang_Get(folder_count == 1 ? STR_FOLDERS_ONE : STR_FOLDERS_MANY), folder_count);
+	snprintf(tracks, sizeof(tracks), Lang_Get(track_count == 1 ? STR_TRACKS_CAPS_ONE : STR_TRACKS_CAPS_MANY), track_count);
+	snprintf(caption, sizeof(caption), "%s . %s", folders, tracks);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 66, 26), UI_COLOR_TEXT_MUTED, caption);
 
 	int printed = 0;

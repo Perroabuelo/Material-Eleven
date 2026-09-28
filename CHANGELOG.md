@@ -11,6 +11,16 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 ### Agregado
 
 - Cada versión publica su `.vpk` en la página de Releases de GitHub.
+- La app ahora está disponible en inglés y en español.
+- Al abrirla por primera vez, usa el idioma de tu consola: español si la consola está en español,
+  inglés en cualquier otro caso.
+- Nueva opción **Idioma** en Ajustes para elegir entre Sistema, English y Español, que se aplica
+  al instante.
+
+### Cambiado
+
+- Los textos en español se revisaron: ortografía completa y español neutro.
+- Actualizar a esta versión conserva todos tus ajustes.
 
 ## [3.0.0] - 2026-09-27
 

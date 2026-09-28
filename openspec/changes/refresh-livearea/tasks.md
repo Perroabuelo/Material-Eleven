@@ -2,11 +2,11 @@
 
 - [x] 1.1 Generar `sce_sys/icon0.png` (variante 1a), `sce_sys/livearea/contents/bg.png`, `sce_sys/livearea/contents/startup.png` y `sce_sys/pic0.png` desde el HTML de `docs/assets`, según la decisión 2: recorte por id, captura headless al tamaño exacto con las fuentes de `res/`, y `pngquant 256 --nofs --strip`. Las herramientas quedan fuera del repositorio. Listo cuando existan los cuatro PNG en `sce_sys/`.
 - [x] 1.2 Verificar los cuatro PNG según la decisión 3: firma PNG, color type 3, bit depth 8 y tamaño exacto, y que el mismo chequeo falle con un PNG RGBA de prueba puesto en lugar de uno. Comparar cada PNG a ojo contra el render del HTML. Versionar los PNG. Listo cuando el chequeo pase, la comparación no muestre diferencias de color ni de posición, y los cuatro PNG estén en un commit.
-- [ ] 1.3 Borrar `docs/assets/` (el HTML, `support.js` y `.thumbnail`). `docs/screenshot/` se queda para el cambio del README. Listo cuando `docs/assets/` no exista y `git status` no muestre nada de él.
+- [x] 1.3 Borrar `docs/assets/` (el HTML, `support.js` y `.thumbnail`). `docs/screenshot/` se queda para el cambio del README. Listo cuando `docs/assets/` no exista y `git status` no muestre nada de él.
 
 ## 2. Empaquetado y créditos
 
-- [ ] 2.1 En `CMakeLists.txt`, cambiar `VITA_APP_NAME` a `"Material Eleven"` y agregar `FILE sce_sys/pic0.png sce_sys/pic0.png` a `vita_create_vpk`. Listo cuando `scripts/build.sh --clean` compile con `-Werror`, el `.vpk` contenga `sce_sys/pic0.png` y el `param.sfo` generado tenga `TITLE` "Material Eleven".
+- [x] 2.1 En `CMakeLists.txt`, cambiar `VITA_APP_NAME` a `"Material Eleven"` y agregar `FILE sce_sys/pic0.png sce_sys/pic0.png` a `vita_create_vpk`. Listo cuando `scripts/build.sh --clean` compile con `-Werror`, el `.vpk` contenga `sce_sys/pic0.png` y el `param.sfo` generado tenga `TITLE` "Material Eleven".
 - [ ] 2.2 Quitar el crédito del banner de Preetisketch de `NOTICE` (ARTWORK AND DESIGN) y de los créditos de `README.md`, y mantener la línea de LineageOS. Listo cuando `grep -ri preetisketch` no devuelva nada en el repo, salvo en los artefactos archivados de OpenSpec.
 
 ## 3. Verificación en consola

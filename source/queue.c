@@ -26,6 +26,9 @@
 static char **queue_paths = NULL;
 // En paralelo a las rutas, y con NULL donde el productor no trajo nombre.
 static char **queue_titles = NULL;
+// Tambien en paralelo: el album que trajo la biblioteca, "" si la pista no lo
+// tiene, y NULL en una cola de carpeta.
+static char **queue_albums = NULL;
 // El plan de reproduccion: queue_order[slot] es el indice natural de la pista
 // que suena en ese puesto. Sin barajado es la identidad. Se guarda aparte en vez
 // de barajar las rutas en sitio para que apagar el barajado no tenga que
@@ -62,10 +65,10 @@ static SceBool Queue_Grow(void) {
 	if (next <= queue_capacity)
 		return SCE_FALSE;
 
-	// Los tres arreglos crecen juntos o no crece ninguno a efectos de la cola.
+	// Los cuatro arreglos crecen juntos o no crece ninguno a efectos de la cola.
 	// Un realloc que sale bien ya movio su bloque, asi que se guarda aunque el
 	// siguiente falle - soltarlo dejaria el puntero viejo colgando -, pero la
-	// capacidad solo se publica cuando los tres la tienen. Antes la de rutas se
+	// capacidad solo se publica cuando los cuatro la tienen. Antes la de rutas se
 	// aplicaba sola si fallaba la de titulos, y los dos quedaban de tamaños
 	// distintos bajo una misma capacidad.
 	char **grown = (char **)realloc(queue_paths, (size_t)next * sizeof(char *));
@@ -82,6 +85,13 @@ static SceBool Queue_Grow(void) {
 
 	queue_titles = grown_titles;
 
+	char **grown_albums = (char **)realloc(queue_albums, (size_t)next * sizeof(char *));
+
+	if (grown_albums == NULL)
+		return SCE_FALSE;
+
+	queue_albums = grown_albums;
+
 	int *grown_order = (int *)realloc(queue_order, (size_t)next * sizeof(int));
 
 	if (grown_order == NULL)
@@ -96,13 +106,16 @@ void Queue_Clear(void) {
 	for (int i = 0; i < queue_count; i++) {
 		free(queue_paths[i]);
 		free(queue_titles[i]);
+		free(queue_albums[i]);
 	}
 
 	free(queue_paths);
 	free(queue_titles);
+	free(queue_albums);
 	free(queue_order);
 	queue_paths = NULL;
 	queue_titles = NULL;
+	queue_albums = NULL;
 	queue_order = NULL;
 	queue_count = 0;
 	queue_capacity = 0;
@@ -124,7 +137,22 @@ static char *Queue_Dup(const char *s) {
 	return copy;
 }
 
-SceBool Queue_Add(const char *path, const char *title) {
+// Como Queue_Dup, pero "" se copia: para el album, vacio y NULL dicen cosas
+// distintas.
+static char *Queue_DupKeepEmpty(const char *s) {
+	if (s == NULL)
+		return NULL;
+
+	size_t len = strlen(s) + 1;
+	char *copy = (char *)malloc(len);
+
+	if (copy != NULL)
+		memcpy(copy, s, len);
+
+	return copy;
+}
+
+SceBool Queue_Add(const char *path, const char *title, const char *album) {
 	if (path == NULL || queue_count >= QUEUE_MAX_TRACKS)
 		return SCE_FALSE;
 
@@ -142,6 +170,9 @@ SceBool Queue_Add(const char *path, const char *title) {
 
 	queue_paths[queue_count] = copy;
 	queue_titles[queue_count] = Queue_Dup(title);
+	// Si no hay memoria para el album, la pista suena igual y se muestra con el
+	// marcador.
+	queue_albums[queue_count] = Queue_DupKeepEmpty(album);
 	// Entra al final del plan con su indice natural. Si el barajado esta
 	// encendido, el salto a la pista elegida rebaraja la cola ya completa.
 	queue_order[queue_count] = queue_count;
@@ -231,7 +262,7 @@ SceBool Queue_SeekToPath(const char *path) {
 	return SCE_TRUE;
 }
 
-SceBool Queue_PeekAhead(int n, const char **path, const char **title) {
+SceBool Queue_PeekAhead(int n, const char **path, const char **title, const char **album) {
 	if (queue_count == 0 || n < 0)
 		return SCE_FALSE;
 
@@ -242,6 +273,9 @@ SceBool Queue_PeekAhead(int n, const char **path, const char **title) {
 
 	if (title != NULL)
 		*title = queue_titles[natural];
+
+	if (album != NULL)
+		*album = queue_albums[natural];
 
 	return SCE_TRUE;
 }
@@ -272,7 +306,7 @@ int Queue_FillFromFolder(const char *dir) {
 				char path[QUEUE_PATH_MAX];
 				Queue_JoinPath(path, sizeof(path), dir, entries[i].d_name);
 				// Sin nombre: una carpeta no sabe mas que sus rutas.
-				Queue_Add(path, NULL);
+				Queue_Add(path, NULL, NULL);
 			}
 		}
 

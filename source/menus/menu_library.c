@@ -403,7 +403,7 @@ static void Menu_LibraryPlaySelected(void) {
 		if (t == NULL)
 			break;
 
-		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t)))
+		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t), t->album))
 			break;
 	}
 

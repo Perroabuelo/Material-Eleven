@@ -17,8 +17,11 @@ void Queue_Clear(void);
 // Anade una ruta al final, con el nombre por el que la vista de origen la
 // conoce. `title` puede ser NULL - el navegador de carpetas no sabe mas que
 // la ruta -, y entonces quien la muestre se queda con el nombre de archivo.
-// SCE_FALSE si ya no cabe.
-SceBool Queue_Add(const char *path, const char *title);
+//
+// `album` es la clave de caratula que trae la biblioteca: el album, o "" si la
+// pista no lo tiene. NULL dice que la pista no viene de la biblioteca, y quien
+// la muestre no busca caratula. SCE_FALSE si ya no cabe.
+SceBool Queue_Add(const char *path, const char *title, const char *album);
 
 int Queue_Count(void);
 
@@ -44,9 +47,10 @@ const char *Queue_Advance(SceBool forward);
 SceBool Queue_SeekToPath(const char *path);
 
 // La pista `n` puestos por delante en el plan, envolviendo; 0 es la que suena.
-// `path` o `title` pueden ser NULL si no interesan, y el titulo sale NULL si el
-// productor no trajo ninguno. SCE_FALSE si la cola esta vacia.
-SceBool Queue_PeekAhead(int n, const char **path, const char **title);
+// `path`, `title` o `album` pueden ser NULL si no interesan. El titulo y el
+// album salen NULL si el productor no trajo ninguno. SCE_FALSE si la cola esta
+// vacia.
+SceBool Queue_PeekAhead(int n, const char **path, const char **title, const char **album);
 
 // Productor de carpeta: vuelca en la cola los archivos reproducibles de esa
 // carpeta, en el mismo orden en que se reproducian antes de existir el modulo.

@@ -8,6 +8,7 @@
 #include "audio.h"
 #include "common.h"
 #include "config.h"
+#include "cover.h"
 #include "fs.h"
 #include "lang.h"
 #include "menu_audioplayer.h"
@@ -137,7 +138,7 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 	Audio_Term();
 
 	if (replay)
-		Queue_PeekAhead(0, &next, NULL);
+		Queue_PeekAhead(0, &next, NULL, NULL);
 	else
 		next = Queue_Advance(forward);
 
@@ -198,7 +199,7 @@ void Music_Next(void) {
 #define STATUS_H        32
 #define LEFT_PANEL_X     (CONTENT_X + 32)
 #define LEFT_PANEL_W     372
-#define COVER_SIZE       258
+#define NP_COVER_SIZE    258
 #define RIGHT_PANEL_X    (LEFT_PANEL_X + LEFT_PANEL_W + 20)
 #define RIGHT_PANEL_R    (960 - 34)
 #define TRANSPORT_CY     318
@@ -213,6 +214,9 @@ void Music_Next(void) {
 #define SEEK_Y           220
 #define SEEK_H           5
 #define UPNEXT_ROW_H     48
+#define UPNEXT_ART       34
+// Covers read from disk per frame for Up Next: two rows, the second one a frame later.
+#define UPNEXT_COVER_BUDGET 1
 
 // Glyph boxes for the vector transport icons (drawn, not rescaled textures),
 // each comfortably inside the control it sits in.
@@ -268,13 +272,17 @@ static void Menu_DrawUpNext(void) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 24), UI_COLOR_TEXT_MUTED, Lang_Get(STR_UP_NEXT));
 	y += 30;
 
+	// Una lectura de disco por fotograma: la segunda caratula llega un fotograma
+	// despues, y cambiar de pista no espera a ninguna.
+	int budget = UPNEXT_COVER_BUDGET;
+
 	// Lo que dice el plan, sin casos especiales: el recorrido envuelve, asi que
 	// siempre hay algo que va a sonar despues, y una cola de una sola pista
 	// anuncia esa misma pista porque es literalmente lo que sonara.
 	for (int i = 1; i <= 2 && i <= Queue_Count(); i++) {
-		const char *path = NULL, *queued = NULL;
+		const char *path = NULL, *queued = NULL, *album = NULL;
 
-		if (!Queue_PeekAhead(i, &path, &queued))
+		if (!Queue_PeekAhead(i, &path, &queued, &album))
 			break;
 
 		// El nombre que trajo el productor, para que esta lista y la vista de la
@@ -282,7 +290,15 @@ static void Menu_DrawUpNext(void) {
 		// respaldo sigue siendo el nombre de archivo, como siempre.
 		const char *name = (queued != NULL) ? queued : Utils_Basename(path);
 
-		UI_DrawRoundedRect(x, y + 7, 34, 34, 9, UI_COLOR_SURFACE_2);
+		// Solo una cola de biblioteca trae album, y con la misma clave que usa la
+		// biblioteca: el album, o la ruta si esta vacio. Una de carpeta se queda
+		// con el marcador.
+		vita2d_texture *art = (album != NULL) ? Cover_Get((album[0] != '\0') ? album : NULL, path, &budget) : NULL;
+
+		if (art != NULL)
+			vita2d_draw_texture_scale(art, x, y + 7, UPNEXT_ART / (float)COVER_SIZE, UPNEXT_ART / (float)COVER_SIZE);
+		else
+			UI_DrawRoundedRect(x, y + 7, UPNEXT_ART, UPNEXT_ART, 9, UI_COLOR_SURFACE_2);
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, x + 48, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, UPNEXT_ROW_H), RIGHT_PANEL_R - (x + 48), UI_COLOR_TEXT_PRIMARY, name);
 
 		y += UPNEXT_ROW_H;
@@ -381,13 +397,13 @@ static void Menu_RunNowPlayingLoop(void) {
 		float cover_y = STATUS_H + 22;
 		if ((metadata.has_meta) && (metadata.cover_image))
 			vita2d_draw_texture_scale(metadata.cover_image, LEFT_PANEL_X, cover_y,
-				(float)COVER_SIZE / vita2d_texture_get_width(metadata.cover_image), (float)COVER_SIZE / vita2d_texture_get_height(metadata.cover_image));
+				(float)NP_COVER_SIZE / vita2d_texture_get_width(metadata.cover_image), (float)NP_COVER_SIZE / vita2d_texture_get_height(metadata.cover_image));
 		else
-			UI_DrawRoundedRect(LEFT_PANEL_X, cover_y, COVER_SIZE, COVER_SIZE, UI_RADIUS_LG, UI_COLOR_SURFACE);
+			UI_DrawRoundedRect(LEFT_PANEL_X, cover_y, NP_COVER_SIZE, NP_COVER_SIZE, UI_RADIUS_LG, UI_COLOR_SURFACE);
 
 		const char *title = Music_GetDisplayTitle();
 		const char *artist = Music_GetDisplayArtist();
-		float info_y = cover_y + COVER_SIZE + 20;
+		float info_y = cover_y + NP_COVER_SIZE + 20;
 
 		// The fallback rasterises near 18 px and is soft above the body token,
 		// so a title the app's own face cannot cover is drawn one step down

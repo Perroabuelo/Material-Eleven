@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-10-03
+
+### Fixed
+
+- The back button on Now Playing now returns you to the screen where you picked the song. From the Library, you land on the same tab, album or artist, and row you left.
+
 ## [3.3.0] - 2026-10-03
 
 ### Added

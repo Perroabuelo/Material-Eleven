@@ -6,13 +6,9 @@
 // Draws the persistent nav rail for `active` and returns the destination
 // the user just tapped this frame, or UI_SCREEN_NONE. Touch_Update() must
 // already have been called this frame by the caller. Physical-button
-// shortcuts (SELECT/START/cancel) are handled separately by each screen.
+// shortcuts (SELECT/cancel) are handled separately by each screen, and START
+// by Utils_ReadControls for all of them.
 UI_Screen NavRail_DrawAndHitTest(UI_Screen active);
-
-// Draws the bottom physical-button legend spanning the content column
-// (to the right of the rail). `segments` holds `count` left-aligned
-// labels drawn in font_mono; a NULL entry is skipped.
-void NavRail_DrawHintBar(float y, const char **segments, int count);
 
 // A physical button as the hint bar shows it. CONFIRM and CANCEL are resolved
 // when drawn, from the console's own assignment (SCE_CTRL_ENTER/CANCEL), so the
@@ -40,7 +36,8 @@ typedef struct {
 	const char *label;
 } NavRail_Hint;
 
-// Draws the bottom legend from `count` entries, left to right in the order
+// Draws the bottom physical-button legend, spanning the content column to
+// the right of the rail, from `count` entries, left to right in the order
 // given. Symbol buttons are vector glyphs in their PlayStation color; L, R,
 // SELECT and START are neutral chips with their name. An entry that does not
 // fit in the bar's width is not drawn, and neither is any entry after it, so

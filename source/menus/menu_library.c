@@ -541,8 +541,15 @@ void Menu_DisplayLibrary(void) {
 		// La leyenda anuncia lo que el boton hace ahora mismo: retomar etiquetas
 		// solo aparece cuando queda alguna por leer.
 		const char *back_hint = inside ? Lang_Get(STR_HINT_RETURN) : NULL;
-		const char *hints[] = { play_hint, back_hint, Lang_Get(STR_HINT_VIEWS), Lang_Get(STR_HINT_RESCAN), Lang_Get(STR_HINT_FOLDER) };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+		const NavRail_Hint hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, play_hint },
+			{ { HINT_BTN_CANCEL }, 0, back_hint },
+			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_VIEWS) },
+			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_RESCAN) },
+			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_FOLDER) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);
 		UI_Debug_Draw();

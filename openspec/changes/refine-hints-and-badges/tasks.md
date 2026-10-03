@@ -16,12 +16,12 @@
 ## 3. Barra de botones con íconos
 
 - [x] 3.1 Agregar a `ui_theme.h` los tokens `UI_COLOR_BTN_CROSS`, `UI_COLOR_BTN_CIRCLE`, `UI_COLOR_BTN_SQUARE` y `UI_COLOR_BTN_TRIANGLE`, aclarados hasta el contraste de `UI_COLOR_TEXT_SECONDARY` sobre `UI_COLOR_BG_ELEVATED`. Agregar a `nav_rail.c` / `nav_rail.h` el tipo `NavRail_Hint`, el dibujo vectorial de los cuatro símbolos y de los chips neutros, la resolución de confirmar y volver desde `SCE_CTRL_ENTER`, y la regla de no dibujar las entradas que no caben (decisión 5). Todo como una función nueva, junto a la actual. Listo cuando compile con `-Werror` y el contraste de cada token, calculado con la misma fórmula que `UI_ContrastOverBg`, quede anotado junto a su valor en `ui_theme.h`.
-- [ ] 3.2 Migrar todas las llamadas a la barra (`menu_displayfiles.c`, `menu_library.c`, `menu_audioplayer.c`, `menu_settings.c`, `library.c`) a las entradas de la tabla de la decisión 5, y borrar la función de textos. En `lang_strings.h`:
+- [x] 3.2 Migrar todas las llamadas a la barra (`menu_displayfiles.c`, `menu_library.c`, `menu_audioplayer.c`, `menu_settings.c`, `library.c`) a las entradas de la tabla de la decisión 5, y borrar la función de textos. En `lang_strings.h`:
   - Quitar el nombre del botón de los textos que lo tienen, en los dos idiomas.
   - Borrar `STR_HINT_EXIT`, y también `STR_HINT_MENU` si queda sin uso.
   - Agregar `STR_HINT_SHUFFLE`, `STR_HINT_REPEAT` y `STR_HINT_SCREEN_OFF`.
 
-  Listo cuando compile con `-Werror`, `make -C tests` pase y `grep -n "Triangle -\|Square -\|START -\|SELECT -\|L . R -\|L R -\|L + R + START -" include/lang_strings.h` no devuelva nada.
+  Listo cuando compile con `-Werror`, `make -C tests` pase y ninguna línea `X(STR_HINT_...)` de `include/lang_strings.h` nombre un botón (`grep -n "^X(STR_HINT_" include/lang_strings.h | grep "Triangle -\|Square -\|START -\|SELECT -\|L . R -\|L R -\|L + R + START -\|Triángulo -\|Cuadrado -"` no devuelve nada). Los textos del cuerpo de Biblioteca que nombran un botón (`STR_ACTION_*`, `STR_ROOT_MISSING`) no son de la barra y quedan como están.
 - [ ] 3.3 Verificar en consola los scenarios de "On-screen legend of available physical-button actions" (`specs/ui/nav-shell`), con la consola configurada para confirmar con Cruz y después con Círculo, y en English y en Español:
   - Cada entrada muestra su botón.
   - Confirmar y volver muestran el símbolo que de verdad hace cada cosa.

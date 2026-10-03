@@ -101,8 +101,10 @@ static void Menu_DrawFilterFrame(void) {
 	vita2d_clear_screen();
 	Menu_DrawFoldersContent();
 
-	const char *hints[] = { Lang_Get(STR_HINT_CANCEL_SEARCH), NULL };
-	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 2);
+	const NavRail_Hint hints[] = {
+		{ { HINT_BTN_L, HINT_BTN_R, HINT_BTN_START }, 1, Lang_Get(STR_HINT_CANCEL_SEARCH) },
+	};
+	NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 1);
 
 	// El riel se dibuja para que la pantalla siga completa, y su resultado se
 	// descarta: detrás del teclado no se acciona nada.
@@ -333,8 +335,13 @@ SceBool Menu_PickFolder(char *out, int cap) {
 		Menu_DrawFoldersContent();
 
 		const char *back_hint = Lang_Get((strcmp(cwd, root_path) != 0) ? STR_PARENT_FOLDER : STR_HINT_CANCEL);
-		const char *hints[] = { Lang_Get(STR_HINT_ENTER), back_hint, Lang_Get(STR_HINT_CHOOSE_FOLDER), NULL, NULL };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+		const NavRail_Hint hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_ENTER) },
+			{ { HINT_BTN_CANCEL }, 0, back_hint },
+			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_CHOOSE_FOLDER) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 4);
 
 		// El rail se dibuja pero no navega: salir de aqui a media eleccion dejaria
 		// el navegador movido de donde estaba.
@@ -423,8 +430,13 @@ void Menu_DisplayFiles(void) {
 		const char *back_hint = Dirbrowse_HasFilter() ? Lang_Get(STR_HINT_CLEAR_FILTER)
 			: ((strcmp(cwd, root_path) != 0) ? Lang_Get(STR_PARENT_FOLDER) : NULL);
 
-		const char *hints[] = { open_hint, back_hint, NULL, NULL, Lang_Get(STR_HINT_SETTINGS) };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+		const NavRail_Hint hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, open_hint },
+			{ { HINT_BTN_CANCEL }, 0, back_hint },
+			{ { HINT_BTN_SELECT }, 0, Lang_Get(STR_HINT_SETTINGS) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 4);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
 		UI_Debug_Draw();

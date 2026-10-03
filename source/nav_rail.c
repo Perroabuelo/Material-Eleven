@@ -130,26 +130,10 @@ UI_Screen NavRail_DrawAndHitTest(UI_Screen active) {
 	return tapped;
 }
 
-void NavRail_DrawHintBar(float y, const char **segments, int count) {
-	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, UI_HINT_BAR_HEIGHT, UI_COLOR_BG_ELEVATED);
-	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, 1, UI_COLOR_HAIRLINE);
-
-	float x = UI_RAIL_WIDTH + 22;
-	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, UI_HINT_BAR_HEIGHT);
-
-	for (int i = 0; i < count; i++) {
-		if (!segments[i])
-			continue;
-
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, baseline, UI_COLOR_TEXT_SECONDARY, segments[i]);
-		x += UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, segments[i]) + 26;
-	}
-}
-
 // ---- Legend with button glyphs ----
 
 #define HINT_PAD_X        22
-#define HINT_ENTRY_GAP    26
+#define HINT_ENTRY_GAP    22
 #define HINT_LABEL_GAP    8
 #define HINT_BUTTON_GAP   4
 #define HINT_GLYPH_BOX    16

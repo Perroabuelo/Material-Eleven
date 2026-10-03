@@ -267,8 +267,13 @@ void Menu_DisplaySettings(void) {
 		Menu_DrawSettingsCategoryColumn(category_index);
 		Menu_DrawSettingsDetail(category_index, item_index);
 
-		const char *hints[] = { Lang_Get(STR_HINT_SELECT), Lang_Get(STR_HINT_BACK), NULL, Lang_Get(STR_HINT_SETTINGS_CATEGORY) };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 4);
+		const NavRail_Hint hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_SELECT) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
+			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_SETTINGS_CATEGORY) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 4);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_SETTINGS);
 		UI_Debug_Draw();

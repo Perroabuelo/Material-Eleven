@@ -108,9 +108,11 @@ Lleva otro nombre que la función de textos para poder convivir con ella mientra
 | Elegir carpeta (Ajustes, almacenamiento) | confirmar Entrar, volver Carpeta superior o Cancelar, Triángulo Elegir esta carpeta |
 | Biblioteca | confirmar Reproducir, Abrir o Empezar, volver Volver (si se está adentro), L·R Vistas, Triángulo Reescanear, Cuadrado Carpeta, START Apagar pantalla |
 | Biblioteca escaneando (`library.c`) | volver Abandonar |
-| Reproduciendo | confirmar Reproducir / Pausa, volver Atrás, L·R Anterior / Siguiente, Triángulo Aleatorio, Cuadrado Repetir, START Apagar pantalla |
+| Reproduciendo | confirmar Pausa o Reproducir (lo que haga ahora), volver Atrás, L·R Anterior / Siguiente, Triángulo Aleatorio, Cuadrado Repetir, START Apagar pantalla |
 | Ajustes | confirmar Seleccionar, volver Atrás, L·R Cambiar de categoría |
 | Entrada de texto del filtro | L+R+START Cancelar la búsqueda (`combo = 1`) |
+
+**Ancho medido.** Con la fuente mono de 17 px (unos 10 px por carácter) quedan unos 840 px útiles. "Reproducir / Pausa" no cabe en Reproduciendo en español, ni siquiera sin START. Por eso confirmar anuncia lo que hará ahora: "Pausa" mientras suena y "Reproducir" en pausa, la misma convención que ya sigue Carpetas con "Quitar filtro". `STR_HINT_PLAY_PAUSE` se reemplaza por `STR_HINT_PAUSE` y se reutiliza `STR_HINT_PLAY`. La separación entre entradas baja de 26 a 22 px. Según la estimación, "Apagar pantalla" se cae en español en Reproduciendo y dentro de un artista o un álbum de Biblioteca, que es justo el caso previsto. En Carpetas cabe por poco.
 
 Esto corrige de paso la barra de Reproduciendo, que anunciaba "Menú" en confirmar y no mostraba barajar ni repetir. Se agregan `STR_HINT_SHUFFLE`, `STR_HINT_REPEAT` y `STR_HINT_SCREEN_OFF`, y se quita `STR_HINT_MENU` si queda sin uso. Los textos que hoy nombran el botón (`STR_HINT_SETTINGS_CATEGORY`, `STR_HINT_CANCEL_SEARCH`, `STR_HINT_CHOOSE_FOLDER`, `STR_HINT_SETTINGS`, `STR_HINT_VIEWS`, `STR_HINT_RESCAN`, `STR_HINT_FOLDER`, `STR_HINT_PREV_NEXT`) pierden el prefijo en los dos idiomas, y `STR_HINT_EXIT` se borra.
 

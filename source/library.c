@@ -631,8 +631,11 @@ static void Library_DrawTagProgress(int done, int total, const char *path) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
 		Lang_Get(STR_SCAN_TAGS_NOTE));
 
-	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
-	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+	const NavRail_Hint hints[] = {
+		{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_STOP) },
+		{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+	};
+	NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 2);
 
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
@@ -715,8 +718,11 @@ static void Library_DrawCoverProgress(int done, int total, const char *path) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED,
 		Lang_Get(STR_SCAN_COVERS_NOTE));
 
-	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
-	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+	const NavRail_Hint hints[] = {
+		{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_STOP) },
+		{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+	};
+	NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 2);
 
 	vita2d_end_drawing();
 	vita2d_swap_buffers();
@@ -822,8 +828,11 @@ static void Library_DrawScanProgress(const char *folder, int found, int skipped)
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, 22), UI_COLOR_TEXT_MUTED, detail);
 	}
 
-	const char *hints[] = { NULL, Lang_Get(STR_HINT_STOP), NULL, NULL, NULL };
-	NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+	const NavRail_Hint hints[] = {
+		{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_STOP) },
+		{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+	};
+	NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 2);
 
 	vita2d_end_drawing();
 	vita2d_swap_buffers();

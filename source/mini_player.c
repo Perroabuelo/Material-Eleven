@@ -68,9 +68,9 @@ void MiniPlayer_Draw(void) {
 
 	UI_DrawRoundedRect(t.play_cx - MINI_PLAY_R, t.cy - MINI_PLAY_R, MINI_PLAY_R * 2, MINI_PLAY_R * 2, MINI_PLAY_R, ui_color_accent);
 	if (Audio_IsPaused())
-		UI_DrawPlayGlyph(t.play_cx, t.cy, MINI_PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
+		UI_DrawPlayGlyph(t.play_cx, t.cy, MINI_PLAY_GLYPH_SIZE, ui_color_on_accent);
 	else
-		UI_DrawPauseGlyph(t.play_cx, t.cy, MINI_PLAY_GLYPH_SIZE, UI_COLOR_TEXT_PRIMARY);
+		UI_DrawPauseGlyph(t.play_cx, t.cy, MINI_PLAY_GLYPH_SIZE, ui_color_on_accent);
 
 	UI_DrawSkipGlyph(t.next_cx, t.cy, MINI_GLYPH_SIZE, SCE_TRUE, UI_COLOR_TEXT_SECONDARY);
 }

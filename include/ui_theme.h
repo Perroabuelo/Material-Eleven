@@ -109,9 +109,11 @@ SceBool UI_Theme_FallbackStatus(int *out_seen, int *out_renewals, SceBool *out_c
 // these are runtime values, shared by every screen and by the nav rail: they
 // follow the current track's cover art via UI_Theme_SetAccentFromCoverArt. A
 // cover without color gives UI_ACCENT_NEUTRAL, and no cover or no track falls
-// back to UI_ACCENT_FIXED.
+// back to UI_ACCENT_FIXED. ui_color_on_accent is for a glyph drawn over an
+// accent fill: dark over the neutral accent, UI_COLOR_TEXT_PRIMARY otherwise.
 extern unsigned int ui_color_accent;
 extern unsigned int ui_color_accent_wash;
+extern unsigned int ui_color_on_accent;
 
 // Palette (Material3-inspired dark skin, see openspec/changes/add-ui-skin).
 #define UI_COLOR_BG              RGBA8(0x12, 0x0F, 0x17, 255)

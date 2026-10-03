@@ -48,6 +48,11 @@ typedef enum {
 Accent_Cover Accent_ClassifyCover(const unsigned char *pixels, unsigned int w, unsigned int h, unsigned int stride,
 	unsigned int bytes_per_pixel, unsigned int *out_color);
 
+// Color for a glyph drawn over a fill of the accent `kind` produced: `dark`
+// over the light neutral accent, `light` over every other one, which keeps
+// the look the colored and fixed accents always had.
+unsigned int Accent_OnAccentColor(Accent_Cover kind, unsigned int dark, unsigned int light);
+
 // Clamps a color's saturation and lightness into the band that stays legible
 // over `bg` and apart from UI_COLOR_TEXT_SECONDARY.
 unsigned int Accent_MakeLegible(unsigned int color, unsigned int bg);

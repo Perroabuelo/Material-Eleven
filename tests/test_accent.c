@@ -147,6 +147,16 @@ static void test_single_channel_is_achromatic(void) {
 		"una imagen de un canal deberia ser sin color");
 }
 
+// Solo el acento neutro, que es claro, lleva el simbolo oscuro encima. Con los
+// otros dos el simbolo sigue en el texto primario, como en v3.2.0.
+static void test_on_accent_color(void) {
+	const unsigned int dark = BG, light = ACCENT_RGBA8(0xF4, 0xEF, 0xEA, 255);
+
+	CHECK(Accent_OnAccentColor(ACCENT_COVER_ACHROMATIC, dark, light) == dark, "sobre el neutro deberia ir el color oscuro");
+	CHECK(Accent_OnAccentColor(ACCENT_COVER_CHROMATIC, dark, light) == light, "sobre un acento de color deberia ir el claro");
+	CHECK(Accent_OnAccentColor(ACCENT_COVER_NONE, dark, light) == light, "sobre el acento fijo deberia ir el claro");
+}
+
 int main(void) {
 	test_legible_pinned();
 	test_twenty_percent_peak();
@@ -154,6 +164,7 @@ int main(void) {
 	test_no_color();
 	test_invalid_input();
 	test_single_channel_is_achromatic();
+	test_on_accent_color();
 
 	if (failures == 0)
 		printf("test_accent: todo bien\n");

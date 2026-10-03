@@ -25,6 +25,7 @@
 
 unsigned int ui_color_accent = UI_ACCENT_FIXED;
 unsigned int ui_color_accent_wash = RGBA8(0xFF, 0x91, 0x66, UI_ACCENT_WASH_ALPHA);
+unsigned int ui_color_on_accent = UI_COLOR_TEXT_PRIMARY;
 
 // ---- Text ----
 
@@ -682,13 +683,14 @@ Accent_Cover UI_ClassifyCover(const vita2d_texture *cover, unsigned int *out_col
 		bytes_per_pixel, out_color);
 }
 
-static void UI_Theme_ApplyAccent(unsigned int accent) {
+static void UI_Theme_ApplyAccent(unsigned int accent, Accent_Cover kind) {
 	ui_color_accent = accent;
 	ui_color_accent_wash = RGBA8(accent & 0xFF, (accent >> 8) & 0xFF, (accent >> 16) & 0xFF, UI_ACCENT_WASH_ALPHA);
+	ui_color_on_accent = Accent_OnAccentColor(kind, UI_COLOR_BG, UI_COLOR_TEXT_PRIMARY);
 }
 
 void UI_Theme_ResetAccent(void) {
-	UI_Theme_ApplyAccent(UI_ACCENT_FIXED);
+	UI_Theme_ApplyAccent(UI_ACCENT_FIXED, ACCENT_COVER_NONE);
 }
 
 void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover) {
@@ -696,12 +698,12 @@ void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover) {
 
 	switch (UI_ClassifyCover(cover, &dominant)) {
 		case ACCENT_COVER_CHROMATIC:
-			UI_Theme_ApplyAccent(Accent_MakeLegible(dominant, UI_COLOR_BG));
+			UI_Theme_ApplyAccent(Accent_MakeLegible(dominant, UI_COLOR_BG), ACCENT_COVER_CHROMATIC);
 			break;
 		// Already legible, and kept away from Accent_MakeLegible: its saturation
 		// floor would turn a gray into a red.
 		case ACCENT_COVER_ACHROMATIC:
-			UI_Theme_ApplyAccent(UI_ACCENT_NEUTRAL);
+			UI_Theme_ApplyAccent(UI_ACCENT_NEUTRAL, ACCENT_COVER_ACHROMATIC);
 			break;
 		default:
 			UI_Theme_ResetAccent();

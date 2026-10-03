@@ -187,6 +187,10 @@ Accent_Cover Accent_ClassifyCover(const unsigned char *pixels, unsigned int w, u
 	return Accent_HistogramPeak(&hist, UI_HUE_MIN_SHARE, out_color) ? ACCENT_COVER_CHROMATIC : ACCENT_COVER_ACHROMATIC;
 }
 
+unsigned int Accent_OnAccentColor(Accent_Cover kind, unsigned int dark, unsigned int light) {
+	return (kind == ACCENT_COVER_ACHROMATIC) ? dark : light;
+}
+
 static float UI_SrgbToLinear(float c) {
 	return (c <= 0.03928f) ? (c / 12.92f) : powf((c + 0.055f) / 1.055f, 2.4f);
 }

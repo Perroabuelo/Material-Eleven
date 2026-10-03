@@ -1,80 +1,80 @@
-# Registro de cambios
+# Changelog
 
-Todos los cambios visibles de la app se registran en este archivo.
+All notable changes to the app are recorded in this file.
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto usa
-[Versionado Semántico](https://semver.org/lang/es/). La versión `X.Y.Z` se muestra en la consola
-como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/). Version `X.Y.Z` shows on the console as `XX.YZ`
+(for example, 3.0.0 is `03.00`).
 
-## [Sin publicar]
+## [Unreleased]
 
 ## [3.3.0] - 2026-10-03
 
-### Agregado
+### Added
 
-- Las carátulas en blanco y negro le dan a la interfaz un acento neutro claro, en lugar del naranja que se usa cuando una canción no tiene carátula.
+- Black and white covers now give the interface a light neutral accent, instead of the orange used when a song has no cover.
 
-### Corregido
+### Fixed
 
-- Las carátulas con un detalle de color pequeño, como un título rojo sobre fondo gris, ahora tiñen la interfaz con ese color.
+- Covers with a small detail of color, such as a red title over a gray background, now tint the interface with that color.
 
 ## [3.2.0] - 2026-10-02
 
-### Agregado
+### Added
 
-- La barra de abajo muestra el ícono de cada botón, con sus colores, y respeta si tu consola confirma con Círculo o con Cruz.
-- Los badges de formato también aparecen en las canciones de la Biblioteca.
+- The bottom bar shows each button's icon in its own color, and follows whether your console confirms with Circle or Cross.
+- Format badges now also appear on songs in the Library.
 
-### Cambiado
+### Changed
 
-- START apaga la pantalla desde cualquier pantalla y la música sigue sonando. Para cerrar la app, usa el botón PS.
-- Con la pantalla apagada, el botón PS la vuelve a encender.
+- START turns the screen off from any screen while the music keeps playing. To close the app, use the PS button.
+- With the screen off, the PS button turns it back on.
 
-### Corregido
+### Fixed
 
-- Los badges de formato ahora muestran la extensión (FLAC, MP3, OGG...) centrada y legible.
-- La consola ya no se suspende sola mientras suena música con la pantalla apagada.
+- Format badges now show the extension (FLAC, MP3, OGG...) centered and readable.
+- The console no longer suspends on its own while music plays with the screen off.
 
 ## [3.1.1] - 2026-09-28
 
-### Cambiado
+### Changed
 
-- Nuevo ícono, nueva LiveArea y nueva pantalla de arranque, con el estilo de la app.
-- La app aparece en la consola como "Material Eleven".
-- Al instalar sobre la versión anterior se conservan tu biblioteca y tus ajustes.
+- New icon, LiveArea and boot screen, in the app's style.
+- The app shows on the console as "Material Eleven".
+- Installing over the previous version keeps your library and settings.
 
 ## [3.1.0] - 2026-09-27
 
-### Agregado
+### Added
 
-- Cada versión publica su `.vpk` en la página de Releases de GitHub.
-- La app ahora está disponible en inglés y en español.
-- Al abrirla por primera vez, usa el idioma de tu consola: español si la consola está en español,
-  inglés en cualquier otro caso.
-- Nueva opción **Idioma** en Ajustes para elegir entre Sistema, English y Español, que se aplica
-  al instante.
+- Every version publishes its `.vpk` on the GitHub Releases page.
+- The app is now available in English and Spanish.
+- On first launch it uses your console's language: Spanish if the console is set to Spanish,
+  English otherwise.
+- New **Language** option in Settings to choose between System, English and Español, applied
+  instantly.
 
-### Cambiado
+### Changed
 
-- Los textos en español se revisaron: ortografía completa y español neutro.
-- Actualizar a esta versión conserva todos tus ajustes.
+- The Spanish texts were reviewed: full spelling and neutral Spanish.
+- Updating to this version keeps all your settings.
 
 ## [3.0.0] - 2026-09-27
 
-Primera versión de Material-Eleven, el fork de ElevenMPV 2.10 de Joel16.
+First version of Material-Eleven, the fork of Joel16's ElevenMPV 2.10.
 
-### Agregado
+### Added
 
-- Interfaz nueva al estilo Material You, con un color de acento que se toma de la carátula.
-- Biblioteca de música y una cola de reproducción, con shuffle y repeat independientes.
-- Controles dibujados en vectores y tipografías nuevas (Manrope, IBM Plex Mono).
-- El volumen sigue al control de volumen del sistema.
-- Ajustes de audio con presets de EQ por hardware y un limitador opcional, traídos de ElevenMPV-A.
+- New Material You style interface, with an accent color taken from the cover art.
+- Music library and a playback queue, with independent shuffle and repeat.
+- Vector-drawn controls and new typefaces (Manrope, IBM Plex Mono).
+- Volume follows the system volume control.
+- Audio settings with hardware EQ presets and an optional limiter, brought over from ElevenMPV-A.
 
-### Cambiado
+### Changed
 
-- El proyecto tiene su propio repositorio, Perroabuelo/Material-Eleven.
-- El proyecto se distribuye bajo GPL-3.0-or-later, con créditos completos a ElevenMPV (Joel16),
-  a ElevenMPV-A (GrapheneCt) y a las bibliotecas que usa (ver NOTICE).
-- El `.vpk` incluye, en `licenses/`, la licencia del proyecto, el NOTICE y las licencias de
-  todas las bibliotecas y tipografías que lleva.
+- The project has its own repository, Perroabuelo/Material-Eleven.
+- The project is distributed under GPL-3.0-or-later, with full credit to ElevenMPV (Joel16),
+  ElevenMPV-A (GrapheneCt) and the libraries it uses (see NOTICE).
+- The `.vpk` includes, in `licenses/`, the project license, the NOTICE and the licenses of
+  every library and typeface it ships.

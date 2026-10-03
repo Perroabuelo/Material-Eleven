@@ -124,8 +124,15 @@ int Library_BuildSongs(void);
 int Library_BuildRecent(void);
 
 // Las pistas de ese nombre dentro de ese campo. Con `unknown`, las que no lo
-// traen.
+// traen. Dentro de un album van en el orden del disco: disco, pista y titulo,
+// con las sin numero al final. Dentro de un artista, agrupadas por album, con
+// las sin album al final, y cada album en el orden del disco.
 int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unknown);
+
+// Toda la biblioteca agrupada por ese campo: los grupos en el orden de
+// Library_BuildFieldNames, con el vacio al final, y dentro de cada grupo el
+// orden de Library_BuildFieldTracks. Es la cola de "Seguir con el siguiente".
+int Library_BuildContinuous(Library_Field field);
 
 // Cuantas pistas tiene la vista construida, y cual es cada una.
 int Library_ViewCount(void);

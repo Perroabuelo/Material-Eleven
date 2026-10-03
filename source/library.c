@@ -15,6 +15,7 @@
 #include "cover.h"
 #include "nav_rail.h"
 #include "tags.h"
+#include "track_meta.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -461,6 +462,48 @@ static int Library_CmpRecent(const void *a, const void *b) {
 	return strcasecmp(ta->path, tb->path);
 }
 
+// --- el orden del disco ----------------------------------------------------
+// Los comparadores viven en track_meta.c, que se prueba en el PC. Aqui solo se
+// arman las claves: el titulo es el mismo respaldo que muestra la vista.
+
+static TrackMeta_Key Library_KeyOf(const Library_Track *t, const char *group) {
+	TrackMeta_Key key = { group, t->disc, t->track, Library_SortTitle(t), t->path };
+	return key;
+}
+
+// Dentro de un album.
+static int Library_CmpDisc(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+	TrackMeta_Key ka = Library_KeyOf(ta, NULL), kb = Library_KeyOf(tb, NULL);
+
+	return TrackMeta_CompareDisc(&ka, &kb);
+}
+
+// Dentro de un artista, y la cola continua por album: por album, con las
+// pistas sin album al final, y cada album en el orden del disco.
+static int Library_CmpByAlbum(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+	TrackMeta_Key ka = Library_KeyOf(ta, ta->album), kb = Library_KeyOf(tb, tb->album);
+
+	return TrackMeta_CompareGrouped(&ka, &kb);
+}
+
+// La cola continua por artista: por artista y, dentro de cada uno, como se ve
+// al entrar en el.
+static int Library_CmpByArtist(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+
+	// Una clave con solo el grupo: si el artista empata, el resto de la clave
+	// tambien, y CompareGrouped da 0.
+	TrackMeta_Key ga = { ta->artist, 0, 0, NULL, NULL }, gb = { tb->artist, 0, 0, NULL, NULL };
+	int by_artist = TrackMeta_CompareGrouped(&ga, &gb);
+
+	return (by_artist != 0) ? by_artist : Library_CmpByAlbum(a, b);
+}
+
 int Library_BuildSongs(void) {
 	if (!Library_ViewReserve())
 		return 0;
@@ -495,9 +538,24 @@ int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unkn
 			library_view[library_view_count++] = i;
 	}
 
-	// Dentro de un album manda el orden del album, pero sin numero de pista en el
-	// indice lo unico estable es el titulo.
-	qsort(library_view, (size_t)library_view_count, sizeof(int), Library_CmpTitle);
+	// Dentro de un album manda el orden del disco. Dentro de un artista, sus
+	// albumes uno detras de otro, cada uno en ese orden.
+	qsort(library_view, (size_t)library_view_count, sizeof(int),
+		(field == LIBRARY_FIELD_ALBUM) ? Library_CmpDisc : Library_CmpByAlbum);
+	return library_view_count;
+}
+
+int Library_BuildContinuous(Library_Field field) {
+	if (!Library_ViewReserve())
+		return 0;
+
+	for (int i = 0; i < library_count; i++)
+		library_view[library_view_count++] = i;
+
+	// Los grupos van en el orden de Library_BuildFieldNames - strcasecmp, con el
+	// vacio al final - y cada grupo en el orden que se ve al entrar en el.
+	qsort(library_view, (size_t)library_view_count, sizeof(int),
+		(field == LIBRARY_FIELD_ALBUM) ? Library_CmpByAlbum : Library_CmpByArtist);
 	return library_view_count;
 }
 

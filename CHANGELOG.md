@@ -8,6 +8,8 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+## [3.2.0] - 2026-10-02
+
 ### Agregado
 
 - La barra de abajo muestra el ícono de cada botón, con sus colores, y respeta si tu consola confirma con Círculo o con Cruz.

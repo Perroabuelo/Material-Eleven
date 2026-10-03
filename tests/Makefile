@@ -7,7 +7,7 @@ CC      ?= gcc
 CFLAGS  ?= -std=gnu11 -O0 -g -Wall -Werror
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off
+BIN := test_lang test_screen_off test_accent
 
 .PHONY: all clean
 
@@ -19,6 +19,9 @@ test_lang: test_lang.c ../source/lang.c ../include/lang.h ../include/lang_string
 
 test_screen_off: test_screen_off.c ../source/screen_off.c ../include/screen_off.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_screen_off.c ../source/screen_off.c
+
+test_accent: test_accent.c ../source/accent.c ../include/accent.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_accent.c ../source/accent.c -lm
 
 clean:
 	rm -f $(BIN)

@@ -4,6 +4,8 @@
 #include <psp2/types.h>
 #include <vita2d.h>
 
+#include "accent.h"
+
 // ---- Text ----
 //
 // Nothing outside ui_theme.c names a font handle. A draw site names a face and
@@ -105,10 +107,13 @@ SceBool UI_Theme_FallbackStatus(int *out_seen, int *out_renewals, SceBool *out_c
 
 // The interface accent and its low-alpha wash. Unlike the rest of the palette
 // these are runtime values, shared by every screen and by the nav rail: they
-// follow the current track's cover art via UI_Theme_SetAccentFromCoverArt, and
-// fall back to UI_ACCENT_FIXED when there is no cover or no track.
+// follow the current track's cover art via UI_Theme_SetAccentFromCoverArt. A
+// cover without color gives UI_ACCENT_NEUTRAL, and no cover or no track falls
+// back to UI_ACCENT_FIXED. ui_color_on_accent is for a glyph drawn over an
+// accent fill: dark over the neutral accent, UI_COLOR_TEXT_PRIMARY otherwise.
 extern unsigned int ui_color_accent;
 extern unsigned int ui_color_accent_wash;
+extern unsigned int ui_color_on_accent;
 
 // Palette (Material3-inspired dark skin, see openspec/changes/add-ui-skin).
 #define UI_COLOR_BG              RGBA8(0x12, 0x0F, 0x17, 255)
@@ -116,9 +121,13 @@ extern unsigned int ui_color_accent_wash;
 #define UI_COLOR_SURFACE         RGBA8(0x1C, 0x18, 0x26, 255)
 #define UI_COLOR_SURFACE_2       RGBA8(0x24, 0x1F, 0x30, 255)
 // The accent is the one palette entry derived at runtime, from the current
-// track's cover art - see ui_color_accent below. These two are its fallback
-// value and the alpha its wash is built at.
+// track's cover art - see ui_color_accent below. These are its value with no
+// cover, its value with a cover that has no color, and the alpha its wash is
+// built at. The neutral is light enough to stay apart from
+// UI_COLOR_TEXT_SECONDARY (1.8:1), carries the faint violet of the other grays
+// here, and is cooler than UI_COLOR_TEXT_PRIMARY so active text still differs.
 #define UI_ACCENT_FIXED          RGBA8(0xFF, 0x91, 0x66, 255)
+#define UI_ACCENT_NEUTRAL        RGBA8(0xE6, 0xE3, 0xEC, 255)
 #define UI_ACCENT_WASH_ALPHA     36
 #define UI_COLOR_TEXT_PRIMARY    RGBA8(0xF4, 0xEF, 0xEA, 255)
 #define UI_COLOR_TEXT_SECONDARY  RGBA8(0xB0, 0xA8, 0xC0, 255)
@@ -233,16 +242,16 @@ int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float b
 
 // ---- Dynamic accent derived from cover art ----
 
-// Dominant chromatic color of a decoded cover texture, from a subsampled hue
-// histogram. Returns SCE_FALSE (leaving `out_color` untouched) when the texture
-// cannot be sampled or carries no usable hue, such as a grayscale cover.
-SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color);
-// Clamps a color's saturation and lightness into the band that stays legible
-// over UI_COLOR_BG and apart from UI_COLOR_TEXT_SECONDARY.
-unsigned int UI_MakeAccentLegible(unsigned int color);
+// Classifies a decoded cover texture from a subsampled hue histogram (see
+// accent.h). A NULL texture, or one in a format this cannot read, is
+// ACCENT_COVER_NONE; a readable one with no usable hue, such as a grayscale
+// cover, is ACCENT_COVER_ACHROMATIC. Only ACCENT_COVER_CHROMATIC writes
+// `out_color`, with the cover's dominant color.
+Accent_Cover UI_ClassifyCover(const vita2d_texture *cover, unsigned int *out_color);
 
 // Points ui_color_accent / ui_color_accent_wash at the color derived from
-// `cover`. A NULL cover, or one with no usable hue, restores UI_ACCENT_FIXED.
+// `cover`. A cover with no usable hue gives UI_ACCENT_NEUTRAL; a NULL or
+// unreadable one restores UI_ACCENT_FIXED.
 // Called once per track load, never per frame.
 void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover);
 // Restores the fixed accent, for when no track is loaded.

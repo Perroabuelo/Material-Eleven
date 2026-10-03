@@ -177,6 +177,10 @@ static void Menu_PromptFilter(void) {
 	SceBool abandoned = SCE_FALSE, ever_composed = SCE_FALSE;
 	int compose_fails = 0, combo_frames = 0, frames = 0;
 
+	// Con el teclado delante START no apaga la pantalla: L + R + START es el
+	// abandono, y la pantalla de fondo no recibe ninguna otra orden.
+	Utils_SetScreenOffEnabled(SCE_FALSE);
+
 	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
 		vita2d_start_drawing();
 		Menu_DrawFilterFrame();
@@ -211,6 +215,8 @@ static void Menu_PromptFilter(void) {
 			break;
 		}
 	}
+
+	Utils_SetScreenOffEnabled(SCE_TRUE);
 
 	// Al abandonar, el resultado no se mira: el filtro queda como estaba.
 	if (abandoned)
@@ -417,8 +423,8 @@ void Menu_DisplayFiles(void) {
 		const char *back_hint = Dirbrowse_HasFilter() ? Lang_Get(STR_HINT_CLEAR_FILTER)
 			: ((strcmp(cwd, root_path) != 0) ? Lang_Get(STR_PARENT_FOLDER) : NULL);
 
-		const char *hints[] = { open_hint, back_hint, NULL, NULL, Lang_Get(STR_HINT_SETTINGS), Lang_Get(STR_HINT_EXIT) };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 6);
+		const char *hints[] = { open_hint, back_hint, NULL, NULL, Lang_Get(STR_HINT_SETTINGS) };
+		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
 		UI_Debug_Draw();
@@ -458,8 +464,5 @@ void Menu_DisplayFiles(void) {
 			Menu_DisplaySettings();
 			return;
 		}
-
-		if (pressed & SCE_CTRL_START)
-			break;
 	}
 }

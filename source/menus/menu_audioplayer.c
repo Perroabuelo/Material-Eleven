@@ -480,9 +480,6 @@ static void Menu_RunNowPlayingLoop(void) {
 				Music_HandleNext(SCE_TRUE, SCE_FALSE);
 		}
 
-		if (pressed & SCE_CTRL_START)
-			scePowerRequestDisplayOff();
-
 		if (pressed & SCE_CTRL_CANCEL) {
 			Touch_Reset();
 			Menu_DisplayFiles();

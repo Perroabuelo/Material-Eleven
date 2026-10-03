@@ -583,8 +583,5 @@ void Menu_DisplayLibrary(void) {
 			Menu_DisplaySettings();
 			return;
 		}
-
-		if (pressed & SCE_CTRL_START)
-			break;
 	}
 }

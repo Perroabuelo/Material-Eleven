@@ -3,13 +3,18 @@
 #include <psp2/io/dirent.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/power.h>
 #include <psp2/shellutil.h>
 #include <psp2/system_param.h>
 #include <string.h>
 
 #include "common.h"
+#include "screen_off.h"
 
 static SceCtrlData pad, old_pad;
+// START apaga la pantalla desde cualquier pantalla, porque todas leen el pad
+// por aqui. La regla vive en screen_off.c, que se prueba en PC.
+static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, 1, 0 };
 static int lock_power = 0;
 
 void Utils_SetMax(int *set, int value, int max) {
@@ -27,9 +32,21 @@ int Utils_ReadControls(void) {
 	sceCtrlPeekBufferPositive(0, &pad, 1);
 
 	pressed = pad.buttons & ~old_pad.buttons;
-	
+
+	int request_off = 0;
+	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &request_off);
+	if (request_off)
+		scePowerRequestDisplayOff();
+
+	// old_pad guarda el pad real, no el flanco filtrado: un boton que se
+	// mantiene despues de encender la pantalla no vuelve a contar como pulsado.
 	old_pad = pad;
 	return 0;
+}
+
+void Utils_SetScreenOffEnabled(SceBool enabled) {
+	screen_off.enabled = enabled ? 1 : 0;
+	screen_off.armed = 0;
 }
 
 SceUInt32 Utils_HeldButtons(void) {

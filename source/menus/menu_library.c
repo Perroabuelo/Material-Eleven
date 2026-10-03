@@ -24,6 +24,10 @@
 #define TOPBAR_H    64
 #define ROW_H       64
 #define ROW_ART     46
+// Como en la lista de carpetas: el badge de formato termina a ROW_RIGHT_PAD
+// del borde y el texto se detiene ROW_BADGE_GAP antes de el.
+#define ROW_RIGHT_PAD 26
+#define ROW_BADGE_GAP 16
 
 // Cuantas miniaturas se admiten de disco por fotograma. Cada una son 64 KB de
 // lectura; dos por fotograma llenan una pagina de cinco filas en tres
@@ -203,8 +207,10 @@ static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
 
 // Una fila: la linea de arriba es lo que la vista lista, y la de abajo lo que
 // ayuda a distinguirlo de sus vecinas.
+// `ext` es la extension del archivo en las filas que son una cancion, y NULL en
+// las de artista o album, que no son un archivo y no llevan badge de formato.
 static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary,
-		const char *album, const char *path, int *budget) {
+		const char *album, const char *path, const char *ext, int *budget) {
 	if (i == selection)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
@@ -222,14 +228,29 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 	}
 
 	float x = art_x + ROW_ART + 14;
+	float text_w = 960 - x - 100;
+
+	// El badge termina donde termina el de la lista de carpetas, y el texto se
+	// recorta antes de llegar a el en vez de pasarle por debajo.
+	const char *badge_label = NULL; unsigned int badge_color = 0, badge_wash = 0;
+	SceBool has_badge = (ext != NULL) && UI_GetFormatBadge(ext, &badge_label, &badge_color, &badge_wash);
+	float badge_x = 0;
+
+	if (has_badge) {
+		badge_x = 960 - ROW_RIGHT_PAD - UI_BadgeWidth(UI_TS_BADGE, badge_label);
+		text_w = badge_x - ROW_BADGE_GAP - x;
+	}
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
-		960 - x - 100, UI_COLOR_TEXT_PRIMARY, primary);
+		text_w, UI_COLOR_TEXT_PRIMARY, primary);
 
 	if (secondary != NULL) {
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y + 34, 20),
-			960 - x - 100, UI_COLOR_TEXT_TERTIARY, secondary);
+			text_w, UI_COLOR_TEXT_TERTIARY, secondary);
 	}
+
+	if (has_badge)
+		UI_DrawBadge(badge_x, y + (ROW_H - 30) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 }
 
 static void Menu_DrawLibraryList(void) {
@@ -250,7 +271,7 @@ static void Menu_DrawLibraryList(void) {
 			const char *art_album = (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) ? Library_NameAt(i) : NULL;
 
 			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(i), sub,
-				art_album, NULL, &budget);
+				art_album, NULL, NULL, &budget);
 		}
 		else {
 			const Library_Track *track = Library_ViewTrack(i);
@@ -259,7 +280,7 @@ static void Menu_DrawLibraryList(void) {
 				break;
 
 			const char *artist = (track->artist[0] != '\0') ? track->artist : Lang_Get(STR_UNKNOWN);
-			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, &budget);
+			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, track->ext, &budget);
 		}
 
 		y += ROW_H;

@@ -25,6 +25,7 @@ context: |
   Los commits no llevan trailers de co-autoría de agentes.
   La carpeta .claude/ no se versiona.
   Artefactos de OpenSpec en español. README y código en inglés, como el proyecto original.
+  CHANGELOG.md y las notas de los GitHub Releases en inglés.
 
 rules:
   proposal:
@@ -33,7 +34,8 @@ rules:
     - >-
       Incluir una seccion "Notas de version" con la version objetivo (vX.Y.Z), el tipo de
       salto SemVer (major, minor o patch: una funcionalidad nueva sube el minor y una
-      correccion sube el patch) y bullets en lenguaje de usuario
+      correccion sube el patch) y bullets en lenguaje de usuario, escritos en ingles porque
+      se copian tal cual a CHANGELOG.md
   design:
     - Describir la estrategia de pruebas del cambio (compilacion, pruebas en consola, tests en PC si aplica)
     - Indicar cualquier cambio necesario en el pipeline de CI
@@ -60,8 +62,8 @@ operations:
       - Fusionar a main mediante PR
       - >-
         Mover los bullets de "Notas de version" de la propuesta a CHANGELOG.md, en una seccion
-        nueva "## [X.Y.Z] - AAAA-MM-DD" bajo "Sin publicar", agrupados en Agregado, Cambiado o
-        Corregido
+        nueva "## [X.Y.Z] - AAAA-MM-DD" bajo "Unreleased", agrupados en Added, Changed o
+        Fixed
       - >-
         Subir VITA_VERSION en CMakeLists.txt a "XX.YZ" para la version X.Y.Z (por ejemplo, 3.1.0
         queda como "03.10"; Y y Z valen como maximo 9)

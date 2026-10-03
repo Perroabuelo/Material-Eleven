@@ -42,7 +42,7 @@ El sistema SHALL NOT bloquear el botón PS para mantener la reproducción. Con u
 - **THEN** la consola muestra su menú, desde donde se puede cerrar la aplicación desde su LiveArea
 
 ### Requirement: Encender la pantalla no dispara una acción
-El sistema SHALL ignorar la pulsación con la que el usuario vuelve a encender la pantalla después de apagarla con START. Esa pulsación SHALL NOT activar la acción que el botón tendría en la pantalla visible. Las pulsaciones siguientes SHALL funcionar con normalidad.
+Con la pantalla apagada con START, el sistema SHALL volver a encenderla con la primera pulsación de cualquier botón, y no solo con el botón PS. Esa pulsación SHALL NOT activar la acción que el botón tendría en la pantalla visible. Mientras la pantalla está apagada, ningún botón SHALL actuar sobre la aplicación sin antes encenderla. Las pulsaciones siguientes SHALL funcionar con normalidad.
 
 #### Scenario: Encender la pantalla con el botón de confirmar
 - **WHEN** el usuario apagó la pantalla con START en Carpetas, con una fila seleccionada, y la vuelve a encender pulsando el botón de confirmar
@@ -51,3 +51,7 @@ El sistema SHALL ignorar la pulsación con la que el usuario vuelve a encender l
 #### Scenario: Encender la pantalla con un gatillo en Reproduciendo
 - **WHEN** el usuario apagó la pantalla con START en Reproduciendo y la vuelve a encender pulsando R
 - **THEN** la pantalla se enciende y el track en curso no cambia
+
+#### Scenario: Encender la pantalla con confirmar en Reproduciendo
+- **WHEN** suena un track, el usuario apaga la pantalla con START en Reproduciendo y pulsa el botón de confirmar
+- **THEN** la pantalla se enciende y la música sigue sonando, sin pausarse

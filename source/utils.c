@@ -32,10 +32,12 @@ int Utils_ReadControls(void) {
 
 	pressed = pad.buttons & ~old_pad.buttons;
 
-	int request_off = 0;
-	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &request_off);
-	if (request_off)
+	ScreenOff_Action action = SCREEN_OFF_KEEP;
+	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &action);
+	if (action == SCREEN_OFF_TURN_OFF)
 		scePowerRequestDisplayOff();
+	else if (action == SCREEN_OFF_TURN_ON)
+		scePowerRequestDisplayOn();
 
 	// old_pad guarda el pad real, no el flanco filtrado: un boton que se
 	// mantiene despues de encender la pantalla no vuelve a contar como pulsado.

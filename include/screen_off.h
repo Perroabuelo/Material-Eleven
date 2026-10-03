@@ -14,20 +14,31 @@ typedef struct {
 	// del sistema tiene la entrada, donde L + R + START significa otra cosa.
 	int enabled;
 	// 1 desde que START apago la pantalla hasta la siguiente pulsacion, que es
-	// la que la vuelve a encender.
+	// la que la vuelve a encender. Si el usuario la enciende con el boton PS,
+	// que la aplicacion no ve, sigue armado y descarta la pulsacion siguiente.
 	int armed;
 } ScreenOff_State;
 
 void ScreenOff_Init(ScreenOff_State *s, unsigned int start, unsigned int ltrigger, unsigned int rtrigger);
 
+// Lo que hay que hacerle a la pantalla despues de un fotograma.
+typedef enum {
+	SCREEN_OFF_KEEP = 0,
+	SCREEN_OFF_TURN_OFF,
+	SCREEN_OFF_TURN_ON
+} ScreenOff_Action;
+
 // Recibe el flanco y los botones mantenidos de este fotograma y devuelve el
-// flanco que deben ver las pantallas. Pone *request_off a 1 cuando hay que
-// apagar la pantalla, y a 0 en cualquier otro caso.
+// flanco que deben ver las pantallas. Deja en *action lo que hay que hacerle a
+// la pantalla.
 //
 // - Deshabilitado, el flanco pasa intacto.
-// - Armado, el primer flanco se descarta entero y el filtro se desarma.
+// - Armado, el primer flanco pide encender la pantalla, se descarta entero y
+//   desarma el filtro. Con la pantalla apagada por la aplicacion la consola
+//   solo la enciende con el boton PS, pero los demas botones siguen llegando:
+//   sin esto, una pulsacion a ciegas actuaria sobre una pantalla que no se ve.
 // - START sin L y R mantenidos a la vez pide apagar, arma el filtro y se quita
 //   del flanco. L + R + START pasa intacto.
-unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned int held, int *request_off);
+unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned int held, ScreenOff_Action *action);
 
 #endif

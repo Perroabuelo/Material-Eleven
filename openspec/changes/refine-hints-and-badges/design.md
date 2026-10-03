@@ -48,19 +48,19 @@ La decisión de qué hacer con cada flanco se saca a un módulo puro nuevo, `sou
 typedef struct { int armed; int enabled; } ScreenOff_State;
 
 // Recibe el flanco y los botones mantenidos de este fotograma, y devuelve
-// el flanco que deben ver las pantallas. *request_off se pone a 1 cuando
-// hay que apagar la pantalla.
+// el flanco que deben ver las pantallas. *action dice si hay que apagar
+// la pantalla, encenderla o dejarla como esta.
 unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed,
-                              unsigned int held, int *request_off);
+                              unsigned int held, ScreenOff_Action *action);
 ```
 
 Reglas del filtro:
 1. Si `enabled` es falso, el flanco pasa sin cambios.
-2. Si `armed` es verdadero (la pantalla se apagó con START) y llega cualquier flanco, se descarta entero, `armed` vuelve a falso y se devuelve 0. Es la pulsación que enciende la pantalla.
+2. Si `armed` es verdadero (la pantalla se apagó con START) y llega cualquier flanco, se pide encender la pantalla, el flanco se descarta entero, `armed` vuelve a falso y se devuelve 0. Comprobado en consola (tarea 2.1): con la pantalla apagada por la aplicación, la consola solo la enciende con el botón PS, pero los demás botones siguen llegando a la aplicación. Sin esta regla, X no encendía la pantalla y además pausaba la reproducción a ciegas en Reproduciendo.
 3. Si llega el flanco de START y L y R no están mantenidos a la vez, se pide apagar la pantalla, `armed` pasa a verdadero y START se quita del flanco.
 4. En cualquier otro caso, el flanco pasa sin cambios.
 
-`Utils_ReadControls()` aplica el filtro y, cuando se pide, llama a `scePowerRequestDisplayOff()`. Como `old_pad` se sigue actualizando con el pad real, un botón mantenido no se repite al despertar. Las constantes de botón se pasan desde `utils.c`, y el módulo puro solo recibe máscaras, así que las pruebas en PC no dependen de los headers de la consola.
+`Utils_ReadControls()` aplica el filtro y, según lo que se pida, llama a `scePowerRequestDisplayOff()` o a `scePowerRequestDisplayOn()`. Como `old_pad` se sigue actualizando con el pad real, un botón mantenido no se repite al despertar. Las constantes de botón se pasan desde `utils.c`, y el módulo puro solo recibe máscaras, así que las pruebas en PC no dependen de los headers de la consola.
 
 - **Mientras espera la entrada de texto del filtro**, `menu_displayfiles.c` deshabilita el filtro (`enabled = 0`) y lo vuelve a habilitar al salir. Con eso START no cambia lo que hace mientras el diálogo del sistema está delante, que queda fuera de alcance, y L + R + START sigue siendo solo la cancelación.
 - **Se quitan** los `break` de START en Carpetas y en Biblioteca, y la llamada de Reproduciendo, que pasa a hacerla el filtro.
@@ -120,8 +120,8 @@ Esto corrige de paso la barra de Reproduciendo, que anunciaba "Menú" en confirm
 
 ## Risks / Trade-offs
 
-- **[La pulsación que enciende la pantalla quizá ni llega a la app]** → Si la consola se la queda, la regla 2 del filtro descartaría la siguiente pulsación real, que sería un error. La primera tarea de START es una prueba en consola para comprobarlo. Si no llega, la regla 2 se quita, junto con su escenario en el spec y su prueba en PC.
-- **[Encender la pantalla con el botón PS o con un toque]** → El filtro sigue armado y descarta la primera pulsación posterior. Es un costo menor, una pulsación que hay que repetir, y es mejor que abrir una fila sin querer. Si en consola resulta molesto, se puede desarmar también al detectar un toque.
+- **[Botones a ciegas con la pantalla apagada]** → Resuelto con la regla 2. La prueba de la tarea 2.1 mostró que los botones llegan a la app con la pantalla apagada, y que la consola solo la enciende con PS. La app la enciende con la primera pulsación y la descarta.
+- **[Encender la pantalla con el botón PS]** → La app no ve el botón PS, así que el filtro sigue armado y descarta la primera pulsación posterior, que ya no hace nada porque la pantalla está encendida. Es un costo menor, una pulsación que hay que repetir, y es mejor que abrir una fila sin querer. Si en consola resulta molesto, se puede investigar si el callback de energía `SCE_POWER_CB_UNK_0x100000` (asociado al cambio de pantalla y permitido para apps comunes) avisa del encendido.
 - **[Contraste de los colores de PlayStation]** → El rojo y el azul originales son oscuros sobre `#17141F`. Se aclaran con el mismo cálculo que el acento, y se verifica en consola que se lean y que se distingan entre sí.
 - **[Ancho de la barra en español]** → Los textos en español son más largos. Las entradas que no caben no se dibujan, y la tarea de la barra verifica en consola, en los dos idiomas, que en ninguna pantalla se caiga una entrada distinta de START.
 - **[Quien usaba START para salir]** → La nota de versión lo dice, y el botón PS cierra la app como en cualquier otra aplicación.

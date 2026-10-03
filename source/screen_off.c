@@ -8,8 +8,8 @@ void ScreenOff_Init(ScreenOff_State *s, unsigned int start, unsigned int ltrigge
 	s->armed = 0;
 }
 
-unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned int held, int *request_off) {
-	*request_off = 0;
+unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned int held, ScreenOff_Action *action) {
+	*action = SCREEN_OFF_KEEP;
 
 	if (!s->enabled)
 		return pressed;
@@ -19,6 +19,7 @@ unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned
 	if (s->armed) {
 		if (pressed != 0) {
 			s->armed = 0;
+			*action = SCREEN_OFF_TURN_ON;
 			return 0;
 		}
 		return pressed;
@@ -30,7 +31,7 @@ unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed, unsigned
 		if ((held & both_triggers) == both_triggers)
 			return pressed;
 
-		*request_off = 1;
+		*action = SCREEN_OFF_TURN_OFF;
 		s->armed = 1;
 		return pressed & ~s->start;
 	}

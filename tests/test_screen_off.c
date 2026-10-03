@@ -34,44 +34,44 @@ static void fresh(ScreenOff_State *s) {
 }
 
 static void test_start_turns_off(void) {
-	ScreenOff_State s; int off = -1;
+	ScreenOff_State s; ScreenOff_Action act = -1;
 	fresh(&s);
 
-	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &off);
-	CHECK(off == 1, "START solo deberia pedir apagar la pantalla");
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START solo deberia pedir apagar la pantalla");
 	CHECK(out == 0, "START deberia quitarse del flanco, quedo 0x%x", out);
 	CHECK(s.armed == 1, "despues de apagar el filtro deberia quedar armado");
 
 	// START junto con otro boton: el otro boton pasa.
 	fresh(&s);
-	out = ScreenOff_Filter(&s, BTN_START | BTN_UP, BTN_START | BTN_UP, &off);
-	CHECK(off == 1, "START con arriba deberia pedir apagar");
+	out = ScreenOff_Filter(&s, BTN_START | BTN_UP, BTN_START | BTN_UP, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START con arriba deberia pedir apagar");
 	CHECK(out == BTN_UP, "solo START deberia quitarse del flanco, quedo 0x%x", out);
 
 	// START con un solo gatillo mantenido sigue siendo apagar.
 	fresh(&s);
-	out = ScreenOff_Filter(&s, BTN_START, BTN_START | BTN_LTRIGGER, &off);
-	CHECK(off == 1, "START con solo L mantenido deberia apagar");
+	out = ScreenOff_Filter(&s, BTN_START, BTN_START | BTN_LTRIGGER, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START con solo L mantenido deberia apagar");
 }
 
 static void test_combo_passes(void) {
-	ScreenOff_State s; int off = -1;
+	ScreenOff_State s; ScreenOff_Action act = -1;
 	fresh(&s);
 
 	unsigned int held = BTN_LTRIGGER | BTN_RTRIGGER | BTN_START;
-	unsigned int out = ScreenOff_Filter(&s, BTN_START, held, &off);
-	CHECK(off == 0, "L + R + START no deberia apagar la pantalla");
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, held, &act);
+	CHECK(act == SCREEN_OFF_KEEP, "L + R + START no deberia apagar la pantalla");
 	CHECK(out == BTN_START, "L + R + START deberia pasar intacto, quedo 0x%x", out);
 	CHECK(s.armed == 0, "L + R + START no deberia armar el filtro");
 }
 
 static void test_disabled(void) {
-	ScreenOff_State s; int off = -1;
+	ScreenOff_State s; ScreenOff_Action act = -1;
 	fresh(&s);
 	s.enabled = 0;
 
-	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &off);
-	CHECK(off == 0, "deshabilitado no deberia apagar");
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(act == SCREEN_OFF_KEEP, "deshabilitado no deberia apagar");
 	CHECK(out == BTN_START, "deshabilitado el flanco deberia pasar intacto, quedo 0x%x", out);
 	CHECK(s.armed == 0, "deshabilitado no deberia armarse");
 
@@ -79,41 +79,42 @@ static void test_disabled(void) {
 	fresh(&s);
 	s.armed = 1;
 	s.enabled = 0;
-	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &off);
+	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &act);
 	CHECK(out == BTN_CROSS, "deshabilitado no deberia descartar el despertar, quedo 0x%x", out);
 }
 
 static void test_wake_press_is_dropped(void) {
-	ScreenOff_State s; int off = -1;
+	ScreenOff_State s; ScreenOff_Action act = -1;
 	fresh(&s);
-	ScreenOff_Filter(&s, BTN_START, BTN_START, &off);
+	ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
 
 	// Fotogramas sin pulsaciones nuevas mientras la pantalla esta apagada.
-	unsigned int out = ScreenOff_Filter(&s, 0, 0, &off);
+	unsigned int out = ScreenOff_Filter(&s, 0, 0, &act);
 	CHECK(out == 0 && s.armed == 1, "sin pulsacion el filtro deberia seguir armado");
 
-	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &off);
+	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &act);
 	CHECK(out == 0, "la pulsacion que enciende la pantalla deberia descartarse, quedo 0x%x", out);
-	CHECK(off == 0, "encender no deberia pedir apagar");
+	CHECK(act == SCREEN_OFF_TURN_ON, "la primera pulsacion con la pantalla apagada deberia pedir encenderla");
 	CHECK(s.armed == 0, "despues de encender el filtro deberia desarmarse");
 
-	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &off);
+	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &act);
 	CHECK(out == BTN_CROSS, "la pulsacion siguiente deberia pasar, quedo 0x%x", out);
+	CHECK(act == SCREEN_OFF_KEEP, "la pulsacion siguiente no deberia tocar la pantalla");
 
 	// Encender con START no vuelve a apagar.
 	fresh(&s);
-	ScreenOff_Filter(&s, BTN_START, BTN_START, &off);
-	out = ScreenOff_Filter(&s, BTN_START, BTN_START, &off);
-	CHECK(out == 0 && off == 0, "encender con START no deberia volver a apagar");
+	ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(out == 0 && act == SCREEN_OFF_TURN_ON, "encender con START deberia encender, no volver a apagar");
 }
 
 static void test_other_presses_pass(void) {
-	ScreenOff_State s; int off = -1;
+	ScreenOff_State s; ScreenOff_Action act = -1;
 	fresh(&s);
 
-	unsigned int out = ScreenOff_Filter(&s, BTN_CROSS | BTN_UP, BTN_CROSS | BTN_UP, &off);
+	unsigned int out = ScreenOff_Filter(&s, BTN_CROSS | BTN_UP, BTN_CROSS | BTN_UP, &act);
 	CHECK(out == (BTN_CROSS | BTN_UP), "un flanco sin START deberia pasar intacto, quedo 0x%x", out);
-	CHECK(off == 0 && s.armed == 0, "un flanco sin START no deberia apagar ni armar");
+	CHECK(act == SCREEN_OFF_KEEP && s.armed == 0, "un flanco sin START no deberia apagar ni armar");
 }
 
 int main(void) {

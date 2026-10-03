@@ -3,6 +3,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "config.h"
 #include "cover.h"
 #include "fs.h"
 #include "lang.h"
@@ -362,6 +363,12 @@ static void Menu_LibraryRescan(void) {
 // El productor de biblioteca: vuelca la vista vigente en la cola, en el orden
 // en que se ve, y reproduce desde ahi. Siguiente y anterior recorren esa cola y
 // no la carpeta en la que este el archivo.
+//
+// Dentro de un album o un artista, con "Seguir con el siguiente", la cola es
+// en cambio toda la biblioteca agrupada por ese campo. Esa vista comparte el
+// arreglo con la que se esta viendo, asi que el orden de los pasos importa:
+// la pista elegida se toma antes de construirla, y la vista visible se marca
+// para reconstruirse despues.
 static void Menu_LibraryPlaySelected(void) {
 	// La cola es esta vista, en el orden en que se ve. Por eso se reconstruye
 	// aqui: es lo que hace que reproducir desde un album encadene el album y no
@@ -381,6 +388,13 @@ static void Menu_LibraryPlaySelected(void) {
 		return;
 	}
 
+	// La pista apunta al indice, no a la vista: sigue valiendo despues de
+	// construir otra.
+	SceBool continuous = inside && (config.group_end == CONFIG_GROUP_END_NEXT);
+
+	if (continuous)
+		Library_BuildContinuous(Menu_LibraryField());
+
 	Queue_Clear();
 
 	for (int i = 0; i < Library_ViewCount(); i++) {
@@ -392,6 +406,11 @@ static void Menu_LibraryPlaySelected(void) {
 		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t)))
 			break;
 	}
+
+	// El siguiente fotograma vuelve a la lista del grupo, no a la biblioteca
+	// entera.
+	if (continuous)
+		view_dirty = SCE_TRUE;
 
 	// La biblioteca indexa por extension sin abrir nada, asi que lista tambien
 	// lo que no se puede decodificar. Decirlo es mejor que no hacer nada.

@@ -8,13 +8,14 @@
 #include "fs.h"
 #include "lang.h"
 
-// v2 -> v3 added "language". Each version appends its lines at the end of the
+// v2 -> v3 added "language" and v3 -> v4 "group_end". Each version appends its lines at the end of the
 // format, so an older file is a prefix of the newer format and sscanf reads it
 // up to where it ends; CONFIG_FIELDS_V* is how many fields that prefix holds,
 // config_ver included.
-#define CONFIG_VERSION   3
+#define CONFIG_VERSION   4
 #define CONFIG_FIELDS_V2 9
 #define CONFIG_FIELDS_V3 10
+#define CONFIG_FIELDS_V4 11
 
 #define CONFIG_BUFFER_SIZE 256
 
@@ -31,7 +32,8 @@ const char *config_file =
 	"device = %d\n"
 	"eq_mode = %d\n"
 	"eq_volume = %d\n"
-	"language = %d";
+	"language = %d\n"
+	"group_end = %d";
 
 static void Config_SetDefaults(void) {
 	config.meta_flac = SCE_FALSE;
@@ -43,6 +45,7 @@ static void Config_SetDefaults(void) {
 	config.eq_mode = 0;
 	config.eq_volume = SCE_FALSE;
 	config.language = LANG_PREF_SYSTEM;
+	config.group_end = CONFIG_GROUP_END_REPEAT;
 }
 
 int Config_Save(config_t config) {
@@ -50,7 +53,8 @@ int Config_Save(config_t config) {
 
 	char *buf = malloc(CONFIG_BUFFER_SIZE);
 	int len = snprintf(buf, CONFIG_BUFFER_SIZE, config_file, CONFIG_VERSION, config.meta_flac, config.meta_mp3, config.meta_opus, config.sort,
-		config.alc_mode, config.device, config.eq_mode, config.eq_volume, config.language);
+		config.alc_mode, config.device, config.eq_mode, config.eq_volume, config.language,
+		config.group_end);
 
 	// A truncated file would lose its last lines and, with them, the settings
 	// they hold: better to keep the previous file than to write half of this one.
@@ -87,16 +91,23 @@ int Config_Load(void) {
 
 	buf[size] = '\0';
 	int fields = sscanf(buf, config_file, &config_version_holder, &config.meta_flac, &config.meta_mp3, &config.meta_opus, &config.sort,
-		&config.alc_mode, &config.device, &config.eq_mode, &config.eq_volume, &config.language);
+		&config.alc_mode, &config.device, &config.eq_mode, &config.eq_volume, &config.language,
+		&config.group_end);
 	free(buf);
 
-	if (config_version_holder >= CONFIG_VERSION && fields >= CONFIG_FIELDS_V3)
+	if (config_version_holder >= CONFIG_VERSION && fields >= CONFIG_FIELDS_V4)
 		return 0;
 
-	// v2 has everything but the language: keep what it has and write it back
-	// as v3. Updating used to reset every setting here.
+	// v3 has everything but group_end: keep what it has and write it back as v4.
+	if (config_version_holder == 3 && fields >= CONFIG_FIELDS_V3) {
+		config.group_end = CONFIG_GROUP_END_REPEAT;
+		return Config_Save(config);
+	}
+
+	// v2 also lacks the language. Updating used to reset every setting here.
 	if (config_version_holder == 2 && fields >= CONFIG_FIELDS_V2) {
 		config.language = LANG_PREF_SYSTEM;
+		config.group_end = CONFIG_GROUP_END_REPEAT;
 		return Config_Save(config);
 	}
 

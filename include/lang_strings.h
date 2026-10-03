@@ -22,6 +22,7 @@ X(STR_SETTINGS_METADATA,     "Metadata",                 "Metadatos")
 X(STR_SETTINGS_NORMALIZER,   "Normalizer",               "Normalizador")
 X(STR_SETTINGS_EQUALIZER,    "Equalizer",                "Ecualizador")
 X(STR_SETTINGS_LANGUAGE,     "Language",                 "Idioma")
+X(STR_SETTINGS_PLAYBACK,     "Playback",                 "Reproducción")
 
 X(STR_SORT_NAME_AZ,          "Name (A-Z)",               "Nombre (A-Z)")
 X(STR_SORT_NAME_ZA,          "Name (Z-A)",               "Nombre (Z-A)")
@@ -47,6 +48,13 @@ X(STR_EQ_LIMIT_VOLUME,       "Limit volume with EQ",     "Limitar volumen con EQ
 // "English" y "Español" no estan aqui: se muestran siempre en su propio idioma,
 // para que cualquiera reconozca el suyo (menu_settings.c).
 X(STR_LANG_SYSTEM,           "System",                   "Sistema")
+
+X(STR_GROUP_END_TITLE,       "When an album or artist ends", "Al terminar un álbum o artista")
+X(STR_GROUP_END_REPEAT,      "Repeat it",                "Repetirlo")
+X(STR_GROUP_END_NEXT,        "Play the next one",        "Seguir con el siguiente")
+// El valor vigente en la lista de categorias, donde el nombre entero no cabe.
+X(STR_GROUP_END_HINT_REPEAT, "Repeat",                   "Repetir")
+X(STR_GROUP_END_HINT_NEXT,   "Next",                     "Seguir")
 
 X(STR_HINT_SELECT,           "Select",                   "Seleccionar")
 X(STR_HINT_BACK,             "Back",                     "Atrás")

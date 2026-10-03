@@ -8,6 +8,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-10-03
+
+### Added
+
+- New setting under Settings > Playback: when an album or artist ends, repeat it or keep playing the next one.
+- Artists in the Library now show a cover from one of their albums.
+- Up Next on Now Playing shows the cover of each upcoming song when you play from the Library.
+
+### Changed
+
+- Albums in the Library now play in disc order, by disc and track number, instead of alphabetically by title.
+- Inside an artist, songs are grouped by album and follow each album's track order.
+- Your existing library is kept after updating. Rescan with Triangle to read track numbers; you can stop and resume at any time.
+
 ## [3.3.1] - 2026-10-03
 
 ### Fixed

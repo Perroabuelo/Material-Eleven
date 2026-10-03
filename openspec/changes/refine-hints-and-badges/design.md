@@ -88,8 +88,10 @@ typedef struct {
     const char *label;              // NULL: la entrada no se dibuja
 } NavRail_Hint;
 
-void NavRail_DrawHintBar(float y, const NavRail_Hint *hints, int count);
+void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count);
 ```
+
+Lleva otro nombre que la función de textos para poder convivir con ella mientras se migran las llamadas. La de textos se borra al final de la migración.
 
 - **Íconos.** Cruz, Círculo, Cuadrado y Triángulo se dibujan como geometría con las primitivas de `ui_theme` (`UI_DrawStroke`, `vita2d_draw_fill_circle`, `UI_DrawTriangle`), en contorno, dentro de una caja de unos 18 px centrada en la línea base del texto. Cumple `ui/rendering`: ni texturas ni glifos de fuente, que además no garantizan esos símbolos.
 - **Colores.** Se agregan al tema cuatro tokens: `UI_COLOR_BTN_CROSS` (azul), `UI_COLOR_BTN_CIRCLE` (rojo), `UI_COLOR_BTN_SQUARE` (rosa) y `UI_COLOR_BTN_TRIANGLE` (verde). Se toman los tonos clásicos de los símbolos de PlayStation y se aclaran hasta que contrastan con `UI_COLOR_BG_ELEVATED` (el fondo de la barra) lo mismo que `UI_COLOR_TEXT_SECONDARY`, con el mismo cálculo de contraste que ya usa el acento dinámico (`UI_ContrastOverBg`). Los valores finales quedan en `ui_theme.h`.

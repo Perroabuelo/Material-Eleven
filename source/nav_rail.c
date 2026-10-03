@@ -145,3 +145,167 @@ void NavRail_DrawHintBar(float y, const char **segments, int count) {
 		x += UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, segments[i]) + 26;
 	}
 }
+
+// ---- Legend with button glyphs ----
+
+#define HINT_PAD_X        22
+#define HINT_ENTRY_GAP    26
+#define HINT_LABEL_GAP    8
+#define HINT_BUTTON_GAP   4
+#define HINT_GLYPH_BOX    16
+#define HINT_GLYPH_STROKE 2.2f
+#define HINT_CHIP_PAD_X   6
+#define HINT_CHIP_H       20
+
+typedef enum {
+	HINT_SYM_CROSS,
+	HINT_SYM_CIRCLE,
+	HINT_SYM_SQUARE,
+	HINT_SYM_TRIANGLE,
+	HINT_SYM_CHIP
+} NavRail_HintSymbol;
+
+static NavRail_HintSymbol NavRail_HintSymbolOf(NavRail_HintButton button) {
+	SceBool cross_confirms = (SCE_CTRL_ENTER == SCE_CTRL_CROSS);
+
+	switch (button) {
+		case HINT_BTN_CONFIRM: return cross_confirms ? HINT_SYM_CROSS : HINT_SYM_CIRCLE;
+		case HINT_BTN_CANCEL: return cross_confirms ? HINT_SYM_CIRCLE : HINT_SYM_CROSS;
+		case HINT_BTN_TRIANGLE: return HINT_SYM_TRIANGLE;
+		case HINT_BTN_SQUARE: return HINT_SYM_SQUARE;
+		default: return HINT_SYM_CHIP;
+	}
+}
+
+static const char *NavRail_HintChipName(NavRail_HintButton button) {
+	switch (button) {
+		case HINT_BTN_L: return "L";
+		case HINT_BTN_R: return "R";
+		case HINT_BTN_SELECT: return "SELECT";
+		case HINT_BTN_START: return "START";
+		default: return "";
+	}
+}
+
+static float NavRail_HintButtonWidth(NavRail_HintButton button) {
+	if (NavRail_HintSymbolOf(button) != HINT_SYM_CHIP)
+		return HINT_GLYPH_BOX;
+
+	return UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, NavRail_HintChipName(button)) + HINT_CHIP_PAD_X * 2;
+}
+
+// The four symbols in outline, as the console's face buttons print them,
+// centered on (cx, cy) inside a HINT_GLYPH_BOX square.
+static void NavRail_DrawHintSymbol(NavRail_HintSymbol symbol, float cx, float cy) {
+	float half = HINT_GLYPH_BOX / 2.0f;
+
+	switch (symbol) {
+		case HINT_SYM_CROSS: {
+			float r = half * 0.72f;
+			UI_DrawStroke(cx - r, cy - r, cx + r, cy + r, HINT_GLYPH_STROKE, UI_COLOR_BTN_CROSS);
+			UI_DrawStroke(cx - r, cy + r, cx + r, cy - r, HINT_GLYPH_STROKE, UI_COLOR_BTN_CROSS);
+			break;
+		}
+		case HINT_SYM_CIRCLE:
+			UI_DrawRing(cx, cy, half * 0.9f, HINT_GLYPH_STROKE, UI_COLOR_BTN_CIRCLE);
+			break;
+		case HINT_SYM_SQUARE: {
+			float s = half * 0.74f;
+			UI_DrawStroke(cx - s, cy - s, cx + s, cy - s, HINT_GLYPH_STROKE, UI_COLOR_BTN_SQUARE);
+			UI_DrawStroke(cx + s, cy - s, cx + s, cy + s, HINT_GLYPH_STROKE, UI_COLOR_BTN_SQUARE);
+			UI_DrawStroke(cx + s, cy + s, cx - s, cy + s, HINT_GLYPH_STROKE, UI_COLOR_BTN_SQUARE);
+			UI_DrawStroke(cx - s, cy + s, cx - s, cy - s, HINT_GLYPH_STROKE, UI_COLOR_BTN_SQUARE);
+			break;
+		}
+		case HINT_SYM_TRIANGLE: {
+			float top = cy - half * 0.82f, base = cy + half * 0.62f, w = half * 0.86f;
+			UI_DrawStroke(cx, top, cx + w, base, HINT_GLYPH_STROKE, UI_COLOR_BTN_TRIANGLE);
+			UI_DrawStroke(cx + w, base, cx - w, base, HINT_GLYPH_STROKE, UI_COLOR_BTN_TRIANGLE);
+			UI_DrawStroke(cx - w, base, cx, top, HINT_GLYPH_STROKE, UI_COLOR_BTN_TRIANGLE);
+			break;
+		}
+		case HINT_SYM_CHIP:
+			break;
+	}
+}
+
+static int NavRail_HintButtonCount(const NavRail_Hint *hint) {
+	int n = 0;
+	while (n < NAV_RAIL_HINT_MAX_BUTTONS && hint->buttons[n] != HINT_BTN_NONE)
+		n++;
+	return n;
+}
+
+static float NavRail_HintJoinWidth(const NavRail_Hint *hint) {
+	return hint->combo ? (HINT_BUTTON_GAP * 2 + UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, "+")) : HINT_BUTTON_GAP;
+}
+
+static float NavRail_HintWidth(const NavRail_Hint *hint) {
+	int n = NavRail_HintButtonCount(hint);
+	float w = 0;
+
+	for (int i = 0; i < n; i++)
+		w += NavRail_HintButtonWidth(hint->buttons[i]) + ((i > 0) ? NavRail_HintJoinWidth(hint) : 0);
+
+	if (n > 0)
+		w += HINT_LABEL_GAP;
+
+	return w + UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, hint->label);
+}
+
+void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count) {
+	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, UI_HINT_BAR_HEIGHT, UI_COLOR_BG_ELEVATED);
+	vita2d_draw_rectangle(UI_RAIL_WIDTH, y, 960 - UI_RAIL_WIDTH, 1, UI_COLOR_HAIRLINE);
+
+	float x = UI_RAIL_WIDTH + HINT_PAD_X;
+	float right = 960 - HINT_PAD_X;
+	float mid = y + UI_HINT_BAR_HEIGHT / 2.0f;
+	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, UI_HINT_BAR_HEIGHT);
+	float chip_y = mid - HINT_CHIP_H / 2.0f;
+	float chip_baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, chip_y, HINT_CHIP_H);
+
+	for (int i = 0; i < count; i++) {
+		const NavRail_Hint *hint = &hints[i];
+
+		if (!hint->label)
+			continue;
+
+		// Lo que no entra no se dibuja, y lo que venia despues tampoco: las
+		// pantallas listan primero lo mas importante.
+		if (x + NavRail_HintWidth(hint) > right)
+			break;
+
+		int n = NavRail_HintButtonCount(hint);
+
+		for (int b = 0; b < n; b++) {
+			if (b > 0) {
+				if (hint->combo) {
+					x += HINT_BUTTON_GAP;
+					UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, baseline, UI_COLOR_TEXT_TERTIARY, "+");
+					x += UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, "+") + HINT_BUTTON_GAP;
+				}
+				else
+					x += HINT_BUTTON_GAP;
+			}
+
+			NavRail_HintSymbol symbol = NavRail_HintSymbolOf(hint->buttons[b]);
+			float w = NavRail_HintButtonWidth(hint->buttons[b]);
+
+			if (symbol == HINT_SYM_CHIP) {
+				UI_DrawPill(x, chip_y, w, HINT_CHIP_H, UI_COLOR_SURFACE_2);
+				UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x + HINT_CHIP_PAD_X, chip_baseline, UI_COLOR_TEXT_SECONDARY,
+					NavRail_HintChipName(hint->buttons[b]));
+			}
+			else
+				NavRail_DrawHintSymbol(symbol, x + w / 2.0f, mid);
+
+			x += w;
+		}
+
+		if (n > 0)
+			x += HINT_LABEL_GAP;
+
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, baseline, UI_COLOR_TEXT_SECONDARY, hint->label);
+		x += UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, hint->label) + HINT_ENTRY_GAP;
+	}
+}

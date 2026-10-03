@@ -131,6 +131,15 @@ extern unsigned int ui_color_accent_wash;
 #define UI_COLOR_LOSSY_WASH      RGBA8(0xB7, 0x9C, 0xE8, 41)
 #define UI_COLOR_TRACKER         RGBA8(0xF0, 0xC3, 0x4D, 255)
 #define UI_COLOR_TRACKER_WASH    RGBA8(0xF0, 0xC3, 0x4D, 41)
+// The four symbol buttons in the hint bar, in their PlayStation hues. Each is
+// the classic hue lightened (same hue and saturation, HSL lightness raised)
+// until its WCAG contrast over UI_COLOR_BG_ELEVATED, the bar's background,
+// reaches that of UI_COLOR_TEXT_SECONDARY (7.96:1) - the classic red and blue
+// are too dark to read there. Same luminance formula as UI_ContrastOverBg.
+#define UI_COLOR_BTN_CROSS       RGBA8(0x8A, 0xAF, 0xE9, 255)  // from #5B8FE0, 8.12:1
+#define UI_COLOR_BTN_CIRCLE      RGBA8(0xF0, 0x94, 0x97, 255)  // from #E5484D, 8.12:1
+#define UI_COLOR_BTN_SQUARE      RGBA8(0xE0, 0x94, 0xD6, 255)  // from #D670C8, 8.11:1
+#define UI_COLOR_BTN_TRIANGLE    RGBA8(0x32, 0xC4, 0x9E, 255)  // from #2FB894, 8.24:1
 
 // Radius families (drawn as vector arcs, see openspec/changes/vectorize-ui-controls).
 #define UI_RADIUS_SM 10

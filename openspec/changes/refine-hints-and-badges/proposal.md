@@ -59,7 +59,8 @@ Además, revisando START apareció un defecto escondido. Desde `6070b10` la app 
 Versión objetivo: **v3.2.0** (minor): agrega los íconos de botones en la barra, los badges en Biblioteca y la reproducción con la pantalla apagada desde cualquier pantalla.
 
 - La barra de abajo muestra el ícono de cada botón, con sus colores, y respeta si tu consola confirma con Círculo o con Cruz.
-- Los badges de formato ahora muestran la extensión (FLAC, MP3, OGG...), y también aparecen en las canciones de la Biblioteca.
+- Los badges de formato ahora muestran la extensión (FLAC, MP3, OGG...) centrada y legible.
+- Los badges de formato también aparecen en las canciones de la Biblioteca.
 - START apaga la pantalla desde cualquier pantalla y la música sigue sonando. Para cerrar la app, usa el botón PS.
 - La consola ya no se suspende sola mientras suena música con la pantalla apagada.
 - Con la pantalla apagada, el botón PS la vuelve a encender.

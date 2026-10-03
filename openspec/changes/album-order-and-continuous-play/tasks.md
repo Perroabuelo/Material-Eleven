@@ -1,7 +1,8 @@
 ## 1. Números de pista y de disco
 
 - [x] 1.1 Crear el módulo puro `source/track_meta.c` / `include/track_meta.h` con `TrackMeta_ParseNumber`, `TrackMeta_Id3v1Track`, `TrackMeta_CompareDisc` y `TrackMeta_CompareGrouped` (decisión 1 de design.md), sin vita2d, SCE ni `psp2/types.h`. Agregar `tests/test_track_meta.c` a `tests/Makefile` con los casos de la estrategia de pruebas, y el módulo a `CMakeLists.txt`. Listo cuando `make -C tests` pase (con `test_lang`, `test_screen_off` y `test_accent`) y `scripts/build.sh` compile con `-Wall -Werror`.
-- [ ] 1.2 Sumar `track` y `disc` a `Tags` y llenarlos en `tags.c` desde los comentarios Vorbis, Opus, los frames ID3v2 `TRCK`/`TPOS` y el ID3v1.1 (decisión 2). Antes de escribir, confirmar que el `mpg123.h` del VitaSDK expone `text`/`texts` en `mpg123_id3v2`, y anotar acá el resultado. Listo cuando compile con `-Wall -Werror`.
+- [x] 1.2 Sumar `track` y `disc` a `Tags` y llenarlos en `tags.c` desde los comentarios Vorbis, Opus, los frames ID3v2 `TRCK`/`TPOS` y el ID3v1.1 (decisión 2). Antes de escribir, confirmar que el `mpg123.h` del VitaSDK expone `text`/`texts` en `mpg123_id3v2`, y anotar acá el resultado. Listo cuando compile con `-Wall -Werror`.
+  - Resultado: el `mpg123.h` del VitaSDK expone `mpg123_text *text` y `size_t texts` en `mpg123_id3v2`, y cada `mpg123_text` trae `char id[4]` (sin terminador) y `mpg123_string text`. MP3 lee `TRCK` y `TPOS` de ahí, y ID3v1.1 queda como respaldo del número de pista.
 
 ## 2. Índice v3
 

@@ -8,6 +8,16 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+## [3.3.0] - 2026-10-03
+
+### Agregado
+
+- Las carátulas en blanco y negro le dan a la interfaz un acento neutro claro, en lugar del naranja que se usa cuando una canción no tiene carátula.
+
+### Corregido
+
+- Las carátulas con un detalle de color pequeño, como un título rojo sobre fondo gris, ahora tiñen la interfaz con ese color.
+
 ## [3.2.0] - 2026-10-02
 
 ### Agregado

@@ -75,6 +75,7 @@ Qué campo está en cada posición según la versión lo decide un módulo puro,
 ```c
 typedef struct { int size, mtime, tagged, ext, track, disc, title, artist, album, path; int fields; } LibraryRow_Layout;
 // SCE_FALSE-equivalente (0) si la version no se reconoce. track/disc = -1 cuando la version no los trae.
+// En v2 tagged tambien es -1: su marca no cubre los numeros, asi que la fila se carga pendiente.
 int LibraryRow_GetLayout(int version, LibraryRow_Layout *out);
 ```
 

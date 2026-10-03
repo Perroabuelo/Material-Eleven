@@ -65,3 +65,4 @@ templates/
 /tests/test_screen_off
 /tests/test_accent
 /tests/test_track_meta
+/tests/test_library_row

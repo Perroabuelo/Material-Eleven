@@ -6,7 +6,7 @@
 
 ## 2. Índice v3
 
-- [ ] 2.1 Crear el módulo puro `source/library_row.c` / `include/library_row.h` con `LibraryRow_GetLayout` para las versiones 2 y 3 (decisión 3). Agregar `tests/test_library_row.c` a `tests/Makefile` (v2, v3 y una versión desconocida) y el módulo a `CMakeLists.txt`. Listo cuando `make -C tests` pase y el `.vpk` compile con `-Wall -Werror`.
+- [x] 2.1 Crear el módulo puro `source/library_row.c` / `include/library_row.h` con `LibraryRow_GetLayout` para las versiones 2 y 3 (decisión 3). Agregar `tests/test_library_row.c` a `tests/Makefile` (v2, v3 y una versión desconocida) y el módulo a `CMakeLists.txt`. Listo cuando `make -C tests` pase y el `.vpk` compile con `-Wall -Werror`.
 - [ ] 2.2 Sumar `track` y `disc` a `Library_Track`. Hacer que `Library_Save` escriba v3, que `Library_Load` acepte v2 (con `tagged = false` y sin números) y v3 usando `LibraryRow_GetLayout`, y que la pasada de tags guarde `track` y `disc`. Cambiar `Library_CarryTags` para que copie título, artista, álbum, números y el valor de `tagged` siempre que el archivo no haya cambiado (decisión 4). Listo cuando compile con `-Wall -Werror` y, en consola, con un índice v2 de la versión anterior: la Biblioteca se muestre completa con el contador de tags pendientes igual al total; un reescaneo abandonado al empezar la pasada de tags deje las vistas Artistas y Álbumes con sus nombres; y cerrar y reabrir la app conserve los números ya leídos.
 
 ## 3. Orden y reproducción continua

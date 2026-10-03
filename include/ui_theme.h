@@ -177,8 +177,12 @@ void UI_Theme_Free(void);
 void UI_DrawRoundedRect(float x, float y, float w, float h, int radius, unsigned int color);
 // Fully-rounded rect (radius = h/2) - pills, toggle tracks, search fields.
 void UI_DrawPill(float x, float y, float w, float h, unsigned int color);
-// Pill with a 1px border, sized to fit `label` drawn in the mono face at `ts`.
-void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg, unsigned int border);
+// Borderless pill sized to fit `label` drawn in the mono face at `ts`: one
+// fill in `bg` with the label in `fg` on top. There is no outline on purpose -
+// drawing one as a full pill under a translucent `bg` buried the label.
+void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg);
+// Width UI_DrawBadge will give `label` at `ts`, for right-aligning a badge.
+float UI_BadgeWidth(UI_TextSize ts, const char *label);
 // Accent-wash rounded-rect highlight behind an active list row.
 void UI_DrawRowHighlight(float x, float y, float w, float h);
 

@@ -401,7 +401,7 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		const char *badge_label; unsigned int badge_color, badge_wash;
 		if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
-			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
+			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 
 		// Seek bar
 		SceUInt64 length = Audio_GetLength();

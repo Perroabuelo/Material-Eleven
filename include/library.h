@@ -147,6 +147,12 @@ const char *Library_NameAt(int index);
 SceBool Library_NameIsUnknown(int index);
 int Library_NameTrackCount(int index);
 
+// Los candidatos a caratula del nombre `index`, solo en la vista de artistas:
+// una pista por album distinto, en el orden en que se ve el artista, mas cada
+// pista sin album. La caratula del artista es la del primero que tenga una.
+// NULL cuando `k` se pasa de la lista, y siempre para el cubo "Desconocido".
+const Library_Track *Library_NameCandidate(int index, int k);
+
 // Cuantas pistas del indice siguen sin tags leidos.
 int Library_PendingTags(void);
 

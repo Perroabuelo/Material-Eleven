@@ -35,6 +35,17 @@ SceBool Cover_IsCached(const char *album, const char *path);
 // que las que no llegan se dibujan con el marcador por defecto y llegan luego.
 vita2d_texture *Cover_Get(const char *album, const char *path, int *budget);
 
+// Lo que dice la entrada de esa clave, sin traer sus pixeles: solo la cabecera
+// de 128 bytes, o nada si ya esta en RAM. Sirve para elegir que caratula
+// representa a un artista sin pagar la lectura de las que no la tienen.
+typedef enum {
+	COVER_PROBE_MISSING = -1, // no hay entrada: la pasada de caratulas no llego
+	COVER_PROBE_EMPTY = 0,    // hay entrada y dice que no hay caratula
+	COVER_PROBE_IMAGE = 1     // hay caratula
+} Cover_ProbeResult;
+
+Cover_ProbeResult Cover_Probe(const char *album, const char *path);
+
 // Suelta las texturas cacheadas en RAM. El cache en disco no se toca.
 void Cover_Free(void);
 

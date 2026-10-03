@@ -439,6 +439,24 @@ vita2d_texture *Cover_Get(const char *album, const char *path, int *budget) {
 	return slot->texture;
 }
 
+Cover_ProbeResult Cover_Probe(const char *album, const char *path) {
+	char key[COVER_KEY_MAX];
+	Cover_Key(key, sizeof(key), album, path);
+
+	Cover_Slot *slot = Cover_FindSlot(key);
+
+	if (slot != NULL)
+		return (slot->texture != NULL) ? COVER_PROBE_IMAGE : COVER_PROBE_EMPTY;
+
+	// Con pixels NULL, Cover_ReadEntry lee la cabecera y nada mas.
+	int state = Cover_ReadEntry(key, NULL);
+
+	if (state > 0)
+		return COVER_PROBE_IMAGE;
+
+	return (state == 0) ? COVER_PROBE_EMPTY : COVER_PROBE_MISSING;
+}
+
 void Cover_Free(void) {
 	for (int i = 0; i < COVER_CACHE_SLOTS; i++) {
 		UI_GpuFreeTexture(&cover_slots[i].texture);

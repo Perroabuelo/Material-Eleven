@@ -68,6 +68,12 @@ static int *library_name_counts = NULL;
 static int library_name_count = 0;
 static SceBool library_has_unknown = SCE_FALSE;
 
+// Los candidatos a caratula de cada artista, todos seguidos: los del nombre j
+// van de library_cand_start[j] a library_cand_start[j + 1]. Son indices de
+// pista, y como mucho uno por pista del indice.
+static int *library_cand = NULL;
+static int *library_cand_start = NULL;
+
 // ---------------------------------------------------------------------------
 // la lista
 
@@ -110,9 +116,13 @@ void Library_Free(void) {
 	free(library_view);
 	free(library_names);
 	free(library_name_counts);
+	free(library_cand);
+	free(library_cand_start);
 	library_view = NULL;
 	library_names = NULL;
 	library_name_counts = NULL;
+	library_cand = NULL;
+	library_cand_start = NULL;
 	library_view_count = 0;
 	library_name_count = 0;
 
@@ -576,11 +586,70 @@ static int Library_CmpName(const void *a, const void *b) {
 	return strcasecmp(*(const char *const *)a, *(const char *const *)b);
 }
 
+// Para cada artista, una pista por album distinto en el orden en que se ve el
+// artista, mas cada pista sin album, que se cachea por su ruta. Elegir la
+// caratula de entre ellos se hace al dibujar, de a pocos por fotograma: aqui
+// solo se decide el orden en que se prueban.
+static void Library_BuildArtistCandidates(void) {
+	library_cand = (int *)malloc(sizeof(int) * (size_t)(library_count > 0 ? library_count : 1));
+	library_cand_start = (int *)malloc(sizeof(int) * (size_t)(library_name_count + 1));
+	int *tracks = (int *)malloc(sizeof(int) * (size_t)(library_count > 0 ? library_count : 1));
+
+	if (library_cand == NULL || library_cand_start == NULL || tracks == NULL) {
+		free(library_cand);
+		free(library_cand_start);
+		library_cand = NULL;
+		library_cand_start = NULL;
+		free(tracks);
+		return;
+	}
+
+	int used = 0;
+
+	for (int j = 0; j < library_name_count; j++) {
+		library_cand_start[j] = used;
+
+		// El cubo "Desconocido" no tiene candidatos: muestra el marcador.
+		if (library_names[j][0] == '\0')
+			continue;
+
+		int n = 0;
+
+		for (int i = 0; i < library_count; i++) {
+			const char *artist = library_tracks[i].artist;
+
+			if (artist[0] != '\0' && !strcasecmp(artist, library_names[j]))
+				tracks[n++] = i;
+		}
+
+		qsort(tracks, (size_t)n, sizeof(int), Library_CmpByAlbum);
+
+		const char *prev_album = NULL;
+
+		for (int k = 0; k < n; k++) {
+			const char *album = library_tracks[tracks[k]].album;
+
+			if (album[0] == '\0' || prev_album == NULL || strcasecmp(album, prev_album) != 0)
+				library_cand[used++] = tracks[k];
+
+			if (album[0] != '\0')
+				prev_album = album;
+		}
+	}
+
+	library_cand_start[library_name_count] = used;
+	free(tracks);
+}
+
 int Library_BuildFieldNames(Library_Field field) {
 	free(library_names);
 	free(library_name_counts);
+	free(library_cand);
+	free(library_cand_start);
 	library_names = NULL;
 	library_name_counts = NULL;
+	library_cand = NULL;
+	library_cand_start = NULL;
 	library_name_count = 0;
 	library_has_unknown = SCE_FALSE;
 
@@ -637,6 +706,9 @@ int Library_BuildFieldNames(Library_Field field) {
 		}
 	}
 
+	if (field == LIBRARY_FIELD_ARTIST)
+		Library_BuildArtistCandidates();
+
 	return library_name_count;
 }
 
@@ -661,6 +733,18 @@ int Library_NameTrackCount(int index) {
 		return 0;
 
 	return library_name_counts[index];
+}
+
+const Library_Track *Library_NameCandidate(int index, int k) {
+	if (library_cand_start == NULL || index < 0 || index >= library_name_count || k < 0)
+		return NULL;
+
+	int at = library_cand_start[index] + k;
+
+	if (at >= library_cand_start[index + 1])
+		return NULL;
+
+	return &library_tracks[library_cand[at]];
 }
 
 // ---------------------------------------------------------------------------

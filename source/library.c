@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "lang.h"
 #include "library.h"
+#include "library_row.h"
 #include "cover.h"
 #include "nav_rail.h"
 #include "tags.h"
@@ -23,9 +24,10 @@
 // Una version que no se reconoce no se migra: se descarta y se ofrece
 // reescanear. Sale gratis porque no hay nada del usuario que perder.
 #define LIBRARY_INDEX_MAGIC   "ELEVENMPV_LIBRARY"
-// v2 anade la marca de tags leidos. Una version que no se reconoce no se
-// migra: se descarta y se ofrece reescanear, que con el indice es gratis.
-#define LIBRARY_INDEX_VERSION 2
+// v2 anade la marca de tags leidos y v3 los numeros de pista y de disco. Un
+// indice v2 se carga con sus pistas pendientes (library_row.h); cualquier otra
+// version se descarta y se ofrece reescanear.
+#define LIBRARY_INDEX_VERSION 3
 
 // Entradas de directorio por fotograma. A los 595 us por entrada que midio el
 // grupo 0 sobre una coleccion real, dieciseis salen a unos 9,5 ms: cabe en el
@@ -258,10 +260,10 @@ SceBool Library_Save(void) {
 
 		// La ruta va la ultima: si alguna vez trae un tabulador, no corre los
 		// campos de detras.
-		char line[LIBRARY_PATH_MAX + 4 * LIBRARY_TAG_MAX + 64];
-		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%d\t%s\t%s\t%s\t%s\t%s\n",
+		char line[LIBRARY_PATH_MAX + 4 * LIBRARY_TAG_MAX + 80];
+		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%d\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
 			(unsigned long long)t->size, (unsigned long long)t->mtime, t->tagged ? 1 : 0,
-			t->ext, title, artist, album, t->path);
+			t->ext, t->track, t->disc, title, artist, album, t->path);
 
 		if (len >= (int)sizeof(line))
 			len = (int)sizeof(line) - 1;
@@ -333,6 +335,7 @@ SceBool Library_Load(void) {
 	int declared = -1;
 	SceBool header_ok = SCE_FALSE;
 	int header_lines = 0;
+	LibraryRow_Layout layout = { 0 };
 
 	while ((line = cursor) != NULL && *cursor != '\0') {
 		char *nl = strchr(cursor, '\n');
@@ -347,7 +350,7 @@ SceBool Library_Load(void) {
 		if (line[0] == '\0')
 			continue;
 
-		char *fields[8];
+		char *fields[LIBRARY_ROW_MAX_FIELDS];
 
 		if (header_lines < 3) {
 			int n = Library_SplitFields(line, fields, 2);
@@ -355,7 +358,7 @@ SceBool Library_Load(void) {
 
 			if (header_lines == 1) {
 				// Version desconocida: se descarta entero.
-				if (n < 2 || strcmp(fields[0], LIBRARY_INDEX_MAGIC) != 0 || atoi(fields[1]) != LIBRARY_INDEX_VERSION)
+				if (n < 2 || strcmp(fields[0], LIBRARY_INDEX_MAGIC) != 0 || !LibraryRow_GetLayout(atoi(fields[1]), &layout))
 					break;
 			}
 			else if (header_lines == 2) {
@@ -379,7 +382,7 @@ SceBool Library_Load(void) {
 			continue;
 		}
 
-		if (Library_SplitFields(line, fields, 8) < 8)
+		if (Library_SplitFields(line, fields, layout.fields) < layout.fields)
 			break;
 
 		Library_Track *t = Library_Append();
@@ -387,14 +390,21 @@ SceBool Library_Load(void) {
 		if (t == NULL)
 			break;
 
-		t->size = (SceOff)strtoull(fields[0], NULL, 10);
-		t->mtime = (SceUInt64)strtoull(fields[1], NULL, 10);
-		t->tagged = (atoi(fields[2]) != 0) ? SCE_TRUE : SCE_FALSE;
-		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[3]);
-		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[4]);
-		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[5]);
-		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[6]);
-		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[7]);
+		// Lo que la version no trae se queda como lo dejo Library_Append: sin
+		// numeros y, en v2, pendiente de releer tags.
+		t->size = (SceOff)strtoull(fields[layout.size], NULL, 10);
+		t->mtime = (SceUInt64)strtoull(fields[layout.mtime], NULL, 10);
+		if (layout.tagged >= 0)
+			t->tagged = (atoi(fields[layout.tagged]) != 0) ? SCE_TRUE : SCE_FALSE;
+		if (layout.track >= 0)
+			t->track = (short)atoi(fields[layout.track]);
+		if (layout.disc >= 0)
+			t->disc = (short)atoi(fields[layout.disc]);
+		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[layout.ext]);
+		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[layout.title]);
+		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[layout.artist]);
+		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[layout.album]);
+		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[layout.path]);
 	}
 
 	free(buf);
@@ -671,6 +681,8 @@ SceBool Library_RunTagPass(void) {
 		snprintf(track->title, LIBRARY_TAG_MAX, "%s", tags.title);
 		snprintf(track->artist, LIBRARY_TAG_MAX, "%s", tags.artist);
 		snprintf(track->album, LIBRARY_TAG_MAX, "%s", tags.album);
+		track->track = (short)tags.track;
+		track->disc = (short)tags.disc;
 		track->tagged = SCE_TRUE;
 		since_save++;
 
@@ -887,12 +899,18 @@ static void Library_CarryTags(Library_Track *dst, const Library_Carried *carry, 
 		if (cmp == 0) {
 			const Library_Track *src = carry[mid].track;
 
-			// Mismo archivo, no solo mismo nombre.
-			if (src->tagged && src->size == dst->size && src->mtime == dst->mtime) {
+			// Mismo archivo, no solo mismo nombre. Se copia aunque la pista este
+			// pendiente: una que viene de un indice v2 tiene titulo, artista y
+			// album buenos, y sin copiarlos las vistas Artistas y Albumes se
+			// vaciarian hasta que la pasada de tags llegara a cada una. Una que
+			// nunca se leyo tiene los campos vacios, y copiarlos no cambia nada.
+			if (src->size == dst->size && src->mtime == dst->mtime) {
 				memcpy(dst->title, src->title, LIBRARY_TAG_MAX);
 				memcpy(dst->artist, src->artist, LIBRARY_TAG_MAX);
 				memcpy(dst->album, src->album, LIBRARY_TAG_MAX);
-				dst->tagged = SCE_TRUE;
+				dst->track = src->track;
+				dst->disc = src->disc;
+				dst->tagged = src->tagged;
 			}
 
 			return;

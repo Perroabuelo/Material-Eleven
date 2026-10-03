@@ -9,7 +9,8 @@
 // El indice es dato derivado y nunca fuente de verdad. La fuente son los
 // archivos en disco, y siempre puede reconstruirse reescaneando; por eso su
 // formato lleva version y una version que no se reconoce se descarta en vez de
-// migrarse.
+// migrarse. La excepcion es la version anterior, que se carga con todas sus
+// pistas pendientes de releer tags (ver Library_Load).
 
 // Lo que cuesta un registro en RAM: ruta 256, los tres campos de tags 64 cada
 // uno, y tamaño, fecha y extension. Unos 472 bytes, que por el techo de abajo
@@ -37,6 +38,10 @@ typedef struct {
 	SceOff size;
 	SceUInt64 mtime;
 	char ext[LIBRARY_EXT_MAX];
+	// Numero de pista y de disco, 0 si el archivo no lo trae. Deciden el orden
+	// dentro de un album.
+	short track;
+	short disc;
 	// Si a esta pista ya se le leyeron los tags. Sin esta marca no se
 	// podria distinguir "todavia no la mire" de "la mire y no traia nada",
 	// que es justo lo que hace reanudable la segunda pasada.
@@ -76,6 +81,11 @@ SceBool Library_IsBuilt(void);
 void Library_Free(void);
 
 // --- persistencia ----------------------------------------------------------
+// Library_Save escribe siempre la version actual. Library_Load acepta tambien
+// la anterior, que no guarda numeros de pista: sus pistas se cargan con los
+// tags que ya tenian pero marcadas como pendientes, y la pasada de tags, que
+// el usuario lanza al reescanear, completa los numeros.
+//
 // SCE_FALSE si no hay indice, si su version no se reconoce o si esta
 // incompleto. En los tres casos la biblioteca queda sin construir y lo que
 // procede es ofrecer escanear, no enseñar datos parciales.

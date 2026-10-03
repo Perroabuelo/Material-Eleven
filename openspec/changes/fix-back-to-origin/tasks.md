@@ -4,7 +4,7 @@
 
 ## 2. Verificación en consola
 
-- [ ] 2.1 Verificar en consola, primero con la consola configurada para confirmar con Cruz y después con Círculo, los scenarios de `specs/ui/nav-shell`:
+- [x] 2.1 Verificar en consola, primero con la consola configurada para confirmar con Cruz y después con Círculo, los scenarios de `specs/ui/nav-shell`:
   1. Desde Carpetas, entrar a una subcarpeta, reproducir el tercer archivo y pulsar volver: se vuelve a esa carpeta con el tercer archivo seleccionado.
   2. Desde la Biblioteca, en Álbumes, abrir un álbum, reproducir la tercera pista y pulsar volver: se vuelve a Álbumes, dentro del álbum, con la tercera pista seleccionada.
   3. Repetir el paso 2 desde Artistas, Canciones y Añadidos recientemente.
@@ -14,3 +14,5 @@
   7. SELECT en Carpetas sigue abriendo Ajustes, y START sigue apagando la pantalla.
 
   Listo cuando los siete pasos se cumplan y el resultado quede anotado en esta tarea.
+
+  Resultado (2026-10-03): verificado en la consola por el usuario. Los siete pasos se cumplen como se esperaba.

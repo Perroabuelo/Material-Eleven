@@ -30,6 +30,11 @@ static SceBool repeat = SCE_FALSE;
 static int length_time_width = 0;
 static char *position_time = NULL, *length_time = NULL, *filename = NULL;
 
+// Pantalla donde se eligio la cancion que suena, y adonde lleva volver. La fijan
+// solo Menu_PlayAudio y Menu_PlayQueued: entrar por el nav rail o cambiar de
+// pista no la cambia.
+static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
+
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 	int h = 0, m = 0, s = 0;
 	h = (seconds / 3600);
@@ -490,7 +495,10 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		if (pressed & SCE_CTRL_CANCEL) {
 			Touch_Reset();
-			Menu_DisplayFiles();
+			if (playback_origin == UI_SCREEN_LIBRARY)
+				Menu_DisplayLibrary();
+			else
+				Menu_DisplayFiles();
 			return;
 		}
 	}
@@ -514,6 +522,8 @@ SceBool Menu_PlayAudio(char *path) {
 	if (!Menu_InitMusic(path))
 		return SCE_FALSE;
 
+	playback_origin = UI_SCREEN_FOLDERS;
+
 	// La cola arranca en la pista que se toco, y con el barajado encendido la
 	// baraja detras de ella. Si esa ruta no entro en la cola - una carpeta por
 	// encima del techo - la pista suena igual y la cola sigue desde su principio.
@@ -532,6 +542,7 @@ SceBool Menu_PlayQueued(const char *path) {
 	if (!Menu_InitMusic(path))
 		return SCE_FALSE;
 
+	playback_origin = UI_SCREEN_LIBRARY;
 	Queue_SeekToPath(path);
 
 	Menu_RunNowPlayingLoop();

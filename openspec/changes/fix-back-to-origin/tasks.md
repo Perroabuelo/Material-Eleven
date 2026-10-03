@@ -1,6 +1,6 @@
 ## 1. Volver al origen
 
-- [ ] 1.1 En `source/menus/menu_audioplayer.c`, agregar `static UI_Screen playback_origin = UI_SCREEN_FOLDERS`. Ponerla en `UI_SCREEN_FOLDERS` en `Menu_PlayAudio` y en `UI_SCREEN_LIBRARY` en `Menu_PlayQueued`, en los dos casos después de que `Menu_InitMusic` haya abierto la pista. Cambiar la rama `SCE_CTRL_CANCEL` de `Menu_RunNowPlayingLoop` para que llame a `Menu_DisplayLibrary()` cuando el origen sea la Biblioteca y a `Menu_DisplayFiles()` en otro caso (decisión 1 de design.md). Listo cuando `scripts/build.sh` compile con `-Wall -Werror`.
+- [x] 1.1 En `source/menus/menu_audioplayer.c`, agregar `static UI_Screen playback_origin = UI_SCREEN_FOLDERS`. Ponerla en `UI_SCREEN_FOLDERS` en `Menu_PlayAudio` y en `UI_SCREEN_LIBRARY` en `Menu_PlayQueued`, en los dos casos después de que `Menu_InitMusic` haya abierto la pista. Cambiar la rama `SCE_CTRL_CANCEL` de `Menu_RunNowPlayingLoop` para que llame a `Menu_DisplayLibrary()` cuando el origen sea la Biblioteca y a `Menu_DisplayFiles()` en otro caso (decisión 1 de design.md). Listo cuando `scripts/build.sh` compile con `-Wall -Werror`.
 
 ## 2. Verificación en consola
 

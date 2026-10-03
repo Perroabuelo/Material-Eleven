@@ -177,14 +177,14 @@ int Accent_HistogramPeak(const Accent_HueHistogram *hist, float min_share, unsig
 	return 1;
 }
 
-int Accent_DominantColor(const unsigned char *pixels, unsigned int w, unsigned int h, unsigned int stride,
+Accent_Cover Accent_ClassifyCover(const unsigned char *pixels, unsigned int w, unsigned int h, unsigned int stride,
 	unsigned int bytes_per_pixel, unsigned int *out_color) {
 	Accent_HueHistogram hist = {0};
 
 	if (!out_color || !Accent_SamplePixels(pixels, w, h, stride, bytes_per_pixel, &hist))
-		return 0;
+		return ACCENT_COVER_NONE;
 
-	return Accent_HistogramPeak(&hist, UI_HUE_MIN_SHARE, out_color);
+	return Accent_HistogramPeak(&hist, UI_HUE_MIN_SHARE, out_color) ? ACCENT_COVER_CHROMATIC : ACCENT_COVER_ACHROMATIC;
 }
 
 static float UI_SrgbToLinear(float c) {

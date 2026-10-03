@@ -50,6 +50,10 @@ static void paint_rgb(int count, unsigned char r, unsigned char g, unsigned char
 	}
 }
 
+static Accent_Cover classify_rgb(unsigned int *out) {
+	return Accent_ClassifyCover(img, IMG, IMG, IMG * 3, 3, out);
+}
+
 static int peak(float min_share, unsigned int *out) {
 	Accent_HueHistogram hist;
 	memset(&hist, 0, sizeof(hist));
@@ -86,7 +90,7 @@ static void test_twenty_percent_peak(void) {
 	CHECK(peak(0.06f, &old_peak) && old_peak == red, "20 %% de rojo con 0.06 dio 0x%08X, se esperaba 0x%08X", old_peak, red);
 	CHECK(peak(0.01f, &new_peak) && new_peak == old_peak, "20 %% de rojo con 0.01 dio 0x%08X, con 0.06 0x%08X", new_peak, old_peak);
 	new_peak = 0;
-	CHECK(Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &new_peak) && new_peak == red,
+	CHECK(classify_rgb(&new_peak) == ACCENT_COVER_CHROMATIC && new_peak == red,
 		"20 %% de rojo con UI_HUE_MIN_SHARE dio 0x%08X, se esperaba 0x%08X", new_peak, red);
 }
 
@@ -98,7 +102,7 @@ static void test_small_detail_gives_color(void) {
 	fill_rgb(0x80, 0x80, 0x80);
 	paint_rgb(IMG_PIXELS * 4 / 100, 0xD0, 0x20, 0x20);
 
-	CHECK(Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got) && got == red,
+	CHECK(classify_rgb(&got) == ACCENT_COVER_CHROMATIC && got == red,
 		"4 %% de rojo deberia dar el rojo 0x%08X, dio 0x%08X", red, got);
 }
 
@@ -110,11 +114,11 @@ static void test_no_color(void) {
 	// 0.5 % de rojo, como las fotos en blanco y negro de la biblioteca de prueba.
 	fill_rgb(0x80, 0x80, 0x80);
 	paint_rgb(IMG_PIXELS / 200, 0xD0, 0x20, 0x20);
-	CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "0.5 %% de rojo no deberia dar color, dio 0x%08X", got);
+	CHECK(classify_rgb(&got) == ACCENT_COVER_ACHROMATIC, "0.5 %% de rojo no deberia dar color, dio 0x%08X", got);
 
 	for (unsigned int i = 0; i < sizeof(flat); i++) {
 		fill_rgb(flat[i], flat[i], flat[i]);
-		CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "0x%02X uniforme no deberia dar color", flat[i]);
+		CHECK(classify_rgb(&got) == ACCENT_COVER_ACHROMATIC, "0x%02X uniforme no deberia dar color", flat[i]);
 	}
 
 	// Ruido de compresion: gris con +-6 por canal.
@@ -122,14 +126,25 @@ static void test_no_color(void) {
 		seed = seed * 1103515245u + 12345u;
 		img[i] = (unsigned char)(0x80 - 6 + (int)((seed >> 16) % 13));
 	}
-	CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "gris con ruido no deberia dar color, dio 0x%08X", got);
+	CHECK(classify_rgb(&got) == ACCENT_COVER_ACHROMATIC, "gris con ruido no deberia dar color, dio 0x%08X", got);
 }
 
 static void test_invalid_input(void) {
 	unsigned int got = 0;
-	CHECK(!Accent_DominantColor(NULL, IMG, IMG, IMG * 3, 3, &got), "sin pixeles no deberia dar color");
-	CHECK(!Accent_DominantColor(img, 0, IMG, IMG * 3, 3, &got), "ancho 0 no deberia dar color");
-	CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 2, &got), "2 bytes por pixel no deberia dar color");
+	CHECK(Accent_ClassifyCover(NULL, IMG, IMG, IMG * 3, 3, &got) == ACCENT_COVER_NONE, "sin pixeles deberia ser sin caratula");
+	CHECK(Accent_ClassifyCover(img, 0, IMG, IMG * 3, 3, &got) == ACCENT_COVER_NONE, "ancho 0 deberia ser sin caratula");
+	CHECK(Accent_ClassifyCover(img, IMG, IMG, IMG * 3, 2, &got) == ACCENT_COVER_NONE, "2 bytes por pixel deberia ser sin caratula");
+}
+
+// Un JPEG en escala de grises llega como textura de un solo canal (U8_R): se
+// puede leer, asi que es una caratula sin color y no una sin caratula.
+static void test_single_channel_is_achromatic(void) {
+	unsigned int got = 0;
+
+	for (int i = 0; i < IMG_PIXELS; i++)
+		img[i] = (unsigned char)(i % 256);
+	CHECK(Accent_ClassifyCover(img, IMG, IMG, IMG, 1, &got) == ACCENT_COVER_ACHROMATIC,
+		"una imagen de un canal deberia ser sin color");
 }
 
 int main(void) {
@@ -138,6 +153,7 @@ int main(void) {
 	test_small_detail_gives_color();
 	test_no_color();
 	test_invalid_input();
+	test_single_channel_is_achromatic();
 
 	if (failures == 0)
 		printf("test_accent: todo bien\n");

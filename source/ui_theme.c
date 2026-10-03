@@ -669,15 +669,17 @@ static SceBool UI_CoverBytesPerPixel(SceGxmTextureFormat format, unsigned int *o
 	}
 }
 
-SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color) {
+Accent_Cover UI_ClassifyCover(const vita2d_texture *cover, unsigned int *out_color) {
 	unsigned int bytes_per_pixel;
 
+	// A format we cannot read says nothing about the cover's colors, so it
+	// counts as no cover at all rather than as a cover without color.
 	if (!cover || !UI_CoverBytesPerPixel(vita2d_texture_get_format(cover), &bytes_per_pixel))
-		return SCE_FALSE;
+		return ACCENT_COVER_NONE;
 
-	return Accent_DominantColor((const unsigned char *)vita2d_texture_get_datap(cover),
+	return Accent_ClassifyCover((const unsigned char *)vita2d_texture_get_datap(cover),
 		vita2d_texture_get_width(cover), vita2d_texture_get_height(cover), vita2d_texture_get_stride(cover),
-		bytes_per_pixel, out_color) ? SCE_TRUE : SCE_FALSE;
+		bytes_per_pixel, out_color);
 }
 
 static void UI_Theme_ApplyAccent(unsigned int accent) {
@@ -692,10 +694,19 @@ void UI_Theme_ResetAccent(void) {
 void UI_Theme_SetAccentFromCoverArt(const vita2d_texture *cover) {
 	unsigned int dominant = 0;
 
-	if (cover && UI_CoverDominantColor(cover, &dominant))
-		UI_Theme_ApplyAccent(Accent_MakeLegible(dominant, UI_COLOR_BG));
-	else
-		UI_Theme_ResetAccent();
+	switch (UI_ClassifyCover(cover, &dominant)) {
+		case ACCENT_COVER_CHROMATIC:
+			UI_Theme_ApplyAccent(Accent_MakeLegible(dominant, UI_COLOR_BG));
+			break;
+		// Already legible, and kept away from Accent_MakeLegible: its saturation
+		// floor would turn a gray into a red.
+		case ACCENT_COVER_ACHROMATIC:
+			UI_Theme_ApplyAccent(UI_ACCENT_NEUTRAL);
+			break;
+		default:
+			UI_Theme_ResetAccent();
+			break;
+	}
 }
 
 SceBool UI_GetFormatBadge(const char *ext, const char **out_label, unsigned int *out_color, unsigned int *out_wash) {

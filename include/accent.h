@@ -12,8 +12,11 @@
 
 #define UI_HUE_BUCKETS 24
 // Below this share of sampled pixels, the cover has no usable hue at all and
-// the caller keeps the fixed accent.
-#define UI_HUE_MIN_SHARE 0.06f
+// the caller keeps the fixed accent. 1 % still catches a small detail of color,
+// such as a red title over a gray photo (about 4 %), while a black and white
+// cover stays at 0.5 % or less. The share only decides whether there is a hue,
+// never which hue wins, so a cover above the old 6 % keeps the same peak.
+#define UI_HUE_MIN_SHARE 0.01f
 
 typedef struct {
 	float weight[UI_HUE_BUCKETS];

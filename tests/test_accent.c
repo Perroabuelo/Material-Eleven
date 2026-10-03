@@ -74,18 +74,55 @@ static void test_legible_pinned(void) {
 }
 
 // Una portada con 20 % de color ya tenia acento antes del cambio: el pico es
-// el promedio de los pixeles de color, igual con el umbral de v3.2.0.
+// el promedio de los pixeles de color, igual con el umbral de v3.2.0 (0.06) que
+// con el de ahora.
 static void test_twenty_percent_peak(void) {
 	unsigned int red = ACCENT_RGBA8(0xD0, 0x20, 0x20, 255);
-	unsigned int got = 0;
+	unsigned int old_peak = 0, new_peak = 0;
 
 	fill_rgb(0x80, 0x80, 0x80);
 	paint_rgb(IMG_PIXELS / 5, 0xD0, 0x20, 0x20);
 
-	CHECK(peak(0.06f, &got) && got == red, "20 %% de rojo con 0.06 dio 0x%08X, se esperaba 0x%08X", got, red);
-	got = 0;
+	CHECK(peak(0.06f, &old_peak) && old_peak == red, "20 %% de rojo con 0.06 dio 0x%08X, se esperaba 0x%08X", old_peak, red);
+	CHECK(peak(0.01f, &new_peak) && new_peak == old_peak, "20 %% de rojo con 0.01 dio 0x%08X, con 0.06 0x%08X", new_peak, old_peak);
+	new_peak = 0;
+	CHECK(Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &new_peak) && new_peak == red,
+		"20 %% de rojo con UI_HUE_MIN_SHARE dio 0x%08X, se esperaba 0x%08X", new_peak, red);
+}
+
+// Un titulo rojo sobre una foto gris, como Entropy (4.1 %).
+static void test_small_detail_gives_color(void) {
+	unsigned int red = ACCENT_RGBA8(0xD0, 0x20, 0x20, 255);
+	unsigned int got = 0;
+
+	fill_rgb(0x80, 0x80, 0x80);
+	paint_rgb(IMG_PIXELS * 4 / 100, 0xD0, 0x20, 0x20);
+
 	CHECK(Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got) && got == red,
-		"20 %% de rojo con UI_HUE_MIN_SHARE dio 0x%08X, se esperaba 0x%08X", got, red);
+		"4 %% de rojo deberia dar el rojo 0x%08X, dio 0x%08X", red, got);
+}
+
+static void test_no_color(void) {
+	static const unsigned char flat[] = { 0xFF, 0x00, 0x80 }; // blanco, negro, gris
+	unsigned int got = 0;
+	unsigned int seed = 12345;
+
+	// 0.5 % de rojo, como las fotos en blanco y negro de la biblioteca de prueba.
+	fill_rgb(0x80, 0x80, 0x80);
+	paint_rgb(IMG_PIXELS / 200, 0xD0, 0x20, 0x20);
+	CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "0.5 %% de rojo no deberia dar color, dio 0x%08X", got);
+
+	for (unsigned int i = 0; i < sizeof(flat); i++) {
+		fill_rgb(flat[i], flat[i], flat[i]);
+		CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "0x%02X uniforme no deberia dar color", flat[i]);
+	}
+
+	// Ruido de compresion: gris con +-6 por canal.
+	for (int i = 0; i < IMG_PIXELS * 3; i++) {
+		seed = seed * 1103515245u + 12345u;
+		img[i] = (unsigned char)(0x80 - 6 + (int)((seed >> 16) % 13));
+	}
+	CHECK(!Accent_DominantColor(img, IMG, IMG, IMG * 3, 3, &got), "gris con ruido no deberia dar color, dio 0x%08X", got);
 }
 
 static void test_invalid_input(void) {
@@ -98,6 +135,8 @@ static void test_invalid_input(void) {
 int main(void) {
 	test_legible_pinned();
 	test_twenty_percent_peak();
+	test_small_detail_gives_color();
+	test_no_color();
 	test_invalid_input();
 
 	if (failures == 0)

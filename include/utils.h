@@ -22,7 +22,5 @@ int Utils_GetCancelButton(void);
 int Utils_Alphasort(const void *p1, const void *p2);
 char *Utils_Basename(const char *filename);
 void Utils_InitPowerTick(void);
-void Utils_LockPower(void);
-void Utils_UnlockPower(void);
 
 #endif

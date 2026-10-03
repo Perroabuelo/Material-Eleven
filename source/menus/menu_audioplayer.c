@@ -401,7 +401,7 @@ static void Menu_RunNowPlayingLoop(void) {
 
 		const char *badge_label; unsigned int badge_color, badge_wash;
 		if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
-			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
+			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 
 		// Seek bar
 		SceUInt64 length = Audio_GetLength();
@@ -417,8 +417,16 @@ static void Menu_RunNowPlayingLoop(void) {
 		Menu_DrawTransportControls();
 		Menu_DrawUpNext();
 
-		const char *hints[] = { Lang_Get(STR_HINT_MENU), Lang_Get(STR_HINT_BACK), Lang_Get(STR_HINT_PLAY_PAUSE), NULL, Lang_Get(STR_HINT_PREV_NEXT) };
-		NavRail_DrawHintBar(544 - UI_HINT_BAR_HEIGHT, hints, 5);
+		// Confirmar pausa y reanuda, y la leyenda dice cual de las dos hara ahora.
+		const NavRail_Hint hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(Audio_IsPaused() ? STR_HINT_PLAY : STR_HINT_PAUSE) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
+			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_PREV_NEXT) },
+			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SHUFFLE) },
+			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_REPEAT) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_NOW_PLAYING);
 		UI_Debug_Draw();
@@ -479,9 +487,6 @@ static void Menu_RunNowPlayingLoop(void) {
 			if (Queue_Count() != 0)
 				Music_HandleNext(SCE_TRUE, SCE_FALSE);
 		}
-
-		if (pressed & SCE_CTRL_START)
-			scePowerRequestDisplayOff();
 
 		if (pressed & SCE_CTRL_CANCEL) {
 			Touch_Reset();

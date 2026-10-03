@@ -404,6 +404,23 @@ void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_
 // string being drawn. Measuring the string moved the baseline with its content:
 // a row whose name had no descender sat lower than the row under it, and the
 // elapsed time hopped vertically as its digits changed.
+// Capital height over the em, from each face's OS/2 sCapHeight / unitsPerEm:
+// IBM Plex Mono Medium 698/1000, Manrope 1440/2000. vita2d sets the em to the
+// requested pixel size, so a capital is this ratio times ui_text_px.
+static const float ui_face_cap_ratio[UI_FACE_COUNT] = {
+	[UI_FACE_UI] = 0.72f,
+	[UI_FACE_MONO] = 0.698f,
+};
+
+int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
+	if (face < 0 || face >= UI_FACE_COUNT || ts < 0 || ts >= UI_TS_COUNT)
+		return (int)box_top;
+
+	float cap = ui_face_cap_ratio[face] * (float)ui_text_px[ts];
+
+	return (int)(box_top + (box_h + cap) / 2.0f + 0.5f);
+}
+
 int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
 	int extent;
 
@@ -638,21 +655,22 @@ void UI_DrawPill(float x, float y, float w, float h, unsigned int color) {
 	UI_DrawRoundedRect(x, y, w, h, (int)(h / 2.0f), color);
 }
 
-void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg, unsigned int border) {
-	int text_w = UI_TextWidth(UI_FACE_MONO, ts, label);
-	int text_h = UI_TextHeight(UI_FACE_MONO, ts, label);
-	float pad_x = 8.0f, pad_y = 4.0f;
-	float w = text_w + pad_x * 2;
-	float h = text_h + pad_y * 2;
+#define UI_BADGE_PAD_X 8.0f
+#define UI_BADGE_PAD_Y 4.0f
 
-	if (border) {
-		UI_DrawPill(x, y, w, h, border);
-		UI_DrawPill(x + 1, y + 1, w - 2, h - 2, bg);
-	}
-	else
-		UI_DrawPill(x, y, w, h, bg);
+float UI_BadgeWidth(UI_TextSize ts, const char *label) {
+	return UI_TextWidth(UI_FACE_MONO, ts, label) + UI_BADGE_PAD_X * 2;
+}
 
-	UI_DrawText(UI_FACE_MONO, ts, x + pad_x, UI_TextBaselineY(UI_FACE_MONO, ts, y, h), fg, label);
+void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg) {
+	float w = UI_BadgeWidth(ts, label);
+	float h = UI_TextHeight(UI_FACE_MONO, ts, label) + UI_BADGE_PAD_Y * 2;
+	// A format label is capitals and digits only, so it is its capital height
+	// that has to sit in the middle of the pill.
+	int baseline = UI_CapCenteredBaselineY(UI_FACE_MONO, ts, y, h);
+
+	UI_DrawPill(x, y, w, h, bg);
+	UI_DrawText(UI_FACE_MONO, ts, x + UI_BADGE_PAD_X, baseline, fg, label);
 }
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {

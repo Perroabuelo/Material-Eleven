@@ -131,6 +131,15 @@ extern unsigned int ui_color_accent_wash;
 #define UI_COLOR_LOSSY_WASH      RGBA8(0xB7, 0x9C, 0xE8, 41)
 #define UI_COLOR_TRACKER         RGBA8(0xF0, 0xC3, 0x4D, 255)
 #define UI_COLOR_TRACKER_WASH    RGBA8(0xF0, 0xC3, 0x4D, 41)
+// The four symbol buttons in the hint bar, in their PlayStation hues. Each is
+// the classic hue lightened (same hue and saturation, HSL lightness raised)
+// until its WCAG contrast over UI_COLOR_BG_ELEVATED, the bar's background,
+// reaches that of UI_COLOR_TEXT_SECONDARY (7.96:1) - the classic red and blue
+// are too dark to read there. Same luminance formula as UI_ContrastOverBg.
+#define UI_COLOR_BTN_CROSS       RGBA8(0x8A, 0xAF, 0xE9, 255)  // from #5B8FE0, 8.12:1
+#define UI_COLOR_BTN_CIRCLE      RGBA8(0xF0, 0x94, 0x97, 255)  // from #E5484D, 8.12:1
+#define UI_COLOR_BTN_SQUARE      RGBA8(0xE0, 0x94, 0xD6, 255)  // from #D670C8, 8.11:1
+#define UI_COLOR_BTN_TRIANGLE    RGBA8(0x32, 0xC4, 0x9E, 255)  // from #2FB894, 8.24:1
 
 // Radius families (drawn as vector arcs, see openspec/changes/vectorize-ui-controls).
 #define UI_RADIUS_SM 10
@@ -177,8 +186,12 @@ void UI_Theme_Free(void);
 void UI_DrawRoundedRect(float x, float y, float w, float h, int radius, unsigned int color);
 // Fully-rounded rect (radius = h/2) - pills, toggle tracks, search fields.
 void UI_DrawPill(float x, float y, float w, float h, unsigned int color);
-// Pill with a 1px border, sized to fit `label` drawn in the mono face at `ts`.
-void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg, unsigned int border);
+// Borderless pill sized to fit `label` drawn in the mono face at `ts`: one
+// fill in `bg` with the label in `fg` on top. There is no outline on purpose -
+// drawing one as a full pill under a translucent `bg` buried the label.
+void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg);
+// Width UI_DrawBadge will give `label` at `ts`, for right-aligning a badge.
+float UI_BadgeWidth(UI_TextSize ts, const char *label);
 // Accent-wash rounded-rect highlight behind an active list row.
 void UI_DrawRowHighlight(float x, float y, float w, float h);
 
@@ -211,6 +224,12 @@ void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned 
 // descenders sat lower than its neighbour and the elapsed time hopped as its
 // digits changed.
 int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h);
+// Baseline Y that centers the face's capital height within [box_top,
+// box_top+box_h). It is the one to use where text sits beside a centered
+// shape (a badge pill, a chip, a button glyph): capitals and the shape share
+// a center, which UI_TextBaselineY does not give, since vita2d reports every
+// single-line string as exactly `ts` px tall whatever its glyphs.
+int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h);
 
 // ---- Dynamic accent derived from cover art ----
 

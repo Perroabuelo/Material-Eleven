@@ -1,0 +1,116 @@
+// Pruebas en PC del filtro de START (source/screen_off.c), compiladas con el gcc
+// del host. screen_off.c es logica pura, asi que no hace falta el VitaSDK.
+//
+//     make -C tests
+//
+// Sale con codigo 0 si todo pasa y distinto de 0 si algo falla, con una linea
+// por cada falla.
+
+#include <stdio.h>
+
+#include "screen_off.h"
+
+static int failures = 0;
+
+#define CHECK(cond, ...) do { \
+	if (!(cond)) { \
+		failures++; \
+		printf("FALLA %s:%d: ", __FILE__, __LINE__); \
+		printf(__VA_ARGS__); \
+		printf("\n"); \
+	} \
+} while (0)
+
+// Las mascaras de psp2/ctrl.h, repetidas para no depender de los headers de la
+// consola. El filtro solo las compara, asi que cualquier bit distinto serviria.
+#define BTN_START    0x00000008
+#define BTN_LTRIGGER 0x00000100
+#define BTN_RTRIGGER 0x00000200
+#define BTN_CROSS    0x00004000
+#define BTN_UP       0x00000010
+
+static void fresh(ScreenOff_State *s) {
+	ScreenOff_Init(s, BTN_START, BTN_LTRIGGER, BTN_RTRIGGER);
+}
+
+static void test_start_turns_off(void) {
+	ScreenOff_State s; ScreenOff_Action act = -1;
+	fresh(&s);
+
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START solo deberia pedir apagar la pantalla");
+	CHECK(out == 0, "START deberia quitarse del flanco, quedo 0x%x", out);
+
+	// START junto con otro boton: el otro boton pasa.
+	fresh(&s);
+	out = ScreenOff_Filter(&s, BTN_START | BTN_UP, BTN_START | BTN_UP, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START con arriba deberia pedir apagar");
+	CHECK(out == BTN_UP, "solo START deberia quitarse del flanco, quedo 0x%x", out);
+
+	// START con un solo gatillo mantenido sigue siendo apagar.
+	fresh(&s);
+	out = ScreenOff_Filter(&s, BTN_START, BTN_START | BTN_LTRIGGER, &act);
+	CHECK(act == SCREEN_OFF_TURN_OFF, "START con solo L mantenido deberia apagar");
+}
+
+static void test_combo_passes(void) {
+	ScreenOff_State s; ScreenOff_Action act = -1;
+	fresh(&s);
+
+	unsigned int held = BTN_LTRIGGER | BTN_RTRIGGER | BTN_START;
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, held, &act);
+	CHECK(act == SCREEN_OFF_KEEP, "L + R + START no deberia apagar la pantalla");
+	CHECK(out == BTN_START, "L + R + START deberia pasar intacto, quedo 0x%x", out);
+}
+
+static void test_disabled(void) {
+	ScreenOff_State s; ScreenOff_Action act = -1;
+	fresh(&s);
+	s.enabled = 0;
+
+	unsigned int out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(act == SCREEN_OFF_KEEP, "deshabilitado no deberia apagar");
+	CHECK(out == BTN_START, "deshabilitado el flanco deberia pasar intacto, quedo 0x%x", out);
+}
+
+// Despues de apagar, el filtro no descarta nada: encender la pantalla es cosa
+// de la consola, con el boton PS, y lo que hagan los demas botones con la
+// pantalla apagada queda para otro cambio.
+static void test_after_off_presses_pass(void) {
+	ScreenOff_State s; ScreenOff_Action act = -1;
+	fresh(&s);
+	ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+
+	unsigned int out = ScreenOff_Filter(&s, 0, 0, &act);
+	CHECK(out == 0 && act == SCREEN_OFF_KEEP, "sin pulsacion no deberia pasar nada");
+
+	out = ScreenOff_Filter(&s, BTN_CROSS, BTN_CROSS, &act);
+	CHECK(out == BTN_CROSS, "la pulsacion siguiente deberia pasar intacta, quedo 0x%x", out);
+	CHECK(act == SCREEN_OFF_KEEP, "la pulsacion siguiente no deberia tocar la pantalla");
+
+	// Un START mas vuelve a pedir apagar, que no cambia nada si ya lo esta.
+	out = ScreenOff_Filter(&s, BTN_START, BTN_START, &act);
+	CHECK(out == 0 && act == SCREEN_OFF_TURN_OFF, "otro START deberia volver a pedir apagar");
+}
+
+static void test_other_presses_pass(void) {
+	ScreenOff_State s; ScreenOff_Action act = -1;
+	fresh(&s);
+
+	unsigned int out = ScreenOff_Filter(&s, BTN_CROSS | BTN_UP, BTN_CROSS | BTN_UP, &act);
+	CHECK(out == (BTN_CROSS | BTN_UP), "un flanco sin START deberia pasar intacto, quedo 0x%x", out);
+	CHECK(act == SCREEN_OFF_KEEP, "un flanco sin START no deberia apagar");
+}
+
+int main(void) {
+	test_start_turns_off();
+	test_combo_passes();
+	test_disabled();
+	test_after_off_presses_pass();
+	test_other_presses_pass();
+
+	if (failures == 0)
+		printf("test_screen_off: todo bien\n");
+
+	return failures == 0 ? 0 : 1;
+}

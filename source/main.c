@@ -118,9 +118,11 @@ int main(int argc, char *argv[]) {
 
 	Menu_DisplayFiles();
 
-	// Playback now survives navigating away from Now Playing, so a track
-	// may still be loaded here if the user exits (START) while it plays
-	// in the background; tear it down before the process ends.
+	// No screen returns here any more: START turns the screen off instead of
+	// exiting, and the app is closed from the PS button, which ends the
+	// process without unwinding. The teardown stays for any future way out,
+	// and a track may still be loaded then, since playback survives
+	// navigating away from Now Playing.
 	if (Audio_HasTrack()) {
 		Audio_Stop();
 		Audio_Term();

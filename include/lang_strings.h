@@ -50,7 +50,9 @@ X(STR_LANG_SYSTEM,           "System",                   "Sistema")
 
 X(STR_HINT_SELECT,           "Select",                   "Seleccionar")
 X(STR_HINT_BACK,             "Back",                     "Atrás")
-X(STR_HINT_SETTINGS_CATEGORY, "L . R - change category", "L . R - cambiar de categoría")
+// START en la barra de cada pantalla (playback/screen-off).
+X(STR_HINT_SCREEN_OFF,       "Screen off",               "Apagar pantalla")
+X(STR_HINT_SETTINGS_CATEGORY, "Change category",       "Cambiar de categoría")
 
 // ---- Carpetas ----
 X(STR_FOLDER,                "Folder",                   "Carpeta")
@@ -60,14 +62,13 @@ X(STR_FOLDERS_MANY,          "%d FOLDERS",               "%d CARPETAS")
 X(STR_TRACKS_CAPS_ONE,       "%d TRACK",                 "%d PISTA")
 X(STR_TRACKS_CAPS_MANY,      "%d TRACKS",                "%d PISTAS")
 X(STR_SEARCH_FOLDER,         "Search this folder",       "Buscar en esta carpeta")
-X(STR_HINT_CANCEL_SEARCH,    "L + R + START - Cancel search", "L + R + START - Cancelar la búsqueda")
+X(STR_HINT_CANCEL_SEARCH,    "Cancel search",            "Cancelar la búsqueda")
 X(STR_HINT_ENTER,            "Enter",                    "Entrar")
 X(STR_HINT_CANCEL,           "Cancel",                   "Cancelar")
-X(STR_HINT_CHOOSE_FOLDER,    "Triangle - Choose this folder", "Triángulo - Elegir esta carpeta")
+X(STR_HINT_CHOOSE_FOLDER,    "Choose this folder",       "Elegir esta carpeta")
 X(STR_HINT_OPEN_PLAY,        "Open / Play",              "Abrir / Reproducir")
 X(STR_HINT_CLEAR_FILTER,     "Clear filter",             "Quitar filtro")
-X(STR_HINT_SETTINGS,         "SELECT - Settings",        "SELECT - Ajustes")
-X(STR_HINT_EXIT,             "START - Exit",             "START - Salir")
+X(STR_HINT_SETTINGS,         "Settings",                 "Ajustes")
 
 // ---- Biblioteca ----
 X(STR_LIBRARY_TITLE,         "Library",                  "Biblioteca")
@@ -97,9 +98,9 @@ X(STR_HINT_START,            "Start",                    "Empezar")
 X(STR_HINT_OPEN,             "Open",                     "Abrir")
 X(STR_HINT_PLAY,             "Play",                     "Reproducir")
 X(STR_HINT_RETURN,           "Back",                     "Volver")
-X(STR_HINT_VIEWS,            "L R - Views",              "L R - Vistas")
-X(STR_HINT_RESCAN,           "Triangle - Rescan",        "Triángulo - Reescanear")
-X(STR_HINT_FOLDER,           "Square - Folder",          "Cuadrado - Carpeta")
+X(STR_HINT_VIEWS,            "Views",                    "Vistas")
+X(STR_HINT_RESCAN,           "Rescan",                   "Reescanear")
+X(STR_HINT_FOLDER,           "Folder",                   "Carpeta")
 
 // ---- Escaneo de la biblioteca ----
 X(STR_SCAN_TITLE,            "Scanning the library",     "Escaneando la biblioteca")
@@ -116,6 +117,9 @@ X(STR_HINT_STOP,             "Stop",                     "Abandonar")
 
 // ---- Reproduciendo ----
 X(STR_UP_NEXT,               "UP NEXT",                  "A CONTINUACIÓN")
-X(STR_HINT_MENU,             "Menu",                     "Menú")
-X(STR_HINT_PLAY_PAUSE,       "Play / Pause",             "Reproducir / Pausa")
-X(STR_HINT_PREV_NEXT,        "L . R - Previous / Next",  "L . R - Anterior / Siguiente")
+// Confirmar anuncia lo que hace ahora: "Pausa" mientras suena y STR_HINT_PLAY
+// en pausa. "Reproducir / Pausa" entero no cabe en la barra en español.
+X(STR_HINT_PAUSE,            "Pause",                    "Pausa")
+X(STR_HINT_PREV_NEXT,        "Previous / Next",          "Anterior / Siguiente")
+X(STR_HINT_SHUFFLE,          "Shuffle",                  "Aleatorio")
+X(STR_HINT_REPEAT,           "Repeat",                   "Repetir")

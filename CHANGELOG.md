@@ -8,6 +8,21 @@ como `XX.YZ` (por ejemplo, 3.0.0 es `03.00`).
 
 ## [Sin publicar]
 
+### Agregado
+
+- La barra de abajo muestra el ícono de cada botón, con sus colores, y respeta si tu consola confirma con Círculo o con Cruz.
+- Los badges de formato también aparecen en las canciones de la Biblioteca.
+
+### Cambiado
+
+- START apaga la pantalla desde cualquier pantalla y la música sigue sonando. Para cerrar la app, usa el botón PS.
+- Con la pantalla apagada, el botón PS la vuelve a encender.
+
+### Corregido
+
+- Los badges de formato ahora muestran la extensión (FLAC, MP3, OGG...) centrada y legible.
+- La consola ya no se suspende sola mientras suena música con la pantalla apagada.
+
 ## [3.1.1] - 2026-09-28
 
 ### Cambiado

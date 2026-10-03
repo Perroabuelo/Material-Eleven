@@ -3,14 +3,18 @@
 #include <psp2/io/dirent.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/kernel/processmgr.h>
-#include <psp2/shellutil.h>
+#include <psp2/power.h>
 #include <psp2/system_param.h>
 #include <string.h>
 
+#include "audio.h"
 #include "common.h"
+#include "screen_off.h"
 
 static SceCtrlData pad, old_pad;
-static int lock_power = 0;
+// START apaga la pantalla desde cualquier pantalla, porque todas leen el pad
+// por aqui. La regla vive en screen_off.c, que se prueba en PC.
+static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, 1 };
 
 void Utils_SetMax(int *set, int value, int max) {
 	if (*set > max)
@@ -27,9 +31,18 @@ int Utils_ReadControls(void) {
 	sceCtrlPeekBufferPositive(0, &pad, 1);
 
 	pressed = pad.buttons & ~old_pad.buttons;
-	
+
+	ScreenOff_Action action = SCREEN_OFF_KEEP;
+	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &action);
+	if (action == SCREEN_OFF_TURN_OFF)
+		scePowerRequestDisplayOff();
+
 	old_pad = pad;
 	return 0;
+}
+
+void Utils_SetScreenOffEnabled(SceBool enabled) {
+	screen_off.enabled = enabled ? 1 : 0;
 }
 
 SceUInt32 Utils_HeldButtons(void) {
@@ -124,9 +137,14 @@ char *Utils_Basename(const char *filename) {
 	return p ? p + 1 : (char *) filename;
 }
 
+// Mientras suena un track la consola no se suspende sola, con la pantalla
+// encendida o apagada; en pausa o sin nada cargado, si. Va separado a proposito
+// del bloqueo del boton PS: tenerlos juntos hizo que quitar el bloqueo se
+// llevara tambien esta senal. Las dos lecturas son flags simples, y una lectura
+// desfasada dura a lo sumo un ciclo, muy por debajo del temporizador mas corto.
 static int power_tick_thread(SceSize args, void *argp) {
 	while (1) {
-		if (lock_power > 0)
+		if (Audio_HasTrack() && !Audio_IsPaused())
 			sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
 
 		sceKernelDelayThread(10 * 1000 * 1000);
@@ -138,20 +156,4 @@ void Utils_InitPowerTick(void) {
 	SceUID thid = 0;
 	if (R_SUCCEEDED(thid = sceKernelCreateThread("power_tick_thread", power_tick_thread, 0x10000100, 0x40000, 0, 0, NULL)))
 		sceKernelStartThread(thid, 0, NULL);
-}
-
-void Utils_LockPower(void) {
-	if (!lock_power)
-		sceShellUtilLock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
-
-	lock_power++;
-}
-
-void Utils_UnlockPower(void) {
-	if (lock_power)
-		sceShellUtilUnlock(SCE_SHELL_UTIL_LOCK_TYPE_PS_BTN);
-
-	lock_power--;
-	if (lock_power < 0)
-		lock_power = 0;
 }

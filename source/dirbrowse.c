@@ -199,9 +199,11 @@ File *Dirbrowse_GetFileIndex(int index) {
 #define ROW_H        64
 #define ROW_ICON_SIZE 36
 #define ROW_LIST_TOP 100
-// Right edge a name may reach before the format badge starts.
-#define ROW_BADGE_W   74
+// The format badge ends ROW_RIGHT_PAD from the screen edge, so badges of
+// every width line up on their right side; a name stops ROW_BADGE_GAP short
+// of the badge.
 #define ROW_RIGHT_PAD 26
+#define ROW_BADGE_GAP 16
 
 static void Dirbrowse_FormatSize(char *buf, int buf_size, SceOff bytes) {
 	if (bytes >= 1024 * 1024)
@@ -285,7 +287,8 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	float title_y = y + 10;
 	// A name stops before the badge when the row has one and before the row's
 	// right edge otherwise, instead of running through either.
-	float name_w = (has_badge ? (960 - ROW_RIGHT_PAD - ROW_BADGE_W - 16) : (960 - ROW_RIGHT_PAD)) - text_x;
+	float badge_x = has_badge ? (960 - ROW_RIGHT_PAD - UI_BadgeWidth(UI_TS_BADGE, badge_label)) : (960 - ROW_RIGHT_PAD);
+	float name_w = (has_badge ? (badge_x - ROW_BADGE_GAP) : badge_x) - text_x;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, title_y, 24), name_w, UI_COLOR_TEXT_PRIMARY, name);
 
@@ -300,7 +303,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 	}
 
 	if (has_badge)
-		UI_DrawBadge(960 - ROW_RIGHT_PAD - ROW_BADGE_W, y + (ROW_H - 30) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color, badge_color);
+		UI_DrawBadge(badge_x, y + (ROW_H - 30) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 }
 
 void Dirbrowse_DisplayFiles(void) {

@@ -63,3 +63,4 @@ templates/
 # Binarios de las pruebas en PC
 /tests/test_lang
 /tests/test_screen_off
+/tests/test_accent

@@ -234,12 +234,10 @@ int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float b
 // ---- Dynamic accent derived from cover art ----
 
 // Dominant chromatic color of a decoded cover texture, from a subsampled hue
-// histogram. Returns SCE_FALSE (leaving `out_color` untouched) when the texture
-// cannot be sampled or carries no usable hue, such as a grayscale cover.
+// histogram (see accent.h). Returns SCE_FALSE (leaving `out_color` untouched)
+// when the texture cannot be sampled or carries no usable hue, such as a
+// grayscale cover.
 SceBool UI_CoverDominantColor(const vita2d_texture *cover, unsigned int *out_color);
-// Clamps a color's saturation and lightness into the band that stays legible
-// over UI_COLOR_BG and apart from UI_COLOR_TEXT_SECONDARY.
-unsigned int UI_MakeAccentLegible(unsigned int color);
 
 // Points ui_color_accent / ui_color_accent_wash at the color derived from
 // `cover`. A NULL cover, or one with no usable hue, restores UI_ACCENT_FIXED.

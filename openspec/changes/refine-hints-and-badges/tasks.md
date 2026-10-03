@@ -46,4 +46,4 @@
 ## 4. Cierre
 
 - [x] 4.1 Agregar a `CHANGELOG.md`, en `[Sin publicar]`, los bullets de las notas de versión de la propuesta, repartidos en `### Agregado`, `### Cambiado` y `### Corregido`, y subir `VITA_VERSION` a `"03.20"` en `CMakeLists.txt`. Listo cuando el `.vpk` compilado tenga `APP_VER 03.20` y la sección muestre todos los bullets de las notas de versión.
-- [ ] 4.2 Ejecutar `openspec validate refine-hints-and-badges --strict`. Listo cuando pase y el check `build` del PR de `change/refine-hints-and-badges` hacia `main` esté en verde.
+- [x] 4.2 Ejecutar `openspec validate refine-hints-and-badges --strict`. Listo cuando pase y el check `build` del PR de `change/refine-hints-and-badges` hacia `main` esté en verde.

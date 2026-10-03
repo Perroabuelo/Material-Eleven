@@ -404,6 +404,23 @@ void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_
 // string being drawn. Measuring the string moved the baseline with its content:
 // a row whose name had no descender sat lower than the row under it, and the
 // elapsed time hopped vertically as its digits changed.
+// Capital height over the em, from each face's OS/2 sCapHeight / unitsPerEm:
+// IBM Plex Mono Medium 698/1000, Manrope 1440/2000. vita2d sets the em to the
+// requested pixel size, so a capital is this ratio times ui_text_px.
+static const float ui_face_cap_ratio[UI_FACE_COUNT] = {
+	[UI_FACE_UI] = 0.72f,
+	[UI_FACE_MONO] = 0.698f,
+};
+
+int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
+	if (face < 0 || face >= UI_FACE_COUNT || ts < 0 || ts >= UI_TS_COUNT)
+		return (int)box_top;
+
+	float cap = ui_face_cap_ratio[face] * (float)ui_text_px[ts];
+
+	return (int)(box_top + (box_h + cap) / 2.0f + 0.5f);
+}
+
 int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
 	int extent;
 
@@ -646,16 +663,11 @@ float UI_BadgeWidth(UI_TextSize ts, const char *label) {
 }
 
 void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg) {
-	int label_h = UI_TextHeight(UI_FACE_MONO, ts, label);
 	float w = UI_BadgeWidth(ts, label);
-	float h = label_h + UI_BADGE_PAD_Y * 2;
-
-	// UI_TextBaselineY centers the face's full extent, descender room included.
-	// A format label is capitals and digits only, with no descenders, so centered
-	// that way it sat high. Lowering it by half of what it falls short of that
-	// extent centers its own ink instead.
-	int extent = ui_face_extent[UI_FACE_MONO][ts];
-	int baseline = UI_TextBaselineY(UI_FACE_MONO, ts, y, h) + (extent - label_h) / 2;
+	float h = UI_TextHeight(UI_FACE_MONO, ts, label) + UI_BADGE_PAD_Y * 2;
+	// A format label is capitals and digits only, so it is its capital height
+	// that has to sit in the middle of the pill.
+	int baseline = UI_CapCenteredBaselineY(UI_FACE_MONO, ts, y, h);
 
 	UI_DrawPill(x, y, w, h, bg);
 	UI_DrawText(UI_FACE_MONO, ts, x + UI_BADGE_PAD_X, baseline, fg, label);

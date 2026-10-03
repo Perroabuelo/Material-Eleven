@@ -244,9 +244,11 @@ void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count) {
 	float x = UI_RAIL_WIDTH + HINT_PAD_X;
 	float right = 960 - HINT_PAD_X;
 	float mid = y + UI_HINT_BAR_HEIGHT / 2.0f;
-	float baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, UI_HINT_BAR_HEIGHT);
+	// Labels, chips and glyphs share the bar's middle: the glyphs are centered
+	// on it, and text is centered on it by its capital height.
+	float baseline = UI_CapCenteredBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, UI_HINT_BAR_HEIGHT);
 	float chip_y = mid - HINT_CHIP_H / 2.0f;
-	float chip_baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, chip_y, HINT_CHIP_H);
+	float chip_baseline = UI_CapCenteredBaselineY(UI_FACE_MONO, UI_TS_BADGE, chip_y, HINT_CHIP_H);
 
 	for (int i = 0; i < count; i++) {
 		const NavRail_Hint *hint = &hints[i];

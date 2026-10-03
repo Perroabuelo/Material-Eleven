@@ -224,6 +224,12 @@ void UI_DrawSkipGlyph(float cx, float cy, float size, SceBool forward, unsigned 
 // descenders sat lower than its neighbour and the elapsed time hopped as its
 // digits changed.
 int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h);
+// Baseline Y that centers the face's capital height within [box_top,
+// box_top+box_h). It is the one to use where text sits beside a centered
+// shape (a badge pill, a chip, a button glyph): capitals and the shape share
+// a center, which UI_TextBaselineY does not give, since vita2d reports every
+// single-line string as exactly `ts` px tall whatever its glyphs.
+int UI_CapCenteredBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h);
 
 // ---- Dynamic accent derived from cover art ----
 

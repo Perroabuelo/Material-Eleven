@@ -646,11 +646,19 @@ float UI_BadgeWidth(UI_TextSize ts, const char *label) {
 }
 
 void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned int bg, unsigned int fg) {
+	int label_h = UI_TextHeight(UI_FACE_MONO, ts, label);
 	float w = UI_BadgeWidth(ts, label);
-	float h = UI_TextHeight(UI_FACE_MONO, ts, label) + UI_BADGE_PAD_Y * 2;
+	float h = label_h + UI_BADGE_PAD_Y * 2;
+
+	// UI_TextBaselineY centers the face's full extent, descender room included.
+	// A format label is capitals and digits only, with no descenders, so centered
+	// that way it sat high. Lowering it by half of what it falls short of that
+	// extent centers its own ink instead.
+	int extent = ui_face_extent[UI_FACE_MONO][ts];
+	int baseline = UI_TextBaselineY(UI_FACE_MONO, ts, y, h) + (extent - label_h) / 2;
 
 	UI_DrawPill(x, y, w, h, bg);
-	UI_DrawText(UI_FACE_MONO, ts, x + UI_BADGE_PAD_X, UI_TextBaselineY(UI_FACE_MONO, ts, y, h), fg, label);
+	UI_DrawText(UI_FACE_MONO, ts, x + UI_BADGE_PAD_X, baseline, fg, label);
 }
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {

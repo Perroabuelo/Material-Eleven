@@ -20,4 +20,4 @@
 
 ## 6. Integración
 
-- [ ] 6.1 Hacer push de `change/neutral-accent-for-achromatic-covers` y abrir el PR a `main`. Listo cuando: el CI compila el `.vpk` en verde en la rama.
+- [x] 6.1 Hacer push de `change/neutral-accent-for-achromatic-covers` y abrir el PR a `main`. Listo cuando: el CI compila el `.vpk` en verde en la rama.

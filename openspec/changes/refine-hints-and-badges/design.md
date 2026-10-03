@@ -16,8 +16,8 @@ El porqué está en proposal.md. Acá va el estado del código que condiciona el
 
 **Goals:**
 - Una sola forma de dibujar un badge de formato, sin parámetros que permitan reproducir el defecto.
-- Una sola forma de manejar START y el despertar de la pantalla, para todos los lazos, sin repetirla en cada pantalla.
-- Que la lógica de qué pulsación se descarta al despertar sea código puro, con prueba en PC.
+- Una sola forma de manejar START, para todos los lazos, sin repetirla en cada pantalla.
+- Que la lógica de cuándo START apaga la pantalla sea código puro, con prueba en PC.
 - Una barra que diga, por construcción, qué botón hace cada cosa.
 
 **Non-Goals:**
@@ -38,33 +38,35 @@ La firma pasa a `UI_DrawBadge(x, y, ts, label, bg, fg)`. Se dibuja una sola píl
 
 `Menu_DrawLibraryRow` recibe un `const char *ext` más. Las filas de canción pasan `track->ext`, y las de artista o álbum pasan `NULL`. Con extensión reconocida (`UI_GetFormatBadge`), la fila dibuja el badge a la derecha y recorta el título y el artista hasta 16 px antes del badge. Sin extensión, todo queda como hoy. Así se cubren solas las cuatro vistas y las pistas dentro de un artista o un álbum, que pasan por la misma rama.
 
-### 3. START y el despertar se manejan en `Utils_ReadControls`
+### 3. START se maneja en `Utils_ReadControls`
 
 Todos los lazos ya pasan por `Utils_ReadControls()`, así que el comportamiento queda uniforme, incluidas las pantallas de escaneo y Ajustes, que hoy no tratan START.
 
 La decisión de qué hacer con cada flanco se saca a un módulo puro nuevo, `source/screen_off.c` / `include/screen_off.h`, sin vita2d ni SCE:
 
 ```
-typedef struct { int armed; int enabled; } ScreenOff_State;
+typedef struct { unsigned int start, ltrigger, rtrigger; int enabled; } ScreenOff_State;
+typedef enum { SCREEN_OFF_KEEP, SCREEN_OFF_TURN_OFF } ScreenOff_Action;
 
 // Recibe el flanco y los botones mantenidos de este fotograma, y devuelve
 // el flanco que deben ver las pantallas. *action dice si hay que apagar
-// la pantalla, encenderla o dejarla como esta.
+// la pantalla.
 unsigned int ScreenOff_Filter(ScreenOff_State *s, unsigned int pressed,
                               unsigned int held, ScreenOff_Action *action);
 ```
 
 Reglas del filtro:
 1. Si `enabled` es falso, el flanco pasa sin cambios.
-2. Si `armed` es verdadero (la pantalla se apagó con START) y llega cualquier flanco, se pide encender la pantalla, el flanco se descarta entero, `armed` vuelve a falso y se devuelve 0. Comprobado en consola (tarea 2.1): con la pantalla apagada por la aplicación, la consola solo la enciende con el botón PS, pero los demás botones siguen llegando a la aplicación. Sin esta regla, X no encendía la pantalla y además pausaba la reproducción a ciegas en Reproduciendo.
-3. Si llega el flanco de START y L y R no están mantenidos a la vez, se pide apagar la pantalla, `armed` pasa a verdadero y START se quita del flanco.
-4. En cualquier otro caso, el flanco pasa sin cambios.
+2. Si llega el flanco de START y L y R no están mantenidos a la vez, se pide apagar la pantalla y START se quita del flanco.
+3. En cualquier otro caso, el flanco pasa sin cambios.
 
-`Utils_ReadControls()` aplica el filtro y, según lo que se pida, llama a `scePowerRequestDisplayOff()` o a `scePowerRequestDisplayOn()`. Como `old_pad` se sigue actualizando con el pad real, un botón mantenido no se repite al despertar. Las constantes de botón se pasan desde `utils.c`, y el módulo puro solo recibe máscaras, así que las pruebas en PC no dependen de los headers de la consola.
+**Encender la pantalla es cosa de la consola.** Cuando la aplicación apaga la pantalla, la consola solo la vuelve a encender con el botón PS (tarea 2.1). Se probó una regla más: la primera pulsación con la pantalla apagada la encendía (`scePowerRequestDisplayOn()`) y se descartaba. En consola, la pantalla se encendía al instante, antes de que el usuario tocara nada, y mostraba la pestaña para desbloquear la consola: algún cambio en el pad al apagarse la pantalla llegaba como flanco. Se quitó la regla, y el usuario prefirió el comportamiento de la consola. Qué hacen los demás botones con la pantalla apagada (por ejemplo, controlar la reproducción a ciegas) queda para un cambio aparte.
+
+`Utils_ReadControls()` aplica el filtro y, según lo que se pida, llama a `scePowerRequestDisplayOff()`. Las constantes de botón se pasan desde `utils.c`, y el módulo puro solo recibe máscaras, así que las pruebas en PC no dependen de los headers de la consola.
 
 - **Mientras espera la entrada de texto del filtro**, `menu_displayfiles.c` deshabilita el filtro (`enabled = 0`) y lo vuelve a habilitar al salir. Con eso START no cambia lo que hace mientras el diálogo del sistema está delante, que queda fuera de alcance, y L + R + START sigue siendo solo la cancelación.
 - **Se quitan** los `break` de START en Carpetas y en Biblioteca, y la llamada de Reproduciendo, que pasa a hacerla el filtro.
-- **Alternativa descartada:** que cada pantalla trate START por su cuenta, como hoy. Repite la lógica en cinco lazos, y el descarte del despertar se olvidaría en alguno.
+- **Alternativa descartada:** que cada pantalla trate START por su cuenta, como hoy. Repite la lógica en cinco lazos, y alguno quedaría distinto.
 
 ### 4. Mantenerse despierto separado del botón PS
 
@@ -120,8 +122,7 @@ Esto corrige de paso la barra de Reproduciendo, que anunciaba "Menú" en confirm
 
 ## Risks / Trade-offs
 
-- **[Botones a ciegas con la pantalla apagada]** → Resuelto con la regla 2. La prueba de la tarea 2.1 mostró que los botones llegan a la app con la pantalla apagada, y que la consola solo la enciende con PS. La app la enciende con la primera pulsación y la descarta.
-- **[Encender la pantalla con el botón PS]** → La app no ve el botón PS, así que el filtro sigue armado y descarta la primera pulsación posterior, que ya no hace nada porque la pantalla está encendida. Es un costo menor, una pulsación que hay que repetir, y es mejor que abrir una fila sin querer. Si en consola resulta molesto, se puede investigar si el callback de energía `SCE_POWER_CB_UNK_0x100000` (asociado al cambio de pantalla y permitido para apps comunes) avisa del encendido.
+- **[Botones con la pantalla apagada]** → Este cambio no toca lo que hacen. Definir si sirven para controlar la música a ciegas o si se ignoran queda para un cambio aparte.
 - **[Contraste de los colores de PlayStation]** → El rojo y el azul originales son oscuros sobre `#17141F`. Se aclaran con el mismo cálculo que el acento, y se verifica en consola que se lean y que se distingan entre sí.
 - **[Ancho de la barra en español]** → Los textos en español son más largos. Las entradas que no caben no se dibujan, y la tarea de la barra verifica en consola, en los dos idiomas, que en ninguna pantalla se caiga una entrada distinta de START.
 - **[Quien usaba START para salir]** → La nota de versión lo dice, y el botón PS cierra la app como en cualquier otra aplicación.
@@ -135,7 +136,7 @@ No hay datos ni configuración que migrar. Se instala encima de la v3.1.1 y cons
 
 - **Compilación**: el `.vpk` compila limpio con `-Wall -Werror` después de cada tarea.
 - **Tests en PC**:
-  - `tests/test_screen_off.c`, nuevo en `tests/Makefile`, cubre las reglas del filtro: START apaga y se quita del flanco, L + R + START pasa sin apagar, deshabilitado no toca nada, la pulsación siguiente al apagado se descarta y la de después pasa.
+  - `tests/test_screen_off.c`, nuevo en `tests/Makefile`, cubre las reglas del filtro: START apaga y se quita del flanco, L + R + START pasa sin apagar, deshabilitado no toca nada, y las pulsaciones posteriores al apagado pasan intactas.
   - `test_lang`, que ya existe, verifica que los textos nuevos y modificados estén en los dos idiomas.
 - **Consola**: cada escenario de los specs, paso a paso, en las tareas. Sobre todo:
   - una cola más larga que el temporizador de ahorro de energía, con la pantalla apagada;

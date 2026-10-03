@@ -1,6 +1,6 @@
 ## Purpose
 
-Permite escuchar música con la pantalla de la consola apagada desde cualquier pantalla de la aplicación, sin que la reproducción se corte, sin que la consola se suspenda mientras suena un track y sin que volver a encender la pantalla dispare una acción.
+Permite escuchar música con la pantalla de la consola apagada desde cualquier pantalla de la aplicación, sin que la reproducción se corte, sin que la consola se suspenda mientras suena un track y sin que la pantalla se vuelva a encender sola.
 
 ## ADDED Requirements
 
@@ -41,17 +41,13 @@ El sistema SHALL NOT bloquear el botón PS para mantener la reproducción. Con u
 - **WHEN** suena un track y el usuario pulsa el botón PS
 - **THEN** la consola muestra su menú, desde donde se puede cerrar la aplicación desde su LiveArea
 
-### Requirement: Encender la pantalla no dispara una acción
-Con la pantalla apagada con START, el sistema SHALL volver a encenderla con la primera pulsación de cualquier botón, y no solo con el botón PS. Esa pulsación SHALL NOT activar la acción que el botón tendría en la pantalla visible. Mientras la pantalla está apagada, ningún botón SHALL actuar sobre la aplicación sin antes encenderla. Las pulsaciones siguientes SHALL funcionar con normalidad.
+### Requirement: La pantalla se vuelve a encender con el botón PS
+El sistema SHALL dejar apagada la pantalla que apagó START hasta que el usuario la encienda con el botón PS, como lo hace la consola, y SHALL NOT encenderla por su cuenta. Al encenderla, la aplicación SHALL seguir en la misma pantalla en la que estaba, con la reproducción en el estado en que la dejó.
 
-#### Scenario: Encender la pantalla con el botón de confirmar
-- **WHEN** el usuario apagó la pantalla con START en Carpetas, con una fila seleccionada, y la vuelve a encender pulsando el botón de confirmar
-- **THEN** la pantalla se enciende, la misma fila sigue seleccionada y no se abre ni reproduce nada; una segunda pulsación de confirmar abre la fila
+#### Scenario: La pantalla queda apagada
+- **WHEN** el usuario apaga la pantalla con START en Carpetas, con música sonando, y no toca la consola
+- **THEN** la pantalla sigue apagada, sin volver a encenderse sola, y la música sigue sonando
 
-#### Scenario: Encender la pantalla con un gatillo en Reproduciendo
-- **WHEN** el usuario apagó la pantalla con START en Reproduciendo y la vuelve a encender pulsando R
-- **THEN** la pantalla se enciende y el track en curso no cambia
-
-#### Scenario: Encender la pantalla con confirmar en Reproduciendo
-- **WHEN** suena un track, el usuario apaga la pantalla con START en Reproduciendo y pulsa el botón de confirmar
-- **THEN** la pantalla se enciende y la música sigue sonando, sin pausarse
+#### Scenario: Encender con PS en Reproduciendo
+- **WHEN** suena un track, el usuario apaga la pantalla con START en Reproduciendo y después pulsa el botón PS
+- **THEN** la pantalla se enciende, la aplicación sigue en Reproduciendo y la música sigue sonando

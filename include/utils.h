@@ -8,9 +8,9 @@ int Utils_ReadControls(void);
 // `pressed` carries. A hold is what an escape combo has to be made of: an
 // edge cannot be distinguished from a stray tap.
 SceUInt32 Utils_HeldButtons(void);
-// START apaga la pantalla en cada Utils_ReadControls y se quita de `pressed`,
-// y la pulsacion que vuelve a encenderla se descarta. Se deshabilita mientras
-// un dialogo del sistema tiene la entrada, donde START significa otra cosa.
+// START apaga la pantalla en cada Utils_ReadControls y se quita de `pressed`;
+// la consola la vuelve a encender con el boton PS. Se deshabilita mientras un
+// dialogo del sistema tiene la entrada, donde START significa otra cosa.
 void Utils_SetScreenOffEnabled(SceBool enabled);
 int Utils_InitAppUtil(void);
 // Una vez al arrancar, después de Utils_InitAppUtil: pasa al subsistema de

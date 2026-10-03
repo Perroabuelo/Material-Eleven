@@ -14,7 +14,7 @@
 static SceCtrlData pad, old_pad;
 // START apaga la pantalla desde cualquier pantalla, porque todas leen el pad
 // por aqui. La regla vive en screen_off.c, que se prueba en PC.
-static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, 1, 0 };
+static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, 1 };
 
 void Utils_SetMax(int *set, int value, int max) {
 	if (*set > max)
@@ -36,18 +36,13 @@ int Utils_ReadControls(void) {
 	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &action);
 	if (action == SCREEN_OFF_TURN_OFF)
 		scePowerRequestDisplayOff();
-	else if (action == SCREEN_OFF_TURN_ON)
-		scePowerRequestDisplayOn();
 
-	// old_pad guarda el pad real, no el flanco filtrado: un boton que se
-	// mantiene despues de encender la pantalla no vuelve a contar como pulsado.
 	old_pad = pad;
 	return 0;
 }
 
 void Utils_SetScreenOffEnabled(SceBool enabled) {
 	screen_off.enabled = enabled ? 1 : 0;
-	screen_off.armed = 0;
 }
 
 SceUInt32 Utils_HeldButtons(void) {

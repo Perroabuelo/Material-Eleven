@@ -11,9 +11,11 @@
 #include "fs.h"
 #include "lang.h"
 #include "library.h"
+#include "library_row.h"
 #include "cover.h"
 #include "nav_rail.h"
 #include "tags.h"
+#include "track_meta.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -23,9 +25,10 @@
 // Una version que no se reconoce no se migra: se descarta y se ofrece
 // reescanear. Sale gratis porque no hay nada del usuario que perder.
 #define LIBRARY_INDEX_MAGIC   "ELEVENMPV_LIBRARY"
-// v2 anade la marca de tags leidos. Una version que no se reconoce no se
-// migra: se descarta y se ofrece reescanear, que con el indice es gratis.
-#define LIBRARY_INDEX_VERSION 2
+// v2 anade la marca de tags leidos y v3 los numeros de pista y de disco. Un
+// indice v2 se carga con sus pistas pendientes (library_row.h); cualquier otra
+// version se descarta y se ofrece reescanear.
+#define LIBRARY_INDEX_VERSION 3
 
 // Entradas de directorio por fotograma. A los 595 us por entrada que midio el
 // grupo 0 sobre una coleccion real, dieciseis salen a unos 9,5 ms: cabe en el
@@ -64,6 +67,12 @@ static const char **library_names = NULL;
 static int *library_name_counts = NULL;
 static int library_name_count = 0;
 static SceBool library_has_unknown = SCE_FALSE;
+
+// Los candidatos a caratula de cada artista, todos seguidos: los del nombre j
+// van de library_cand_start[j] a library_cand_start[j + 1]. Son indices de
+// pista, y como mucho uno por pista del indice.
+static int *library_cand = NULL;
+static int *library_cand_start = NULL;
 
 // ---------------------------------------------------------------------------
 // la lista
@@ -107,9 +116,13 @@ void Library_Free(void) {
 	free(library_view);
 	free(library_names);
 	free(library_name_counts);
+	free(library_cand);
+	free(library_cand_start);
 	library_view = NULL;
 	library_names = NULL;
 	library_name_counts = NULL;
+	library_cand = NULL;
+	library_cand_start = NULL;
 	library_view_count = 0;
 	library_name_count = 0;
 
@@ -258,10 +271,10 @@ SceBool Library_Save(void) {
 
 		// La ruta va la ultima: si alguna vez trae un tabulador, no corre los
 		// campos de detras.
-		char line[LIBRARY_PATH_MAX + 4 * LIBRARY_TAG_MAX + 64];
-		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%d\t%s\t%s\t%s\t%s\t%s\n",
+		char line[LIBRARY_PATH_MAX + 4 * LIBRARY_TAG_MAX + 80];
+		int len = snprintf(line, sizeof(line), "%llu\t%llu\t%d\t%s\t%d\t%d\t%s\t%s\t%s\t%s\n",
 			(unsigned long long)t->size, (unsigned long long)t->mtime, t->tagged ? 1 : 0,
-			t->ext, title, artist, album, t->path);
+			t->ext, t->track, t->disc, title, artist, album, t->path);
 
 		if (len >= (int)sizeof(line))
 			len = (int)sizeof(line) - 1;
@@ -333,6 +346,7 @@ SceBool Library_Load(void) {
 	int declared = -1;
 	SceBool header_ok = SCE_FALSE;
 	int header_lines = 0;
+	LibraryRow_Layout layout = { 0 };
 
 	while ((line = cursor) != NULL && *cursor != '\0') {
 		char *nl = strchr(cursor, '\n');
@@ -347,7 +361,7 @@ SceBool Library_Load(void) {
 		if (line[0] == '\0')
 			continue;
 
-		char *fields[8];
+		char *fields[LIBRARY_ROW_MAX_FIELDS];
 
 		if (header_lines < 3) {
 			int n = Library_SplitFields(line, fields, 2);
@@ -355,7 +369,7 @@ SceBool Library_Load(void) {
 
 			if (header_lines == 1) {
 				// Version desconocida: se descarta entero.
-				if (n < 2 || strcmp(fields[0], LIBRARY_INDEX_MAGIC) != 0 || atoi(fields[1]) != LIBRARY_INDEX_VERSION)
+				if (n < 2 || strcmp(fields[0], LIBRARY_INDEX_MAGIC) != 0 || !LibraryRow_GetLayout(atoi(fields[1]), &layout))
 					break;
 			}
 			else if (header_lines == 2) {
@@ -379,7 +393,7 @@ SceBool Library_Load(void) {
 			continue;
 		}
 
-		if (Library_SplitFields(line, fields, 8) < 8)
+		if (Library_SplitFields(line, fields, layout.fields) < layout.fields)
 			break;
 
 		Library_Track *t = Library_Append();
@@ -387,14 +401,21 @@ SceBool Library_Load(void) {
 		if (t == NULL)
 			break;
 
-		t->size = (SceOff)strtoull(fields[0], NULL, 10);
-		t->mtime = (SceUInt64)strtoull(fields[1], NULL, 10);
-		t->tagged = (atoi(fields[2]) != 0) ? SCE_TRUE : SCE_FALSE;
-		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[3]);
-		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[4]);
-		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[5]);
-		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[6]);
-		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[7]);
+		// Lo que la version no trae se queda como lo dejo Library_Append: sin
+		// numeros y, en v2, pendiente de releer tags.
+		t->size = (SceOff)strtoull(fields[layout.size], NULL, 10);
+		t->mtime = (SceUInt64)strtoull(fields[layout.mtime], NULL, 10);
+		if (layout.tagged >= 0)
+			t->tagged = (atoi(fields[layout.tagged]) != 0) ? SCE_TRUE : SCE_FALSE;
+		if (layout.track >= 0)
+			t->track = (short)atoi(fields[layout.track]);
+		if (layout.disc >= 0)
+			t->disc = (short)atoi(fields[layout.disc]);
+		snprintf(t->ext, LIBRARY_EXT_MAX, "%s", fields[layout.ext]);
+		snprintf(t->title, LIBRARY_TAG_MAX, "%s", fields[layout.title]);
+		snprintf(t->artist, LIBRARY_TAG_MAX, "%s", fields[layout.artist]);
+		snprintf(t->album, LIBRARY_TAG_MAX, "%s", fields[layout.album]);
+		snprintf(t->path, LIBRARY_PATH_MAX, "%s", fields[layout.path]);
 	}
 
 	free(buf);
@@ -451,6 +472,48 @@ static int Library_CmpRecent(const void *a, const void *b) {
 	return strcasecmp(ta->path, tb->path);
 }
 
+// --- el orden del disco ----------------------------------------------------
+// Los comparadores viven en track_meta.c, que se prueba en el PC. Aqui solo se
+// arman las claves: el titulo es el mismo respaldo que muestra la vista.
+
+static TrackMeta_Key Library_KeyOf(const Library_Track *t, const char *group) {
+	TrackMeta_Key key = { group, t->disc, t->track, Library_SortTitle(t), t->path };
+	return key;
+}
+
+// Dentro de un album.
+static int Library_CmpDisc(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+	TrackMeta_Key ka = Library_KeyOf(ta, NULL), kb = Library_KeyOf(tb, NULL);
+
+	return TrackMeta_CompareDisc(&ka, &kb);
+}
+
+// Dentro de un artista, y la cola continua por album: por album, con las
+// pistas sin album al final, y cada album en el orden del disco.
+static int Library_CmpByAlbum(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+	TrackMeta_Key ka = Library_KeyOf(ta, ta->album), kb = Library_KeyOf(tb, tb->album);
+
+	return TrackMeta_CompareGrouped(&ka, &kb);
+}
+
+// La cola continua por artista: por artista y, dentro de cada uno, como se ve
+// al entrar en el.
+static int Library_CmpByArtist(const void *a, const void *b) {
+	const Library_Track *ta = &library_tracks[*(const int *)a];
+	const Library_Track *tb = &library_tracks[*(const int *)b];
+
+	// Una clave con solo el grupo: si el artista empata, el resto de la clave
+	// tambien, y CompareGrouped da 0.
+	TrackMeta_Key ga = { ta->artist, 0, 0, NULL, NULL }, gb = { tb->artist, 0, 0, NULL, NULL };
+	int by_artist = TrackMeta_CompareGrouped(&ga, &gb);
+
+	return (by_artist != 0) ? by_artist : Library_CmpByAlbum(a, b);
+}
+
 int Library_BuildSongs(void) {
 	if (!Library_ViewReserve())
 		return 0;
@@ -485,9 +548,24 @@ int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unkn
 			library_view[library_view_count++] = i;
 	}
 
-	// Dentro de un album manda el orden del album, pero sin numero de pista en el
-	// indice lo unico estable es el titulo.
-	qsort(library_view, (size_t)library_view_count, sizeof(int), Library_CmpTitle);
+	// Dentro de un album manda el orden del disco. Dentro de un artista, sus
+	// albumes uno detras de otro, cada uno en ese orden.
+	qsort(library_view, (size_t)library_view_count, sizeof(int),
+		(field == LIBRARY_FIELD_ALBUM) ? Library_CmpDisc : Library_CmpByAlbum);
+	return library_view_count;
+}
+
+int Library_BuildContinuous(Library_Field field) {
+	if (!Library_ViewReserve())
+		return 0;
+
+	for (int i = 0; i < library_count; i++)
+		library_view[library_view_count++] = i;
+
+	// Los grupos van en el orden de Library_BuildFieldNames - strcasecmp, con el
+	// vacio al final - y cada grupo en el orden que se ve al entrar en el.
+	qsort(library_view, (size_t)library_view_count, sizeof(int),
+		(field == LIBRARY_FIELD_ALBUM) ? Library_CmpByAlbum : Library_CmpByArtist);
 	return library_view_count;
 }
 
@@ -508,11 +586,70 @@ static int Library_CmpName(const void *a, const void *b) {
 	return strcasecmp(*(const char *const *)a, *(const char *const *)b);
 }
 
+// Para cada artista, una pista por album distinto en el orden en que se ve el
+// artista, mas cada pista sin album, que se cachea por su ruta. Elegir la
+// caratula de entre ellos se hace al dibujar, de a pocos por fotograma: aqui
+// solo se decide el orden en que se prueban.
+static void Library_BuildArtistCandidates(void) {
+	library_cand = (int *)malloc(sizeof(int) * (size_t)(library_count > 0 ? library_count : 1));
+	library_cand_start = (int *)malloc(sizeof(int) * (size_t)(library_name_count + 1));
+	int *tracks = (int *)malloc(sizeof(int) * (size_t)(library_count > 0 ? library_count : 1));
+
+	if (library_cand == NULL || library_cand_start == NULL || tracks == NULL) {
+		free(library_cand);
+		free(library_cand_start);
+		library_cand = NULL;
+		library_cand_start = NULL;
+		free(tracks);
+		return;
+	}
+
+	int used = 0;
+
+	for (int j = 0; j < library_name_count; j++) {
+		library_cand_start[j] = used;
+
+		// El cubo "Desconocido" no tiene candidatos: muestra el marcador.
+		if (library_names[j][0] == '\0')
+			continue;
+
+		int n = 0;
+
+		for (int i = 0; i < library_count; i++) {
+			const char *artist = library_tracks[i].artist;
+
+			if (artist[0] != '\0' && !strcasecmp(artist, library_names[j]))
+				tracks[n++] = i;
+		}
+
+		qsort(tracks, (size_t)n, sizeof(int), Library_CmpByAlbum);
+
+		const char *prev_album = NULL;
+
+		for (int k = 0; k < n; k++) {
+			const char *album = library_tracks[tracks[k]].album;
+
+			if (album[0] == '\0' || prev_album == NULL || strcasecmp(album, prev_album) != 0)
+				library_cand[used++] = tracks[k];
+
+			if (album[0] != '\0')
+				prev_album = album;
+		}
+	}
+
+	library_cand_start[library_name_count] = used;
+	free(tracks);
+}
+
 int Library_BuildFieldNames(Library_Field field) {
 	free(library_names);
 	free(library_name_counts);
+	free(library_cand);
+	free(library_cand_start);
 	library_names = NULL;
 	library_name_counts = NULL;
+	library_cand = NULL;
+	library_cand_start = NULL;
 	library_name_count = 0;
 	library_has_unknown = SCE_FALSE;
 
@@ -569,6 +706,9 @@ int Library_BuildFieldNames(Library_Field field) {
 		}
 	}
 
+	if (field == LIBRARY_FIELD_ARTIST)
+		Library_BuildArtistCandidates();
+
 	return library_name_count;
 }
 
@@ -593,6 +733,18 @@ int Library_NameTrackCount(int index) {
 		return 0;
 
 	return library_name_counts[index];
+}
+
+const Library_Track *Library_NameCandidate(int index, int k) {
+	if (library_cand_start == NULL || index < 0 || index >= library_name_count || k < 0)
+		return NULL;
+
+	int at = library_cand_start[index] + k;
+
+	if (at >= library_cand_start[index + 1])
+		return NULL;
+
+	return &library_tracks[library_cand[at]];
 }
 
 // ---------------------------------------------------------------------------
@@ -671,6 +823,8 @@ SceBool Library_RunTagPass(void) {
 		snprintf(track->title, LIBRARY_TAG_MAX, "%s", tags.title);
 		snprintf(track->artist, LIBRARY_TAG_MAX, "%s", tags.artist);
 		snprintf(track->album, LIBRARY_TAG_MAX, "%s", tags.album);
+		track->track = (short)tags.track;
+		track->disc = (short)tags.disc;
 		track->tagged = SCE_TRUE;
 		since_save++;
 
@@ -887,12 +1041,18 @@ static void Library_CarryTags(Library_Track *dst, const Library_Carried *carry, 
 		if (cmp == 0) {
 			const Library_Track *src = carry[mid].track;
 
-			// Mismo archivo, no solo mismo nombre.
-			if (src->tagged && src->size == dst->size && src->mtime == dst->mtime) {
+			// Mismo archivo, no solo mismo nombre. Se copia aunque la pista este
+			// pendiente: una que viene de un indice v2 tiene titulo, artista y
+			// album buenos, y sin copiarlos las vistas Artistas y Albumes se
+			// vaciarian hasta que la pasada de tags llegara a cada una. Una que
+			// nunca se leyo tiene los campos vacios, y copiarlos no cambia nada.
+			if (src->size == dst->size && src->mtime == dst->mtime) {
 				memcpy(dst->title, src->title, LIBRARY_TAG_MAX);
 				memcpy(dst->artist, src->artist, LIBRARY_TAG_MAX);
 				memcpy(dst->album, src->album, LIBRARY_TAG_MAX);
-				dst->tagged = SCE_TRUE;
+				dst->track = src->track;
+				dst->disc = src->disc;
+				dst->tagged = src->tagged;
 			}
 
 			return;

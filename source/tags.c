@@ -11,6 +11,7 @@
 #include "fs.h"
 #include "opus/opusfile.h"
 #include "tags.h"
+#include "track_meta.h"
 #include "xmp.h"
 
 // mpg123 pide una inicializacion global antes del primer handle. La ruta de
@@ -46,6 +47,10 @@ static void Tags_TakeVorbisComment(Tags *out, const char *comment) {
 		Tags_Set(out->artist, comment + 7);
 	else if (!strncasecmp("ALBUM=", comment, 6))
 		Tags_Set(out->album, comment + 6);
+	else if (!strncasecmp("TRACKNUMBER=", comment, 12))
+		out->track = TrackMeta_ParseNumber(comment + 12);
+	else if (!strncasecmp("DISCNUMBER=", comment, 11))
+		out->disc = TrackMeta_ParseNumber(comment + 11);
 }
 
 static SceBool Tags_ReadFlac(const char *path, Tags *out) {
@@ -126,6 +131,8 @@ static SceBool Tags_ReadOpus(const char *path, Tags *out) {
 			Tags_Set(out->artist, opus_tags_query(tags, "artist", 0));
 		if (opus_tags_query_count(tags, "album") > 0)
 			Tags_Set(out->album, opus_tags_query(tags, "album", 0));
+		out->track = TrackMeta_ParseNumber(opus_tags_query(tags, "tracknumber", 0));
+		out->disc = TrackMeta_ParseNumber(opus_tags_query(tags, "discnumber", 0));
 	}
 
 	op_free(of);
@@ -137,6 +144,19 @@ static SceBool Tags_ReadOpus(const char *path, Tags *out) {
 static void Tags_TakeMpgString(char *dst, mpg123_string *s) {
 	if (s != NULL && s->p != NULL)
 		Tags_Set(dst, s->p);
+}
+
+// Los numeros no tienen puntero propio en mpg123_id3v2 como el titulo: hay que
+// buscarlos entre los frames de texto. El id son 4 bytes sin terminador.
+static int Tags_Id3v2Number(const mpg123_id3v2 *v2, const char *id) {
+	for (size_t i = 0; i < v2->texts; i++) {
+		const mpg123_text *t = &v2->text[i];
+
+		if (!memcmp(t->id, id, 4) && t->text.p != NULL)
+			return TrackMeta_ParseNumber(t->text.p);
+	}
+
+	return 0;
 }
 
 static SceBool Tags_ReadMp3(const char *path, Tags *out) {
@@ -169,6 +189,8 @@ static SceBool Tags_ReadMp3(const char *path, Tags *out) {
 			Tags_TakeMpgString(out->title, v2->title);
 			Tags_TakeMpgString(out->artist, v2->artist);
 			Tags_TakeMpgString(out->album, v2->album);
+			out->track = Tags_Id3v2Number(v2, "TRCK");
+			out->disc = Tags_Id3v2Number(v2, "TPOS");
 		}
 
 		// ID3v1 rellena solo lo que v2 no trajo, y sus campos no llevan
@@ -189,6 +211,8 @@ static SceBool Tags_ReadMp3(const char *path, Tags *out) {
 				snprintf(buf, sizeof(buf), "%.30s", v1->album);
 				Tags_Set(out->album, buf);
 			}
+			if (out->track == 0)
+				out->track = TrackMeta_Id3v1Track((const unsigned char *)v1->comment);
 		}
 
 		ok = SCE_TRUE;

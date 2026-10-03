@@ -18,6 +18,9 @@ typedef struct {
 	char title[TAGS_FIELD_MAX];
 	char artist[TAGS_FIELD_MAX];
 	char album[TAGS_FIELD_MAX];
+	// Numero de pista y de disco. 0 es que el archivo no lo trae.
+	int track;
+	int disc;
 } Tags;
 
 // Rellena `out` con lo que ese archivo traiga. Devuelve SCE_FALSE si el formato

@@ -52,6 +52,7 @@ add_executable(${PROJECT_NAME}
   source/fs.c
   source/lang.c
   source/library.c
+  source/library_row.c
   source/main.c
   source/mini_player.c
   source/nav_rail.c
@@ -60,6 +61,7 @@ add_executable(${PROJECT_NAME}
   source/status_bar.c
   source/tags.c
   source/touch.c
+  source/track_meta.c
   source/ui_gpu.c
   source/ui_theme.c
   source/utils.c

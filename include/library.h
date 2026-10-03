@@ -9,7 +9,8 @@
 // El indice es dato derivado y nunca fuente de verdad. La fuente son los
 // archivos en disco, y siempre puede reconstruirse reescaneando; por eso su
 // formato lleva version y una version que no se reconoce se descarta en vez de
-// migrarse.
+// migrarse. La excepcion es la version anterior, que se carga con todas sus
+// pistas pendientes de releer tags (ver Library_Load).
 
 // Lo que cuesta un registro en RAM: ruta 256, los tres campos de tags 64 cada
 // uno, y tamaño, fecha y extension. Unos 472 bytes, que por el techo de abajo
@@ -37,6 +38,10 @@ typedef struct {
 	SceOff size;
 	SceUInt64 mtime;
 	char ext[LIBRARY_EXT_MAX];
+	// Numero de pista y de disco, 0 si el archivo no lo trae. Deciden el orden
+	// dentro de un album.
+	short track;
+	short disc;
 	// Si a esta pista ya se le leyeron los tags. Sin esta marca no se
 	// podria distinguir "todavia no la mire" de "la mire y no traia nada",
 	// que es justo lo que hace reanudable la segunda pasada.
@@ -76,6 +81,11 @@ SceBool Library_IsBuilt(void);
 void Library_Free(void);
 
 // --- persistencia ----------------------------------------------------------
+// Library_Save escribe siempre la version actual. Library_Load acepta tambien
+// la anterior, que no guarda numeros de pista: sus pistas se cargan con los
+// tags que ya tenian pero marcadas como pendientes, y la pasada de tags, que
+// el usuario lanza al reescanear, completa los numeros.
+//
 // SCE_FALSE si no hay indice, si su version no se reconoce o si esta
 // incompleto. En los tres casos la biblioteca queda sin construir y lo que
 // procede es ofrecer escanear, no enseñar datos parciales.
@@ -114,8 +124,15 @@ int Library_BuildSongs(void);
 int Library_BuildRecent(void);
 
 // Las pistas de ese nombre dentro de ese campo. Con `unknown`, las que no lo
-// traen.
+// traen. Dentro de un album van en el orden del disco: disco, pista y titulo,
+// con las sin numero al final. Dentro de un artista, agrupadas por album, con
+// las sin album al final, y cada album en el orden del disco.
 int Library_BuildFieldTracks(Library_Field field, const char *name, SceBool unknown);
+
+// Toda la biblioteca agrupada por ese campo: los grupos en el orden de
+// Library_BuildFieldNames, con el vacio al final, y dentro de cada grupo el
+// orden de Library_BuildFieldTracks. Es la cola de "Seguir con el siguiente".
+int Library_BuildContinuous(Library_Field field);
 
 // Cuantas pistas tiene la vista construida, y cual es cada una.
 int Library_ViewCount(void);
@@ -129,6 +146,12 @@ const char *Library_NameAt(int index);
 // SCE_TRUE para el cubo de las pistas que no traen ese campo.
 SceBool Library_NameIsUnknown(int index);
 int Library_NameTrackCount(int index);
+
+// Los candidatos a caratula del nombre `index`, solo en la vista de artistas:
+// una pista por album distinto, en el orden en que se ve el artista, mas cada
+// pista sin album. La caratula del artista es la del primero que tenga una.
+// NULL cuando `k` se pasa de la lista, y siempre para el cubo "Desconocido".
+const Library_Track *Library_NameCandidate(int index, int k);
 
 // Cuantas pistas del indice siguen sin tags leidos.
 int Library_PendingTags(void);

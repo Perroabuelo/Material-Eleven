@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "audio.h"
 #include "common.h"
+#include "config.h"
 #include "cover.h"
 #include "fs.h"
 #include "lang.h"
@@ -103,6 +105,73 @@ static Library_Field Menu_LibraryField(void) {
 	return (view == VIEW_ALBUMS) ? LIBRARY_FIELD_ALBUM : LIBRARY_FIELD_ARTIST;
 }
 
+// La caratula de cada artista se elige al dibujar, probando sus candidatos de a
+// uno y dentro del presupuesto del fotograma. Lo resuelto se guarda por nombre
+// hasta que la vista se reconstruye; como los candidatos y su orden no cambian,
+// al volver sale la misma.
+#define ARTIST_COVER_PENDING -2
+#define ARTIST_COVER_NONE    -1
+
+static int *artist_cover = NULL;      // candidato elegido, o PENDING / NONE
+static int *artist_cover_next = NULL; // el siguiente candidato a probar
+static int artist_cover_count = 0;
+
+static void Menu_LibraryResetArtistCovers(int count) {
+	free(artist_cover);
+	free(artist_cover_next);
+	artist_cover = NULL;
+	artist_cover_next = NULL;
+	artist_cover_count = 0;
+
+	if (count <= 0)
+		return;
+
+	artist_cover = (int *)malloc(sizeof(int) * (size_t)count);
+	artist_cover_next = (int *)calloc((size_t)count, sizeof(int));
+
+	if (artist_cover == NULL || artist_cover_next == NULL) {
+		free(artist_cover);
+		free(artist_cover_next);
+		artist_cover = NULL;
+		artist_cover_next = NULL;
+		return;
+	}
+
+	for (int i = 0; i < count; i++)
+		artist_cover[i] = ARTIST_COVER_PENDING;
+
+	artist_cover_count = count;
+}
+
+// La pista cuya caratula representa al artista `i`, o NULL si todavia no se
+// sabe o si no tiene ninguna. Cada candidato probado descuenta del presupuesto,
+// asi que recorrer rapido una lista larga no se detiene.
+static const Library_Track *Menu_LibraryArtistCover(int i, int *budget) {
+	if (artist_cover == NULL || i < 0 || i >= artist_cover_count)
+		return NULL;
+
+	while (artist_cover[i] == ARTIST_COVER_PENDING) {
+		const Library_Track *candidate = Library_NameCandidate(i, artist_cover_next[i]);
+
+		if (candidate == NULL) {
+			artist_cover[i] = ARTIST_COVER_NONE;
+			break;
+		}
+
+		if (*budget <= 0)
+			return NULL;
+
+		(*budget)--;
+
+		if (Cover_Probe(candidate->album, candidate->path) == COVER_PROBE_IMAGE)
+			artist_cover[i] = artist_cover_next[i];
+		else
+			artist_cover_next[i]++;
+	}
+
+	return (artist_cover[i] >= 0) ? Library_NameCandidate(i, artist_cover[i]) : NULL;
+}
+
 static int Menu_LibraryBuilt(void) {
 	return Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount();
 }
@@ -113,8 +182,11 @@ static int Menu_LibraryBuild(void) {
 
 	view_dirty = SCE_FALSE;
 
-	if (Menu_LibraryShowsNames())
-		return Library_BuildFieldNames(Menu_LibraryField());
+	if (Menu_LibraryShowsNames()) {
+		int names = Library_BuildFieldNames(Menu_LibraryField());
+		Menu_LibraryResetArtistCovers((view == VIEW_ARTISTS) ? names : 0);
+		return names;
+	}
 
 	if (inside)
 		return Library_BuildFieldTracks(Menu_LibraryField(), inside_name, inside_unknown);
@@ -267,11 +339,24 @@ static void Menu_DrawLibraryList(void) {
 			snprintf(sub, sizeof(sub), Lang_Get((n == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), n);
 
 			// En la vista de albumes la fila ES un album, asi que su caratula es la
-			// del cubo. En la de artistas no hay una sola imagen que la represente.
-			const char *art_album = (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) ? Library_NameAt(i) : NULL;
+			// del cubo. En la de artistas es la de la primera de sus pistas que
+			// tenga una, y el cubo "Desconocido" se queda con el marcador.
+			const char *art_album = NULL, *art_path = NULL;
+
+			if (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) {
+				art_album = Library_NameAt(i);
+			}
+			else if (view == VIEW_ARTISTS) {
+				const Library_Track *rep = Menu_LibraryArtistCover(i, &budget);
+
+				if (rep != NULL) {
+					art_album = rep->album;
+					art_path = rep->path;
+				}
+			}
 
 			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(i), sub,
-				art_album, NULL, NULL, &budget);
+				art_album, art_path, NULL, &budget);
 		}
 		else {
 			const Library_Track *track = Library_ViewTrack(i);
@@ -362,6 +447,12 @@ static void Menu_LibraryRescan(void) {
 // El productor de biblioteca: vuelca la vista vigente en la cola, en el orden
 // en que se ve, y reproduce desde ahi. Siguiente y anterior recorren esa cola y
 // no la carpeta en la que este el archivo.
+//
+// Dentro de un album o un artista, con "Seguir con el siguiente", la cola es
+// en cambio toda la biblioteca agrupada por ese campo. Esa vista comparte el
+// arreglo con la que se esta viendo, asi que el orden de los pasos importa:
+// la pista elegida se toma antes de construirla, y la vista visible se marca
+// para reconstruirse despues.
 static void Menu_LibraryPlaySelected(void) {
 	// La cola es esta vista, en el orden en que se ve. Por eso se reconstruye
 	// aqui: es lo que hace que reproducir desde un album encadene el album y no
@@ -381,6 +472,13 @@ static void Menu_LibraryPlaySelected(void) {
 		return;
 	}
 
+	// La pista apunta al indice, no a la vista: sigue valiendo despues de
+	// construir otra.
+	SceBool continuous = inside && (config.group_end == CONFIG_GROUP_END_NEXT);
+
+	if (continuous)
+		Library_BuildContinuous(Menu_LibraryField());
+
 	Queue_Clear();
 
 	for (int i = 0; i < Library_ViewCount(); i++) {
@@ -389,9 +487,14 @@ static void Menu_LibraryPlaySelected(void) {
 		if (t == NULL)
 			break;
 
-		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t)))
+		if (!Queue_Add(t->path, Menu_LibraryTrackTitle(t), t->album))
 			break;
 	}
+
+	// El siguiente fotograma vuelve a la lista del grupo, no a la biblioteca
+	// entera.
+	if (continuous)
+		view_dirty = SCE_TRUE;
 
 	// La biblioteca indexa por extension sin abrir nada, asi que lista tambien
 	// lo que no se puede decodificar. Decirlo es mejor que no hacer nada.

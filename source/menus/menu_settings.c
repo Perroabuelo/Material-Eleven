@@ -43,6 +43,7 @@ typedef enum {
 
 typedef struct {
 	LangString label;
+	LangString caption; // drawn above the items, or STR_COUNT for none
 	int item_count;
 	int divider_before; // index a divider is drawn above, or -1 for none
 	void (*get_hint)(char *buf, int size);
@@ -157,13 +158,30 @@ static void language_item_activate(int i) {
 	Lang_Apply(config.language);
 }
 
+// ---- Reproduccion ----
+// What the Library queues when playing from inside an album or an artist. It
+// only takes effect on the next play from the Library: the queue already
+// playing is not rebuilt.
+static const LangString group_end_items[] = { STR_GROUP_END_REPEAT, STR_GROUP_END_NEXT };
+static int group_end_choice(void) {
+	return (config.group_end == CONFIG_GROUP_END_NEXT) ? CONFIG_GROUP_END_NEXT : CONFIG_GROUP_END_REPEAT;
+}
+static void group_end_hint(char *buf, int size) {
+	snprintf(buf, size, "%s", Lang_Get(group_end_choice() == CONFIG_GROUP_END_NEXT ? STR_GROUP_END_HINT_NEXT : STR_GROUP_END_HINT_REPEAT));
+}
+static const char *group_end_item_label(int i) { return Lang_Get(group_end_items[i]); }
+static SettingsItemKind group_end_item_kind(int i) { (void)i; return SETTINGS_ITEM_RADIO; }
+static SceBool group_end_item_active(int i) { return group_end_choice() == i; }
+static void group_end_item_activate(int i) { config.group_end = i; Config_Save(config); }
+
 static const SettingsCategory categories[] = {
-	{ STR_SETTINGS_STORAGE, 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
-	{ STR_SETTINGS_SORT, 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
-	{ STR_SETTINGS_METADATA, 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
-	{ STR_SETTINGS_NORMALIZER, 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
-	{ STR_SETTINGS_EQUALIZER, 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
-	{ STR_SETTINGS_LANGUAGE, LANG_PREF_COUNT, -1, language_hint, language_item_label, language_item_kind, language_item_active, language_item_activate },
+	{ STR_SETTINGS_STORAGE, STR_COUNT, 3, -1, device_hint, device_item_label, device_item_kind, device_item_active, device_item_activate },
+	{ STR_SETTINGS_SORT, STR_COUNT, 4, -1, sort_hint, sort_item_label, sort_item_kind, sort_item_active, sort_item_activate },
+	{ STR_SETTINGS_METADATA, STR_COUNT, 3, -1, meta_hint, meta_item_label, meta_item_kind, meta_item_active, meta_item_activate },
+	{ STR_SETTINGS_NORMALIZER, STR_COUNT, 2, -1, alc_hint, alc_item_label, alc_item_kind, alc_item_active, alc_item_activate },
+	{ STR_SETTINGS_EQUALIZER, STR_COUNT, 6, 5, eq_hint, eq_item_label, eq_item_kind, eq_item_active, eq_item_activate },
+	{ STR_SETTINGS_LANGUAGE, STR_COUNT, LANG_PREF_COUNT, -1, language_hint, language_item_label, language_item_kind, language_item_active, language_item_activate },
+	{ STR_SETTINGS_PLAYBACK, STR_GROUP_END_TITLE, 2, -1, group_end_hint, group_end_item_label, group_end_item_kind, group_end_item_active, group_end_item_activate },
 };
 #define CATEGORY_COUNT (sizeof(categories) / sizeof(categories[0]))
 
@@ -223,6 +241,12 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, Lang_Get(cat->label));
 
 	float y = HEADER_H + 18;
+
+	if (cat->caption < STR_COUNT) {
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, DETAIL_X + 26, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, 32), 960 - 26 - (DETAIL_X + 26),
+			UI_COLOR_TEXT_TERTIARY, Lang_Get(cat->caption));
+		y += 36;
+	}
 
 	for (int i = 0; i < cat->item_count; i++) {
 		if (cat->divider_before == i) {

@@ -9,6 +9,7 @@
 #include "common.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
+#include "vitaaudiolib.h"
 
 // Re-sampled every this many frames. Reading it is a syscall, and the numbers
 // only move when a texture or a font is created or destroyed, so once every
@@ -336,9 +337,15 @@ void UI_Debug_Draw(void) {
 		UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;
 
-	snprintf(line, sizeof(line), "HEAP   en uso %d KB", heap_used_kb);
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
-		UI_COLOR_TEXT_PRIMARY, line);
+	{
+		unsigned int deferred = vitaAudioGetDeferredReaps();
+
+		snprintf(line, sizeof(line), "HEAP   en uso %d KB   diferidas %u", heap_used_kb, deferred);
+		// Red when an audio thread outlived its track: not a leak yet, but
+		// worth knowing it happened.
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+			deferred ? UI_COLOR_TRACKER : UI_COLOR_TEXT_PRIMARY, line);
+	}
 	y += UI_DEBUG_LINE_H;
 
 	if (pool_low_water == 0xFFFFFFFFu)

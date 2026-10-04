@@ -15,11 +15,12 @@
 
 ## 4. Listado de Carpetas sin recursión
 
-- [ ] 4.1 En `source/dirbrowse.c`, reemplazar `Dirbrowse_RecursiveFree` por un lazo que libere nodo por nodo (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, entrar y salir diez veces de una carpeta con muchos archivos funcione igual que antes.
+- [x] 4.1 En `source/dirbrowse.c`, reemplazar `Dirbrowse_RecursiveFree` por un lazo que libere nodo por nodo (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, entrar y salir diez veces de una carpeta con muchos archivos funcione igual que antes.
+  - Resultado (2026-10-03, consola): entrar y salir de una carpeta con muchos archivos funciona igual que antes.
 
 ## 5. Verificación en consola
 
-- [ ] 5.1 Verificar en la consola, con el overlay de debug abierto, los scenarios de `specs/ui/nav-shell`:
+- [x] 5.1 Verificar en la consola, con el overlay de debug abierto, los scenarios de `specs/ui/nav-shell`:
   1. Anotar la pila en Carpetas, recorrer con el nav rail Biblioteca → Ajustes → Reproduciendo → Carpetas diez veces: la pila en Carpetas es la misma que la anotada.
   2. Reproducir desde Carpetas, volver, reproducir desde la Biblioteca, volver, diez veces: la pila en Carpetas y en la Biblioteca no cambia.
   3. SELECT en Carpetas y volver desde Ajustes, veinte veces: la pila en Carpetas no cambia.
@@ -28,3 +29,4 @@
   6. Reproducir desde Carpetas y desde la Biblioteca con el mini reproductor a la vista y usar sus controles: funcionan igual.
 
   Listo cuando los seis pasos se cumplan y el resultado quede anotado en esta tarea.
+  - Resultado (2026-10-03, consola, con despachador): los seis pasos se cumplen. La pila queda en la cantidad que usa cada pantalla y no se acumula al cambiar de pantalla, reproducir y volver, ni con SELECT y volver. La vuelta al origen, el mini reproductor y el resto funcionan igual que antes del cambio.

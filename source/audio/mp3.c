@@ -4,6 +4,7 @@
 
 #include "audio.h"
 #include "config.h"
+#include "ui_gpu.h"
 
 // For MP3 ID3 tags
 struct genre {
@@ -115,10 +116,10 @@ static void print_v2(Audio_Metadata *ID3tag, mpg123_id3v2 *v2) {
 }
 
 // Undoes MP3_Init from mpg123_new on. mpg123_delete closes the stream first if
-// mpg123_open got that far, and takes NULL. No path here has loaded a cover
-// yet; one added after the cover is loaded would have to free
-// metadata.cover_image too.
+// mpg123_open got that far, and takes NULL. The cover is NULL until the ID3
+// pictures are read, and freeing NULL does nothing.
 static int MP3_AbortInit(int error) {
+	UI_GpuFreeTexture(&metadata.cover_image);
 	mpg123_delete(mp3);
 	mp3 = NULL;
 	mpg123_exit();
@@ -183,7 +184,13 @@ int MP3_Init(const char *path) {
 		}
 	}
 
-	mpg123_getformat(mp3, &sample_rate, &channels, NULL);
+	// mpg123_open does not read the stream, so this is the first point where a
+	// file that is not MP3 at all shows up. It used to be ignored, and such a
+	// file "opened" at 0 Hz: silence on Now Playing instead of the notice.
+	error = mpg123_getformat(mp3, &sample_rate, &channels, NULL);
+	if (error != MPG123_OK || sample_rate <= 0 || channels <= 0)
+		return MP3_AbortInit(error != MPG123_OK ? error : MPG123_ERR);
+
 	mpg123_format_none(mp3);
 	mpg123_format(mp3, sample_rate, channels, MPG123_ENC_SIGNED_16);
 	total_samples = mpg123_length(mp3);

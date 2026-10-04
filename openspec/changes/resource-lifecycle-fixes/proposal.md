@@ -8,7 +8,7 @@ La revisión de memoria del 2026-10-03 encontró recursos que se toman al abrir 
 
 - **Cambiar de pista espera de verdad a que termine el hilo de audio anterior**, en vez de dormir 100 ms y suponerlo. Un hilo que no alcanza a terminar no puede volver a sonar ni pisar los buffers de la pista nueva, y se recoge más tarde.
 - **Las pistas de tracker dejan de perder memoria** al abrirse, y también cuando no se pueden abrir.
-- **Un archivo MP3, OGG u Opus que no abre libera lo que alcanzó a tomar.**
+- **Un archivo MP3, OGG u Opus que no abre libera lo que alcanzó a tomar.** Un archivo con extensión `.mp3` que no es MP3 ahora falla al abrirse: la Biblioteca muestra el aviso en vez de llevar a Reproduciendo en silencio.
 - **El nombre de un archivo que contiene `%` se muestra tal cual** en Reproduciendo. Hoy se interpreta como formato y puede mostrar basura.
 - **Correcciones de robustez sin efecto visible en uso normal:** OGG deja de cerrar dos veces su archivo; el reescaneo de la biblioteca sin memoria ya no pierde el índice; Carpetas y la cola comprueban la reserva del listado antes de leer el directorio; Carpetas deja de perder un nodo cada vez que lista la raíz.
 - **Un MP3 mono deja de corromper la memoria y tumbar la aplicación.** El decoder de MP3 suponía estéreo y escribía el doble del buffer de salida. Opus pasaba el tamaño de ese buffer en bytes en vez de en muestras, así que un paquete más largo que el grano de salida podía desbordarlo. Ambos se encontraron al verificar este cambio en la consola, con archivos de prueba mono.

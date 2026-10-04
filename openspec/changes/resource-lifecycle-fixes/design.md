@@ -65,9 +65,10 @@ Cada camino de error libera, en orden inverso, lo que se tomó antes, como ya ha
 
 - `XM_Init`: se elimina el `strdup`. `xmp_load_module` acepta `char *`, y se le pasa una copia en un arreglo local de `LIBRARY_PATH_MAX`, como hace `Tags_ReadModule`. Si la carga falla, se llama a `xmp_free_context`.
 - `MP3_Init`: si falla cualquier paso después de `mpg123_new`, se llama a `mpg123_delete`, y además a `mpg123_close` si la apertura había funcionado.
+- `MP3_Init`, además: `mpg123_open` no lee el archivo, así que un archivo que no es MP3 recién se nota en `mpg123_getformat`, cuyo resultado se ignoraba. Esa pista "abría" a 0 Hz y llevaba a Reproduciendo en silencio, sin el aviso de la Biblioteca. Si `mpg123_getformat` falla o da una frecuencia o canales en cero, `MP3_Init` falla como en los demás pasos. Como en ese punto ya se leyeron las imágenes ID3, el camino de error también libera `metadata.cover_image`. Se encontró al verificar este cambio en la consola: al elegir el `.mp3` dañado en la Biblioteca no aparecía el aviso.
 - `OGG_Init`: si `ov_info` devuelve NULL, se llama a `ov_clear`, que también cierra el descriptor.
 - `OPUS_Init`: si falla `op_current_link`, se llama a `op_free`.
-- Ningún camino de error carga carátula antes de fallar, así que `metadata.cover_image` no queda huérfana. Se deja anotado en un comentario para quien agregue un paso después.
+- Salvo el de `mpg123_getformat` en `MP3_Init`, ningún camino de error carga carátula antes de fallar, así que `metadata.cover_image` no queda huérfana. Se deja anotado en un comentario para quien agregue un paso después.
 
 ### 3. `OGG_Term` cierra el descriptor una sola vez
 

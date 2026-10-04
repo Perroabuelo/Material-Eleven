@@ -9,19 +9,21 @@
 
 ## 2. Hilo de audio
 
-- [ ] 2.1 En `source/audio/vitaaudiolib.c`, agregar la generación por hilo, la espera con `sceKernelWaitThreadEnd` y timeout de 1 s, y la lista de pendientes con recogida diferida (decisión 1). En `source/audio/audio.c`, quitar el `sceKernelDelayThread(100 * 1000)` de `Audio_Term`. Exponer el contador de recogidas diferidas y sumarlo a la línea HEAP del overlay. Listo cuando `scripts/build.sh` compile y, en la consola, pasar de pista con R y con el mini reproductor funcione sin cortes ni sonidos superpuestos, en FLAC, MP3, OGG, Opus, WAV y un módulo de tracker.
+- [x] 2.1 En `source/audio/vitaaudiolib.c`, agregar la generación por hilo, la espera con `sceKernelWaitThreadEnd` y timeout de 1 s, y la lista de pendientes con recogida diferida (decisión 1). En `source/audio/audio.c`, quitar el `sceKernelDelayThread(100 * 1000)` de `Audio_Term`. Exponer el contador de recogidas diferidas y sumarlo a la línea HEAP del overlay. Listo cuando `scripts/build.sh` compile y, en la consola, pasar de pista con R y con el mini reproductor funcione sin cortes ni sonidos superpuestos, en FLAC, MP3, OGG, Opus, WAV y un módulo de tracker.
 
 ## 3. Decoders
 
 - [x] 3.1 En `source/audio/xm.c`, quitar el `strdup` y pasar una copia local de la ruta; liberar el contexto si `xmp_load_module` falla (decisión 2). Listo cuando `scripts/build.sh` compile y, en la consola, recorrer tres veces la carpeta de módulos de tracker deje el heap igual que al principio.
 - [x] 3.2 En `source/audio/mp3.c`, `ogg.c` y `opus.c`, liberar lo tomado en cada camino de error de `*_Init` (decisión 2), y quitar el segundo cierre de `OGG_Term` (decisión 3). Listo cuando `scripts/build.sh` compile y, en la consola, pulsar R veinte veces en la carpeta de archivos dañados deje el heap igual que al principio y la pista buena siga sonando.
 
-- [ ] 3.3 En `source/audio/mp3.c`, pedir a `mpg123_read` los bytes de los canales de la pista y no de estéreo fijo; en `source/audio/opus.c`, pasar a `op_read_stereo` el tamaño del buffer en valores y no en bytes (decisión 7). Listo cuando `scripts/build.sh` compile y, en la consola, la carpeta de todos los formatos, que tiene un MP3 mono, suene completa sin que la aplicación se caiga.
+- [x] 3.3 En `source/audio/mp3.c`, pedir a `mpg123_read` los bytes de los canales de la pista y no de estéreo fijo; en `source/audio/opus.c`, pasar a `op_read_stereo` el tamaño del buffer en valores y no en bytes (decisión 7). Listo cuando `scripts/build.sh` compile y, en la consola, la carpeta de todos los formatos, que tiene un MP3 mono, suene completa sin que la aplicación se caiga.
+
+- [ ] 3.4 En `source/audio/mp3.c`, hacer fallar `MP3_Init` cuando `mpg123_getformat` falla o da frecuencia o canales en cero, liberando también la carátula (decisión 2). Listo cuando `scripts/build.sh` compile y, en la consola, elegir el `.mp3` dañado en la Biblioteca muestre el aviso, y el MP3 de la carpeta de todos los formatos siga sonando.
 
 ## 4. Nombre de archivo y casos sin memoria
 
 - [x] 4.1 En `source/menus/menu_audioplayer.c`, copiar el nombre con `"%s"` y comprobar los tres `malloc` de `Menu_InitMusic` (decisión 4). Listo cuando `scripts/build.sh` compile y, en la consola, un WAV sin etiquetas llamado `100% pure %s %d.wav` se muestre con ese nombre exacto en Reproduciendo.
-- [ ] 4.2 En `source/library.c`, restaurar el índice anterior si falla la reserva de la pila del escaneo; en `source/dirbrowse.c` y `source/queue.c`, comprobar las reservas del listado y liberar el nodo descartado al listar la raíz (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, reescanear la biblioteca, navegar carpetas y reproducir desde una carpeta funcione igual que antes. El caso sin memoria no se puede provocar en la consola; se revisa leyendo el diff.
+- [x] 4.2 En `source/library.c`, restaurar el índice anterior si falla la reserva de la pila del escaneo; en `source/dirbrowse.c` y `source/queue.c`, comprobar las reservas del listado y liberar el nodo descartado al listar la raíz (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, reescanear la biblioteca, navegar carpetas y reproducir desde una carpeta funcione igual que antes. El caso sin memoria no se puede provocar en la consola; se revisa leyendo el diff.
 
 ## 5. Verificación en consola
 
@@ -41,3 +43,7 @@
     - Con la 3.3: HEAP en 1347 KB antes de reproducir, que no sirve de base porque reproducir una pista sube el heap unos 210 a 230 KB. Ya reproduciendo, cada carpeta, recorrida una después de otra, terminó en 1559 KB. Como el final de cada carpeta es el inicio de la siguiente, el heap no crece entre `formatos`, `tracker`, `flac` y `danados`. Antes de las correcciones, `danados` sola subía 57 KB en 20 pulsaciones.
     - Paso 6: el WAV `100% pure %s %d.wav` se muestra con su nombre exacto.
     - Recogidas diferidas al final: **0**.
+    - Paso 7: el MP3 mono suena y pasa solo a la pista siguiente sin que la aplicación se caiga.
+    - Paso 3: con R veinte veces rápido en `flac/` queda sonando una sola pista; la memoria libre de usuario no cambia en ningún momento. Con R y con el mini reproductor no hay cortes ni dos pistas a la vez.
+    - Reescaneo de la Biblioteca y navegación por Carpetas: funcionan como antes.
+    - Paso 5: **no cumplido**. Al elegir los archivos dañados en la Biblioteca no se reproducen, pero tampoco aparece el aviso. Causa: un `.mp3` que no es MP3 "abría" porque `MP3_Init` ignoraba `mpg123_getformat`. Se corrige en la tarea 3.4; falta repetir el paso.

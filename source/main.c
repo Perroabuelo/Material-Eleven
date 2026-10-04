@@ -77,6 +77,7 @@ static void UI_InitGraphics(void) {
 }
 
 int main(int argc, char *argv[]) {
+	UI_Debug_MarkStackBase();
 	UI_InitGraphics();
 	UI_Theme_Load();
 

@@ -1,6 +1,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/pvf.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -16,7 +17,7 @@
 #define UI_DEBUG_PANEL_X (UI_RAIL_WIDTH + 10)
 #define UI_DEBUG_PANEL_Y 10
 #define UI_DEBUG_PANEL_W 316
-#define UI_DEBUG_PANEL_H 132
+#define UI_DEBUG_PANEL_H 152
 #define UI_DEBUG_PANEL_PAD 12
 #define UI_DEBUG_LINE_H 20
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
@@ -32,6 +33,13 @@ static unsigned int mem_sample_countdown = 0;
 static int free_user_kb = 0, free_cdram_kb = 0;
 static const char *graphics_mode = "?";
 static int cdram_kb_at_init = 0;
+
+// The main thread's stack, measured from the address of a local in main()
+// down to one in UI_Debug_Update. Every screen calls UI_Debug_Update from the
+// same depth of its own loop, so on a given screen the figure only changes if
+// the screens underneath it have piled up.
+static uintptr_t stack_base = 0;
+static unsigned int stack_used = 0, stack_peak = 0;
 
 void UI_GpuFreeTexture(vita2d_texture **texture) {
 	if (!texture || !*texture)
@@ -79,6 +87,26 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y) {
 void UI_Debug_SetGraphicsMode(const char *mode, int cdram_kb) {
 	graphics_mode = mode ? mode : "?";
 	cdram_kb_at_init = cdram_kb;
+}
+
+void UI_Debug_MarkStackBase(void) {
+	volatile char here = 0;
+
+	stack_base = (uintptr_t)&here;
+}
+
+// Not inlined, so the local below always lives in a frame of its own and the
+// figure does not depend on what the caller's frame happens to hold.
+static __attribute__((noinline)) void UI_Debug_SampleStack(void) {
+	volatile char here = 0;
+
+	if (!stack_base)
+		return;
+
+	// The stack grows downwards on ARM.
+	stack_used = (unsigned int)(stack_base - (uintptr_t)&here);
+	if (stack_used > stack_peak)
+		stack_peak = stack_used;
 }
 
 SceBool UI_Debug_IsVisible(void) {
@@ -261,6 +289,8 @@ void UI_Debug_Update(void) {
 
 	// The pool is tracked whether or not the panel is up: the watermark is only
 	// worth anything if it covers the frames drawn before anyone looked.
+	UI_Debug_SampleStack();
+
 	unsigned int free_space = vita2d_pool_free_space();
 	if (free_space < pool_low_water)
 		pool_low_water = free_space;
@@ -325,6 +355,11 @@ void UI_Debug_Draw(void) {
 			ok ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TRACKER, line);
 		y += UI_DEBUG_LINE_H;
 	}
+
+	snprintf(line, sizeof(line), "PILA   usada %u B   max %u B", stack_used, stack_peak);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+		UI_COLOR_TEXT_PRIMARY, line);
+	y += UI_DEBUG_LINE_H;
 
 	snprintf(line, sizeof(line), "GFX    %s   cdram al init %d KB", graphics_mode, cdram_kb_at_init);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),

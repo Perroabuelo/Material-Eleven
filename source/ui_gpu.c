@@ -1,6 +1,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/pvf.h>
+#include <malloc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,7 +18,7 @@
 #define UI_DEBUG_PANEL_X (UI_RAIL_WIDTH + 10)
 #define UI_DEBUG_PANEL_Y 10
 #define UI_DEBUG_PANEL_W 316
-#define UI_DEBUG_PANEL_H 152
+#define UI_DEBUG_PANEL_H 172
 #define UI_DEBUG_PANEL_PAD 12
 #define UI_DEBUG_LINE_H 20
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
@@ -31,6 +32,10 @@ static unsigned int pool_low_water = 0xFFFFFFFFu;
 static unsigned int pool_exhaustions = 0;
 static unsigned int mem_sample_countdown = 0;
 static int free_user_kb = 0, free_cdram_kb = 0;
+// Bytes in use on the newlib heap. The heap is one memblock reserved at
+// startup, so a leaked malloc never shows up in the free user memory above;
+// it only shows up here.
+static int heap_used_kb = 0;
 static const char *graphics_mode = "?";
 static int cdram_kb_at_init = 0;
 
@@ -118,6 +123,8 @@ static void UI_Debug_SampleMemory(void) {
 
 	memset(&info, 0, sizeof(info));
 	info.size = sizeof(info);
+
+	heap_used_kb = (int)(mallinfo().uordblks / 1024);
 
 	if (sceKernelGetFreeMemorySize(&info) < 0)
 		return;
@@ -325,6 +332,11 @@ void UI_Debug_Draw(void) {
 	UI_DrawRoundedRect(UI_DEBUG_PANEL_X, UI_DEBUG_PANEL_Y, UI_DEBUG_PANEL_W, UI_DEBUG_PANEL_H, UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
 
 	snprintf(line, sizeof(line), "LIBRE  user %d KB   cdram %d KB", free_user_kb, free_cdram_kb);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+		UI_COLOR_TEXT_PRIMARY, line);
+	y += UI_DEBUG_LINE_H;
+
+	snprintf(line, sizeof(line), "HEAP   en uso %d KB", heap_used_kb);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;

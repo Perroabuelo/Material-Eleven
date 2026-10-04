@@ -10,7 +10,7 @@ La revisión de memoria del 2026-10-03 encontró recursos que se toman al abrir 
 - **Las pistas de tracker dejan de perder memoria** al abrirse, y también cuando no se pueden abrir.
 - **Un archivo MP3, OGG u Opus que no abre libera lo que alcanzó a tomar.**
 - **El nombre de un archivo que contiene `%` se muestra tal cual** en Reproduciendo. Hoy se interpreta como formato y puede mostrar basura.
-- **Correcciones de robustez sin efecto visible en uso normal:** OGG deja de cerrar dos veces su archivo; el reescaneo de la biblioteca sin memoria ya no pierde el índice; Carpetas y la cola comprueban la reserva del listado antes de leer el directorio.
+- **Correcciones de robustez sin efecto visible en uso normal:** OGG deja de cerrar dos veces su archivo; el reescaneo de la biblioteca sin memoria ya no pierde el índice; Carpetas y la cola comprueban la reserva del listado antes de leer el directorio; Carpetas deja de perder un nodo cada vez que lista la raíz.
 - **El overlay de debug muestra el heap en uso**, para poder comprobar en la consola que cambiar de pista no lo hace crecer.
 
 ## Capabilities

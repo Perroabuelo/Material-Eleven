@@ -81,6 +81,7 @@ En `Menu_InitMusic`, `snprintf(filename, 128, Utils_Basename(path))` pasa a `snp
 
 - `Library_Scan` (`library.c`): si falla el `malloc` de `stack`, hoy retorna sin liberar `old_tracks` ni `carry` y deja la biblioteca vacía en memoria. Pasa a liberar `carry` y a restaurar `old_tracks` como índice vigente, con `library_count = old_count` y una capacidad igual a esa cuenta. El camino de abandono recarga el índice desde disco; acá basta con devolver el que ya está en memoria, sin leer la tarjeta justo cuando no hay memoria.
 - `Dirbrowse_PopulateFiles` y `Queue_FillFromFolder`: comprueban el `calloc` de las entradas y, si falla, cierran el directorio y devuelven error en vez de escribir sobre NULL. `Dirbrowse_PopulateFiles` también comprueba cada `malloc` de nodo.
+- `Dirbrowse_PopulateFiles` en la carpeta raíz: el nodo que se reserva para la fila ".." se descarta con `continue` sin liberarlo, porque la raíz no tiene esa fila. Se pierde un nodo cada vez que se lista la raíz. Ahora se libera antes del `continue`. Se encontró al implementar la 4.2 y se suma a este cambio.
 
 ### 6. El overlay de debug muestra el heap en uso
 

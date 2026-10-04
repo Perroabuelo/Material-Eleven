@@ -109,8 +109,13 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 				file_count++;
 			}
 			else {
-				if ((i == -1) && (!(strcmp(cwd, root_path))))
+				// The root has no ".." row, so the node taken for it goes back.
+				// It used to be dropped here, one lost each time the root was
+				// listed.
+				if ((i == -1) && (!(strcmp(cwd, root_path)))) {
+					free(item);
 					continue;
+				}
 
 				item->is_dir = SCE_S_ISDIR(entries[i].d_stat.st_mode);
 

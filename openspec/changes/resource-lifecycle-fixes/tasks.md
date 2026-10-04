@@ -19,7 +19,7 @@
 ## 4. Nombre de archivo y casos sin memoria
 
 - [ ] 4.1 En `source/menus/menu_audioplayer.c`, copiar el nombre con `"%s"` y comprobar los tres `malloc` de `Menu_InitMusic` (decisión 4). Listo cuando `scripts/build.sh` compile y, en la consola, un WAV sin etiquetas llamado `100% pure %s %d.wav` se muestre con ese nombre exacto en Reproduciendo.
-- [ ] 4.2 En `source/library.c`, restaurar el índice anterior si falla la reserva de la pila del escaneo; en `source/dirbrowse.c` y `source/queue.c`, comprobar las reservas del listado (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, reescanear la biblioteca, navegar carpetas y reproducir desde una carpeta funcione igual que antes. El caso sin memoria no se puede provocar en la consola; se revisa leyendo el diff.
+- [ ] 4.2 En `source/library.c`, restaurar el índice anterior si falla la reserva de la pila del escaneo; en `source/dirbrowse.c` y `source/queue.c`, comprobar las reservas del listado y liberar el nodo descartado al listar la raíz (decisión 5). Listo cuando `scripts/build.sh` compile y, en la consola, reescanear la biblioteca, navegar carpetas y reproducir desde una carpeta funcione igual que antes. El caso sin memoria no se puede provocar en la consola; se revisa leyendo el diff.
 
 ## 5. Verificación en consola
 

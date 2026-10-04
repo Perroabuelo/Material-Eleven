@@ -8,6 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-10-03
+
+### Fixed
+
+- Fixed a crash that could happen after switching between screens many times in a long session.
+
 ## [3.4.0] - 2026-10-03
 
 ### Added

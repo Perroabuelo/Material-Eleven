@@ -16,4 +16,5 @@
 
 ## 4. Verificación en consola
 
-- [ ] 4.1 Copiar a la Vita las carpetas que genera 3.2 y reproducir `formatos-estereo/` completa y `nombres-largos/` desde Carpetas y desde la Biblioteca. Listo cuando ninguna haga caer la app y el resultado quede anotado en esta tarea. Si `nombres-largos/` descubre un defecto, se anota acá y se decide con el usuario si entra en este cambio.
+- [x] 4.1 Copiar a la Vita las carpetas que genera 3.2 y reproducir `formatos-estereo/` completa y `nombres-largos/` desde Carpetas y desde la Biblioteca. Listo cuando ninguna haga caer la app y el resultado quede anotado en esta tarea. Si `nombres-largos/` descubre un defecto, se anota acá y se decide con el usuario si entra en este cambio.
+  - Resultado (2026-10-04, build de `6f6a589` instalado en la consola): las carpetas de 3.2 se copiaron a `ux0:/pruebas-eleven/` con robocopy. `formatos-estereo/` completa se reprodujo bien desde Carpetas y desde la Biblioteca, con un tono distinto en cada canal y carátula en FLAC y MP3. `nombres-largos/` (100, 200 y 250 bytes, ASCII y japonés) se reprodujo bien desde Carpetas y desde la Biblioteca. El color de acento se ve igual que antes. La app no se cayó en ningún caso y `nombres-largos/` no descubrió defectos.

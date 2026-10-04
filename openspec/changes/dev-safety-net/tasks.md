@@ -10,7 +10,7 @@
 
 ## 3. Herramientas en `tools/`
 
-- [ ] 3.1 Crear `tools/crashdump/psp2dmp.py` con la biblioteca estándar de Python (decisión 6). Listo cuando, con los volcados del 2026-10-04 que están en `ux0:data/`, muestre el data abort (`0x30004`) del hilo principal en los dos de ElevenMPV, identifique el de mpv-vita como app ajena y, con un ELF compilado desde el commit de esos volcados (`075741e` o anterior equivalente), resuelva `pc` a `_malloc_r` y `_free_r`.
+- [x] 3.1 Crear `tools/crashdump/psp2dmp.py` con la biblioteca estándar de Python (decisión 6). Listo cuando, con los volcados del 2026-10-04 que están en `ux0:data/`, muestre el data abort (`0x30004`) del hilo principal en los dos de ElevenMPV, identifique el de mpv-vita como app ajena y, con un ELF compilado desde el commit de esos volcados (`075741e` o anterior equivalente), resuelva `pc` a `_malloc_r` y `_free_r`.
 - [ ] 3.2 Crear `tools/testmedia/gen_testfiles.py` a partir del generador de `resource-lifecycle-fixes`, con las carpetas de la decisión 7. Listo cuando genere todas las carpetas en una salida corta (por ejemplo `C:\pruebas`), `ffprobe` informe 1 canal en `formatos-mono/` y 2 en `formatos-estereo/`, avise y salte los formatos con códec si no encuentra ffmpeg, y avise si la carpeta de salida es demasiado larga para `nombres-largos/`.
 - [ ] 3.3 Escribir `tools/README.md` con qué hace cada herramienta, qué necesita y un ejemplo de uso. Listo cuando cada comando del README, corrido tal cual en WSL, funcione.
 

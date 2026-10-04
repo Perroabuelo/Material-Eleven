@@ -214,8 +214,7 @@ void Audio_Term(void) {
 
 	vitaAudioSetChannelCallback(0, NULL, NULL); // Clear channel callback
 	vitaAudioEndPre();
-	sceKernelDelayThread(100 * 1000);
-	vitaAudioEnd();
+	vitaAudioEnd(); // waits for the output thread itself
 	(* decoder.term)();
 
 	// Clear metadata struct

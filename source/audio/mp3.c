@@ -4,6 +4,7 @@
 
 #include "audio.h"
 #include "config.h"
+#include "ui_gpu.h"
 
 // For MP3 ID3 tags
 struct genre {
@@ -114,31 +115,42 @@ static void print_v2(Audio_Metadata *ID3tag, mpg123_id3v2 *v2) {
 	print_lines(ID3tag->genre, "",   v2->genre);
 }
 
+// Undoes MP3_Init from mpg123_new on. mpg123_delete closes the stream first if
+// mpg123_open got that far, and takes NULL. The cover is NULL until the ID3
+// pictures are read, and freeing NULL does nothing.
+static int MP3_AbortInit(int error) {
+	UI_GpuFreeTexture(&metadata.cover_image);
+	mpg123_delete(mp3);
+	mp3 = NULL;
+	mpg123_exit();
+	return error;
+}
+
 int MP3_Init(const char *path) {
 	int error = mpg123_init();
 	if (error != MPG123_OK)
 		return error;
 
 	mp3 = mpg123_new(NULL, &error);
-	if (error != MPG123_OK)
-		return error;
+	if (mp3 == NULL || error != MPG123_OK)
+		return MP3_AbortInit(error != MPG123_OK ? error : MPG123_ERR);
 
 	error = mpg123_param(mp3, MPG123_FLAGS, MPG123_FORCE_SEEKABLE | MPG123_FUZZY | MPG123_SEEKBUFFER | MPG123_GAPLESS, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	// Let the seek index auto-grow and contain an entry for every frame
 	error = mpg123_param(mp3, MPG123_INDEX_SIZE, -1, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	error = mpg123_param(mp3, MPG123_ADD_FLAGS, MPG123_PICTURE, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	error = mpg123_open(mp3, path);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	mpg123_seek(mp3, 0, SEEK_SET);
 	metadata.has_meta = mpg123_meta_check(mp3);
@@ -172,7 +184,13 @@ int MP3_Init(const char *path) {
 		}
 	}
 
-	mpg123_getformat(mp3, &sample_rate, &channels, NULL);
+	// mpg123_open does not read the stream, so this is the first point where a
+	// file that is not MP3 at all shows up. It used to be ignored, and such a
+	// file "opened" at 0 Hz: silence on Now Playing instead of the notice.
+	error = mpg123_getformat(mp3, &sample_rate, &channels, NULL);
+	if (error != MPG123_OK || sample_rate <= 0 || channels <= 0)
+		return MP3_AbortInit(error != MPG123_OK ? error : MPG123_ERR);
+
 	mpg123_format_none(mp3);
 	mpg123_format(mp3, sample_rate, channels, MPG123_ENC_SIGNED_16);
 	total_samples = mpg123_length(mp3);
@@ -191,7 +209,10 @@ void MP3_Decode(void *buf, unsigned int length, void *userdata) {
 	int ret = 0;
 	size_t done = 0;
 
-	ret = mpg123_read(mp3, buf, length * (sizeof(SceInt16) * 2), &done);
+	// The output buffer holds length frames of the track's own channel count,
+	// which is what vitaAudioInit was opened with. This was a fixed "* 2": on a
+	// mono MP3 it wrote twice the buffer and trampled the heap on every callback.
+	ret = mpg123_read(mp3, buf, length * (sizeof(SceInt16) * channels), &done);
 	frames_read = mpg123_tell(mp3);
 
 	if (frames_read >= total_samples || ret == MPG123_DONE)

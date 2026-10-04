@@ -13,8 +13,13 @@ int OPUS_Init(const char *path) {
 	if ((opus = op_open_file(path, &error)) == NULL)
 		return OP_FALSE;
 
-	if ((error = op_current_link(opus)) < 0)
+	// No cover has been loaded yet; a step added after one is would have to
+	// free metadata.cover_image too.
+	if ((error = op_current_link(opus)) < 0) {
+		op_free(opus);
+		opus = NULL;
 		return OP_FALSE;
+	}
 
 	max_samples = op_pcm_total(opus, -1);
 
@@ -82,7 +87,10 @@ SceUInt8 OPUS_GetChannels(void) {
 }
 
 void OPUS_Decode(void *buf, unsigned int length, void *userdata) {
-	int read = op_read_stereo(opus, (opus_int16 *)buf, (int)length * (sizeof(SceInt16) * 2));
+	// op_read_stereo takes the room in buf as a count of opus_int16 values, not
+	// bytes: length stereo frames are length * 2 of them. Passed in bytes, a
+	// packet longer than the grain was free to run past the buffer.
+	int read = op_read_stereo(opus, (opus_int16 *)buf, (int)length * 2);
 	if (read)
 		samples_read = op_pcm_tell(opus);
 

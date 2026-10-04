@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "audio.h"
@@ -14,11 +15,21 @@ static struct xmp_module_info module_info;
 static SceUInt64 samples_read = 0, total_samples = 0;
 
 int XM_Init(const char *path) {
-	xmp = xmp_create_context();
-	char *xmp_path = strdup(path);
+	char xmp_path[512];
 
-	if (xmp_load_module(xmp, xmp_path) < 0)
+	// xmp_load_module asks for char * rather than const char *. This used to
+	// be a strdup that was never freed, one per track played.
+	snprintf(xmp_path, sizeof(xmp_path), "%s", path);
+
+	xmp = xmp_create_context();
+	if (xmp == NULL)
 		return -1;
+
+	if (xmp_load_module(xmp, xmp_path) < 0) {
+		xmp_free_context(xmp);
+		xmp = NULL;
+		return -1;
+	}
 
 	xmp_start_player(xmp, 44100, 0);
 	xmp_get_frame_info(xmp, &frame_info);

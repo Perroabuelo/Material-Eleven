@@ -6,6 +6,7 @@
  */
 
 #include <psp2/apputil.h>
+#include <psp2/kernel/error.h>
 #include <psp2/kernel/threadmgr.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,12 +17,47 @@
 // Undocumented SceAppUtil system param id for the current system volume level (0-30).
 #define VITA_SYSTEM_PARAM_ID_VOLUME 9
 
+// How long vitaAudioEnd waits for an output thread to leave its loop. In the
+// normal case it leaves after the grain it is on, about 20 ms.
+#define VITA_AUDIO_END_TIMEOUT_US (1000 * 1000)
+
+// Output threads that did not end in time, kept with their port and buffers
+// until they do. Freeing those under a thread that is still running is exactly
+// what the wait is there to avoid.
+#define VITA_AUDIO_PENDING_MAX 4
+
 static int audio_ready = 0;
 static short *vitaAudioSoundBuffer[VITA_NUM_AUDIO_CHANNELS][2];
 static VITA_audio_channelinfo vitaAudioStatus[VITA_NUM_AUDIO_CHANNELS];
 static volatile int audio_terminate = 0;
 static unsigned int audio_grain = VITA_DEFAULT_AUDIO_SAMPLES;
 static unsigned int audio_channel_count = 2;
+
+// Bumped by every vitaAudioInit. A thread whose generation is no longer the
+// current one leaves its loop even though vitaAudioInit has cleared
+// audio_terminate for the next track.
+static volatile unsigned int audio_generation = 0;
+
+// Copied onto the thread's own stack by sceKernelStartThread, so a thread from
+// an earlier track only ever touches its own port and buffers.
+typedef struct {
+	int channel;
+	unsigned int generation;
+	int port;
+	short *buffer[2];
+	unsigned int grain;
+	unsigned int channel_count;
+} VITA_audio_threadargs;
+
+typedef struct {
+	int threadhandle;
+	int port;
+	short *buffer[2];
+} VITA_audio_pending;
+
+static VITA_audio_pending audio_pending[VITA_AUDIO_PENDING_MAX];
+static int audio_pending_count = 0;
+static unsigned int audio_deferred_reaps = 0;
 
 void vitaAudioSetVolume(int channel, int left, int right) {
 	vitaAudioStatus[channel].volumeleft = left;
@@ -55,24 +91,33 @@ int vitaAudioOutBlocking(unsigned int channel, unsigned int vol1, unsigned int v
 	return sceAudioOutOutput(vitaAudioStatus[channel].handle, buf);
 }
 
+static SceBool vitaAudioThreadIsCurrent(unsigned int generation) {
+	return (audio_terminate == 0 && generation == audio_generation) ? SCE_TRUE : SCE_FALSE;
+}
+
 static int vitaAudioChannelThread(unsigned int args, void *argp) {
 	volatile int bufidx = 0;
 
-	int channel = *(int *) argp;
+	VITA_audio_threadargs a = *(VITA_audio_threadargs *) argp;
 
-	while (audio_terminate == 0) {
-		void *bufptr = vitaAudioSoundBuffer[channel][bufidx];
+	while (vitaAudioThreadIsCurrent(a.generation)) {
+		void *bufptr = a.buffer[bufidx];
 		vitaAudioCallback_t callback;
-		callback = vitaAudioStatus[channel].callback;
+		callback = vitaAudioStatus[a.channel].callback;
 
-		if (callback)
-			callback(bufptr, audio_grain, vitaAudioStatus[channel].userdata);
+		// The callback slot is shared with the next track's thread, so it is
+		// only used while this thread is still the current one.
+		if (callback && vitaAudioThreadIsCurrent(a.generation))
+			callback(bufptr, a.grain, vitaAudioStatus[a.channel].userdata);
 		else {
 			unsigned int *ptr = bufptr;
-			unsigned int i, count = (audio_grain * audio_channel_count * sizeof(short)) / sizeof(unsigned int);
+			unsigned int i, count = (a.grain * a.channel_count * sizeof(short)) / sizeof(unsigned int);
 			for (i = 0; i < count; ++i)
 				*(ptr++) = 0;
 		}
+
+		if (!vitaAudioThreadIsCurrent(a.generation))
+			break;
 
 		// Follow the system volume slider, applying a compensating cut when an
 		// EQ preset is boosting gain and the user opted in to limiting for it.
@@ -82,7 +127,12 @@ static int vitaAudioChannelThread(unsigned int args, void *argp) {
 		if (config.eq_mode != 0 && config.eq_volume)
 			vol /= 2;
 
-		vitaAudioOutBlocking(channel, vol, vol, bufptr);
+		if (vol > SCE_AUDIO_OUT_MAX_VOL)
+			vol = SCE_AUDIO_OUT_MAX_VOL;
+
+		int vols[2] = {vol, vol};
+		sceAudioOutSetVolume(a.port, SCE_AUDIO_VOLUME_FLAG_L_CH | SCE_AUDIO_VOLUME_FLAG_R_CH, vols);
+		sceAudioOutOutput(a.port, bufptr);
 		bufidx = (bufidx ? 0:1);
 	}
 
@@ -106,11 +156,78 @@ unsigned int vitaAudioGetDefaultGrain(void) {
 	return VITA_DEFAULT_AUDIO_SAMPLES;
 }
 
+unsigned int vitaAudioGetDeferredReaps(void) {
+	return audio_deferred_reaps;
+}
+
+static void vitaAudioRelease(int port, short *buffer0, short *buffer1) {
+	if (port >= 0)
+		sceAudioOutReleasePort(port);
+
+	free(buffer0);
+	free(buffer1);
+}
+
+// Waits up to *timeout microseconds for the thread to end, or forever when
+// timeout is NULL. Returns SCE_FALSE only if it is still running.
+static SceBool vitaAudioWaitThread(int threadhandle, SceUInt *timeout) {
+	int ret = sceKernelWaitThreadEnd(threadhandle, NULL, timeout);
+
+	if (ret == (int)SCE_KERNEL_ERROR_WAIT_TIMEOUT)
+		return SCE_FALSE;
+
+	// Ended, or the handle is no good any more: either way nothing can be
+	// waited on, and the thread is deleted below.
+	sceKernelDeleteThread(threadhandle);
+	return SCE_TRUE;
+}
+
+// Frees every pending thread that has ended by now, without waiting.
+static void vitaAudioReapPending(void) {
+	int i = 0;
+
+	while (i < audio_pending_count) {
+		VITA_audio_pending *p = &audio_pending[i];
+		SceUInt timeout = 0;
+
+		if (vitaAudioWaitThread(p->threadhandle, &timeout)) {
+			vitaAudioRelease(p->port, p->buffer[0], p->buffer[1]);
+			// Shifted down rather than swapped, so the oldest stays first.
+			memmove(&audio_pending[i], &audio_pending[i + 1], (audio_pending_count - i - 1) * sizeof(audio_pending[0]));
+			audio_pending_count--;
+		}
+		else
+			i++;
+	}
+}
+
+static void vitaAudioDefer(int threadhandle, int port, short *buffer0, short *buffer1) {
+	if (audio_pending_count == VITA_AUDIO_PENDING_MAX) {
+		// Full: wait for the oldest, however long it takes, to make room.
+		VITA_audio_pending *oldest = &audio_pending[0];
+
+		vitaAudioWaitThread(oldest->threadhandle, NULL);
+		vitaAudioRelease(oldest->port, oldest->buffer[0], oldest->buffer[1]);
+		memmove(&audio_pending[0], &audio_pending[1], (VITA_AUDIO_PENDING_MAX - 1) * sizeof(audio_pending[0]));
+		audio_pending_count--;
+	}
+
+	audio_pending[audio_pending_count].threadhandle = threadhandle;
+	audio_pending[audio_pending_count].port = port;
+	audio_pending[audio_pending_count].buffer[0] = buffer0;
+	audio_pending[audio_pending_count].buffer[1] = buffer1;
+	audio_pending_count++;
+	audio_deferred_reaps++;
+}
+
 int vitaAudioInit(int frequency, SceAudioOutMode mode) {
 	int i, ret;
 	int failed = 0;
 	char str[32];
 
+	vitaAudioReapPending();
+
+	audio_generation++;
 	audio_terminate = 0;
 	audio_ready = 0;
 	audio_channel_count = (mode == SCE_AUDIO_OUT_MODE_STEREO) ? 2 : 1;
@@ -164,7 +281,16 @@ int vitaAudioInit(int frequency, SceAudioOutMode mode) {
 			break;
 		}
 
-		ret = sceKernelStartThread(vitaAudioStatus[i].threadhandle, sizeof(i), &i);
+		VITA_audio_threadargs args = {
+			.channel = i,
+			.generation = audio_generation,
+			.port = vitaAudioStatus[i].handle,
+			.buffer = { vitaAudioSoundBuffer[i][0], vitaAudioSoundBuffer[i][1] },
+			.grain = audio_grain,
+			.channel_count = audio_channel_count,
+		};
+
+		ret = sceKernelStartThread(vitaAudioStatus[i].threadhandle, sizeof(args), &args);
 
 		if (ret != 0) {
 			failed = 1;
@@ -199,21 +325,26 @@ void vitaAudioEnd(void) {
 	audio_ready = 0;
 	audio_terminate = 1;
 
-	for (i = 0; i < VITA_NUM_AUDIO_CHANNELS; i++) {
-		if (vitaAudioStatus[i].threadhandle != -1)
-			sceKernelDeleteThread(vitaAudioStatus[i].threadhandle);
-
-		vitaAudioStatus[i].threadhandle = -1;
-	}
+	vitaAudioReapPending();
 
 	for (i = 0; i < VITA_NUM_AUDIO_CHANNELS; i++) {
-		if (vitaAudioStatus[i].handle != -1) {
-			sceAudioOutReleasePort(vitaAudioStatus[i].handle);
-			vitaAudioStatus[i].handle = -1;
+		int port = vitaAudioStatus[i].handle;
+		short *buffer0 = vitaAudioSoundBuffer[i][0], *buffer1 = vitaAudioSoundBuffer[i][1];
+		SceBool ended = SCE_TRUE;
+
+		if (vitaAudioStatus[i].threadhandle != -1) {
+			SceUInt timeout = VITA_AUDIO_END_TIMEOUT_US;
+
+			ended = vitaAudioWaitThread(vitaAudioStatus[i].threadhandle, &timeout);
+			if (!ended)
+				vitaAudioDefer(vitaAudioStatus[i].threadhandle, port, buffer0, buffer1);
 		}
 
-		free(vitaAudioSoundBuffer[i][0]);
-		free(vitaAudioSoundBuffer[i][1]);
+		if (ended)
+			vitaAudioRelease(port, buffer0, buffer1);
+
+		vitaAudioStatus[i].threadhandle = -1;
+		vitaAudioStatus[i].handle = -1;
 		vitaAudioSoundBuffer[i][0] = NULL;
 		vitaAudioSoundBuffer[i][1] = NULL;
 	}

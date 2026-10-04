@@ -1,6 +1,7 @@
 #include <psp2/io/dirent.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
+#include <psp2/kernel/error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,10 +66,19 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 	file_count = 0;
 
 	SceBool parent_dir_set = SCE_FALSE;
+	int ret = 0;
 
 	if (R_SUCCEEDED(dir = sceIoDopen(cwd))) {
 		int entryCount = 0;
 		SceIoDirent *entries = (SceIoDirent *)calloc(MAX_FILES, sizeof(SceIoDirent));
+
+		// MAX_FILES entries are a sizeable block. Without them there is nothing
+		// to read into, and the screen is left with an empty list.
+		if (entries == NULL) {
+			sceIoDclose(dir);
+			position = 0;
+			return SCE_KERNEL_ERROR_NO_MEMORY;
+		}
 
 		// El hueco se comprueba antes de leer y no despues: sceIoDread escribe
 		// en entries[entryCount], asi que una carpeta con mas de MAX_FILES
@@ -82,6 +92,14 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 		for (int i = -1; i < entryCount; i++) {
 			// Allocate Memory
 			File *item = (File *)malloc(sizeof(File));
+
+			// Out of memory part way: keep what is listed so far, which
+			// file_count already matches.
+			if (item == NULL) {
+				ret = SCE_KERNEL_ERROR_NO_MEMORY;
+				break;
+			}
+
 			memset(item, 0, sizeof(File));
 
 			if ((strcmp(cwd, root_path)) && (i == -1) && (!parent_dir_set)) {
@@ -91,8 +109,13 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 				file_count++;
 			}
 			else {
-				if ((i == -1) && (!(strcmp(cwd, root_path))))
+				// The root has no ".." row, so the node taken for it goes back.
+				// It used to be dropped here, one lost each time the root was
+				// listed.
+				if ((i == -1) && (!(strcmp(cwd, root_path)))) {
+					free(item);
 					continue;
+				}
 
 				item->is_dir = SCE_S_ISDIR(entries[i].d_stat.st_mode);
 
@@ -130,7 +153,7 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 	else
 		position = 0; // Refresh position
 
-	return 0;
+	return ret;
 }
 
 // ---- In-folder filename filter ----

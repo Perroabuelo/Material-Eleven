@@ -42,8 +42,12 @@ int OGG_Init(const char *path) {
 		return -1;
 	}
 
-	if ((ogg_info = ov_info(&ogg, -1)) == NULL)
+	// ov_clear also closes ogg_file, through ogg_callback_close. No cover has
+	// been loaded yet; a step added after one is would have to free it too.
+	if ((ogg_info = ov_info(&ogg, -1)) == NULL) {
+		ov_clear(&ogg);
 		return -1;
+	}
 
 	max_lenth = ov_pcm_total(&ogg, -1);
 
@@ -137,6 +141,6 @@ void OGG_Term(void) {
 	if (metadata.has_meta)
         metadata.has_meta = SCE_FALSE;
 
+	// Closes ogg_file as well, through ogg_callback_close.
 	ov_clear(&ogg);
-	sceIoClose(ogg_file);
 }

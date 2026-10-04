@@ -39,6 +39,9 @@ unsigned int vitaAudioGetGrain(void);
 // escriba en ese buffer tiene que contar con esto y no suponer estereo.
 unsigned int vitaAudioGetChannelCount(void);
 unsigned int vitaAudioGetDefaultGrain(void);
+// Times vitaAudioEnd gave up waiting for an output thread and left it, with its
+// port and buffers, to be freed once it ends. Shown in the debug overlay.
+unsigned int vitaAudioGetDeferredReaps(void);
 
 #ifdef __cplusplus
 }

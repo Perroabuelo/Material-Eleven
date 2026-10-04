@@ -13,8 +13,13 @@ int OPUS_Init(const char *path) {
 	if ((opus = op_open_file(path, &error)) == NULL)
 		return OP_FALSE;
 
-	if ((error = op_current_link(opus)) < 0)
+	// No cover has been loaded yet; a step added after one is would have to
+	// free metadata.cover_image too.
+	if ((error = op_current_link(opus)) < 0) {
+		op_free(opus);
+		opus = NULL;
 		return OP_FALSE;
+	}
 
 	max_samples = op_pcm_total(opus, -1);
 

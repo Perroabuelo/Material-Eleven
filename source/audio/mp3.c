@@ -114,31 +114,42 @@ static void print_v2(Audio_Metadata *ID3tag, mpg123_id3v2 *v2) {
 	print_lines(ID3tag->genre, "",   v2->genre);
 }
 
+// Undoes MP3_Init from mpg123_new on. mpg123_delete closes the stream first if
+// mpg123_open got that far, and takes NULL. No path here has loaded a cover
+// yet; one added after the cover is loaded would have to free
+// metadata.cover_image too.
+static int MP3_AbortInit(int error) {
+	mpg123_delete(mp3);
+	mp3 = NULL;
+	mpg123_exit();
+	return error;
+}
+
 int MP3_Init(const char *path) {
 	int error = mpg123_init();
 	if (error != MPG123_OK)
 		return error;
 
 	mp3 = mpg123_new(NULL, &error);
-	if (error != MPG123_OK)
-		return error;
+	if (mp3 == NULL || error != MPG123_OK)
+		return MP3_AbortInit(error != MPG123_OK ? error : MPG123_ERR);
 
 	error = mpg123_param(mp3, MPG123_FLAGS, MPG123_FORCE_SEEKABLE | MPG123_FUZZY | MPG123_SEEKBUFFER | MPG123_GAPLESS, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	// Let the seek index auto-grow and contain an entry for every frame
 	error = mpg123_param(mp3, MPG123_INDEX_SIZE, -1, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	error = mpg123_param(mp3, MPG123_ADD_FLAGS, MPG123_PICTURE, 0.0);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	error = mpg123_open(mp3, path);
 	if (error != MPG123_OK)
-		return error;
+		return MP3_AbortInit(error);
 
 	mpg123_seek(mp3, 0, SEEK_SET);
 	metadata.has_meta = mpg123_meta_check(mp3);

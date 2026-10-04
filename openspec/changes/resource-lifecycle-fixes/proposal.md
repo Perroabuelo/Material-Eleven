@@ -11,6 +11,7 @@ La revisión de memoria del 2026-10-03 encontró recursos que se toman al abrir 
 - **Un archivo MP3, OGG u Opus que no abre libera lo que alcanzó a tomar.**
 - **El nombre de un archivo que contiene `%` se muestra tal cual** en Reproduciendo. Hoy se interpreta como formato y puede mostrar basura.
 - **Correcciones de robustez sin efecto visible en uso normal:** OGG deja de cerrar dos veces su archivo; el reescaneo de la biblioteca sin memoria ya no pierde el índice; Carpetas y la cola comprueban la reserva del listado antes de leer el directorio; Carpetas deja de perder un nodo cada vez que lista la raíz.
+- **Un MP3 mono deja de corromper la memoria y tumbar la aplicación.** El decoder de MP3 suponía estéreo y escribía el doble del buffer de salida. Opus pasaba el tamaño de ese buffer en bytes en vez de en muestras, así que un paquete más largo que el grano de salida podía desbordarlo. Ambos se encontraron al verificar este cambio en la consola, con archivos de prueba mono.
 - **El overlay de debug muestra el heap en uso**, para poder comprobar en la consola que cambiar de pista no lo hace crecer.
 
 ## Capabilities
@@ -27,7 +28,7 @@ Ninguna.
 
 - **Código C**:
   - `source/audio/vitaaudiolib.c` y `source/audio/audio.c`: espera y recogida del hilo de audio.
-  - `source/audio/xm.c`, `mp3.c`, `ogg.c` y `opus.c`: caminos de error y cierre.
+  - `source/audio/xm.c`, `mp3.c`, `ogg.c` y `opus.c`: caminos de error y cierre; en `mp3.c` y `opus.c`, además, el tamaño de lo que se decodifica en cada callback.
   - `source/menus/menu_audioplayer.c`: nombre de archivo sin formato.
   - `source/library.c`, `source/dirbrowse.c` y `source/queue.c`: casos sin memoria.
   - `source/ui_gpu.c`: línea nueva en el overlay de debug.
@@ -48,3 +49,4 @@ Versión objetivo: **v3.4.2** (patch): corrige fugas de memoria al cambiar de pi
 
 - Fixed memory leaks when changing tracks, when playing tracker modules (MOD, XM, IT, S3M) and when a file can't be opened.
 - Fixed file names containing "%" showing garbled on Now Playing.
+- Fixed a crash when playing mono MP3 files, and a possible memory overrun on some Opus files.

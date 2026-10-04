@@ -16,6 +16,8 @@
 - [ ] 3.1 En `source/audio/xm.c`, quitar el `strdup` y pasar una copia local de la ruta; liberar el contexto si `xmp_load_module` falla (decisión 2). Listo cuando `scripts/build.sh` compile y, en la consola, recorrer tres veces la carpeta de módulos de tracker deje el heap igual que al principio.
 - [ ] 3.2 En `source/audio/mp3.c`, `ogg.c` y `opus.c`, liberar lo tomado en cada camino de error de `*_Init` (decisión 2), y quitar el segundo cierre de `OGG_Term` (decisión 3). Listo cuando `scripts/build.sh` compile y, en la consola, pulsar R veinte veces en la carpeta de archivos dañados deje el heap igual que al principio y la pista buena siga sonando.
 
+- [ ] 3.3 En `source/audio/mp3.c`, pedir a `mpg123_read` los bytes de los canales de la pista y no de estéreo fijo; en `source/audio/opus.c`, pasar a `op_read_stereo` el tamaño del buffer en valores y no en bytes (decisión 7). Listo cuando `scripts/build.sh` compile y, en la consola, la carpeta de todos los formatos, que tiene un MP3 mono, suene completa sin que la aplicación se caiga.
+
 ## 4. Nombre de archivo y casos sin memoria
 
 - [ ] 4.1 En `source/menus/menu_audioplayer.c`, copiar el nombre con `"%s"` y comprobar los tres `malloc` de `Menu_InitMusic` (decisión 4). Listo cuando `scripts/build.sh` compile y, en la consola, un WAV sin etiquetas llamado `100% pure %s %d.wav` se muestre con ese nombre exacto en Reproduciendo.
@@ -30,5 +32,6 @@
   4. Carpeta con una pista buena y archivos dañados, R veinte veces: la pista buena vuelve a sonar y el heap queda igual.
   5. Elegir diez veces un archivo dañado en la Biblioteca: aparece el aviso cada vez y el heap no cambia.
   6. WAV `100% pure %s %d.wav`: se muestra con su nombre exacto.
+  7. MP3 mono de la carpeta de todos los formatos, escuchado completo hasta que pase solo a la siguiente: suena entero y la aplicación no se cae.
 
-  Listo cuando los seis pasos se cumplan y el resultado quede anotado en esta tarea, junto con el contador de recogidas diferidas al final de la prueba.
+  Listo cuando los siete pasos se cumplan y el resultado quede anotado en esta tarea, junto con el contador de recogidas diferidas al final de la prueba.

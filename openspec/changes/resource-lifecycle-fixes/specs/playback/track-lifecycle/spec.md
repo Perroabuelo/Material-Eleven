@@ -30,6 +30,13 @@ Cuando el sistema intenta abrir una pista y no puede (archivo dañado, truncado 
 - **WHEN** el usuario, con el overlay de debug abierto, elige en la Biblioteca un archivo dañado diez veces seguidas
 - **THEN** cada vez aparece el aviso de que no se puede reproducir, y el heap en uso no cambia entre el primer intento y el décimo
 
+### Requirement: Decodificar no escribe fuera del buffer de salida
+Al decodificar una pista, el sistema SHALL escribir en cada llamada solo lo que cabe en el buffer de salida, según los canales con que se abrió la salida de audio, sea la pista mono o estéreo.
+
+#### Scenario: Un MP3 mono suena sin tumbar la aplicación
+- **WHEN** el usuario reproduce de principio a fin un MP3 mono y después pasa a la pista siguiente
+- **THEN** el MP3 suena completo, la aplicación sigue funcionando y la pista siguiente suena con normalidad
+
 ### Requirement: El nombre del archivo se muestra tal cual
 Cuando Reproduciendo muestra el nombre del archivo en lugar del título (porque la pista no tiene etiquetas), el sistema SHALL mostrarlo exactamente como se llama el archivo, sin interpretar ningún carácter del nombre.
 

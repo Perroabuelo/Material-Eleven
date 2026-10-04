@@ -202,7 +202,10 @@ void MP3_Decode(void *buf, unsigned int length, void *userdata) {
 	int ret = 0;
 	size_t done = 0;
 
-	ret = mpg123_read(mp3, buf, length * (sizeof(SceInt16) * 2), &done);
+	// The output buffer holds length frames of the track's own channel count,
+	// which is what vitaAudioInit was opened with. This was a fixed "* 2": on a
+	// mono MP3 it wrote twice the buffer and trampled the heap on every callback.
+	ret = mpg123_read(mp3, buf, length * (sizeof(SceInt16) * channels), &done);
 	frames_read = mpg123_tell(mp3);
 
 	if (frames_read >= total_samples || ret == MPG123_DONE)

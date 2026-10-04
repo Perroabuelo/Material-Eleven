@@ -87,6 +87,17 @@ En `Menu_InitMusic`, `snprintf(filename, 128, Utils_Basename(path))` pasa a `snp
 
 `UI_Debug_SampleMemory`, que ya corre cada 120 fotogramas, lee también `mallinfo().uordblks` (bytes en uso del heap de newlib) y lo muestra en KB en una línea "HEAP", junto con el contador de recogidas diferidas de la decisión 1.
 
+### 7. Cada decoder escribe en el buffer de salida lo que cabe
+
+Se encontró al verificar este cambio en la consola. Los archivos de prueba generados con ffmpeg eran mono, y la carpeta de todos los formatos tumbó la aplicación al llegar al MP3. Los dos volcados de ElevenMPV murieron dentro de `_malloc_r` y `_free_r`, con muestras PCM en los registros: el heap estaba pisado por audio.
+
+`vitaAudioInit` reserva `grano × canales` muestras de 16 bits, con los canales que declara el decoder.
+
+- `MP3_Decode` pedía a `mpg123_read` `length × 2 × 2` bytes, o sea estéreo fijo. Con un MP3 mono escribía el doble del buffer en cada callback. Pasa a usar los canales de la pista, los mismos que `MP3_GetChannels` devuelve a `vitaAudioInit`.
+- `OPUS_Decode` pasaba a `op_read_stereo` el tamaño en bytes (`length × 4`), cuando la función lo espera en valores `opus_int16` (`length × 2`). Como `op_read_stereo` devuelve como mucho un paquete, solo se desborda con paquetes más largos que el grano, pero puede pasar. Pasa a `length × 2`.
+
+FLAC y WAV piden cuadros y la librería multiplica por los canales; OGG calcula con `ogg_info->channels`; los módulos de tracker se abren siempre en estéreo. Ninguno de esos cambia.
+
 ## Risks / Trade-offs
 
 - **[`mallinfo` no disponible o sin datos en el newlib de VitaSDK]** → Se comprueba en la primera tarea, compilando y mirando el overlay en la consola. Si no sirve, la alternativa es contar `malloc`/`free` con `-Wl,--wrap=malloc,--wrap=free` solo en el overlay. En ese caso la decisión 6 se actualiza antes de seguir.

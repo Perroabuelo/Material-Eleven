@@ -87,7 +87,10 @@ SceUInt8 OPUS_GetChannels(void) {
 }
 
 void OPUS_Decode(void *buf, unsigned int length, void *userdata) {
-	int read = op_read_stereo(opus, (opus_int16 *)buf, (int)length * (sizeof(SceInt16) * 2));
+	// op_read_stereo takes the room in buf as a count of opus_int16 values, not
+	// bytes: length stereo frames are length * 2 of them. Passed in bytes, a
+	// packet longer than the grain was free to run past the buffer.
+	int read = op_read_stereo(opus, (opus_int16 *)buf, (int)length * 2);
 	if (read)
 		samples_read = op_pcm_tell(opus);
 

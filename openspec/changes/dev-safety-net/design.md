@@ -86,7 +86,7 @@ Los formatos de `.lrc` y `.m3u` que acepte la app los definirán los cambios de 
 - **[ASan encuentra algo más al sumar un test nuevo]** → Es el objetivo. Lo que encuentre en un módulo existente se corrige en el cambio que lo descubre, o se discute si cambia el alcance.
 - **[LeakSanitizer no funciona bajo ptrace ni en algunos contenedores]** → El job corre en el runner sin contenedor, donde funciona. En local funciona en WSL2 (probado el 2026-10-04). Con gdb se usa `SANITIZE=0`.
 - **[El formato del volcado cambia con otro firmware]** → El script valida lo que lee y avisa si no cuadra. Los offsets quedan como constantes con nombre al principio del archivo.
-- **[Los nombres de 250 bytes no caben en una ruta de Windows]** → Windows limita las rutas a 260 caracteres. El generador avisa si la carpeta de salida es demasiado larga para esos nombres y sugiere una corta, como `C:\pruebas`.
+- **[Los nombres de 250 bytes no caben en una ruta de Windows]** → Sin `LongPathsEnabled`, Windows limita las rutas a 260 caracteres. En ese caso el generador salta los nombres que no caben, avisa y sugiere una carpeta corta, como `C:\pruebas`, o activar las rutas largas. El nombre ASCII de 250 bytes no cabe bajo ese límite en ninguna carpeta (`C:\pruebas\nombres-largos\` ya suma 26), así que necesita las rutas largas. Con ellas activas, como en esta máquina, se generan todos. Una escritura que falle igual se avisa y se salta.
 - **[`-O1` cambia lo que ven los tests]** → Ningún test depende del nivel de optimización. Si alguno fallara solo con `-O1`, sería otro comportamiento indefinido que encontrar.
 
 ## Migration Plan

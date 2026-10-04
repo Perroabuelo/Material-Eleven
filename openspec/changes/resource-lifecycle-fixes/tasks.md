@@ -18,7 +18,7 @@
 
 - [x] 3.3 En `source/audio/mp3.c`, pedir a `mpg123_read` los bytes de los canales de la pista y no de estéreo fijo; en `source/audio/opus.c`, pasar a `op_read_stereo` el tamaño del buffer en valores y no en bytes (decisión 7). Listo cuando `scripts/build.sh` compile y, en la consola, la carpeta de todos los formatos, que tiene un MP3 mono, suene completa sin que la aplicación se caiga.
 
-- [ ] 3.4 En `source/audio/mp3.c`, hacer fallar `MP3_Init` cuando `mpg123_getformat` falla o da frecuencia o canales en cero, liberando también la carátula (decisión 2). Listo cuando `scripts/build.sh` compile y, en la consola, elegir el `.mp3` dañado en la Biblioteca muestre el aviso, y el MP3 de la carpeta de todos los formatos siga sonando.
+- [x] 3.4 En `source/audio/mp3.c`, hacer fallar `MP3_Init` cuando `mpg123_getformat` falla o da frecuencia o canales en cero, liberando también la carátula (decisión 2). Listo cuando `scripts/build.sh` compile y, en la consola, elegir el `.mp3` dañado en la Biblioteca muestre el aviso, y el MP3 de la carpeta de todos los formatos siga sonando.
 
 ## 4. Nombre de archivo y casos sin memoria
 
@@ -27,7 +27,7 @@
 
 ## 5. Verificación en consola
 
-- [ ] 5.1 Verificar en la consola, con el overlay de debug abierto, los scenarios de `specs/playback/track-lifecycle`:
+- [x] 5.1 Verificar en la consola, con el overlay de debug abierto, los scenarios de `specs/playback/track-lifecycle`:
   1. Carpeta con todos los formatos: anotar el heap, pasar de pista cincuenta veces con R y volver a la primera; el heap queda igual, con unos pocos KB de diferencia como máximo.
   2. Carpeta de módulos de tracker recorrida tres veces: el heap queda igual.
   3. R veinte veces rápido en una carpeta de FLAC: suena una sola pista, y el heap y la memoria libre de usuario quedan igual.
@@ -38,7 +38,7 @@
 
   Listo cuando los siete pasos se cumplan y el resultado quede anotado en esta tarea, junto con el contador de recogidas diferidas al final de la prueba.
 
-  - Resultado parcial (2026-10-04), con las carpetas de `ux0:/pruebas-eleven/` (`formatos`, `tracker`, `flac`, `danados`, `nombre`; los archivos generados con ffmpeg son mono):
+  - Resultado (2026-10-04), con las carpetas de `ux0:/pruebas-eleven/` (`formatos`, `tracker`, `flac`, `danados`, `nombre`; los archivos generados con ffmpeg son mono):
     - Primera pasada: el crash del MP3 mono, que llevó a la tarea 3.3.
     - Con la 3.3: HEAP en 1347 KB antes de reproducir, que no sirve de base porque reproducir una pista sube el heap unos 210 a 230 KB. Ya reproduciendo, cada carpeta, recorrida una después de otra, terminó en 1559 KB. Como el final de cada carpeta es el inicio de la siguiente, el heap no crece entre `formatos`, `tracker`, `flac` y `danados`. Antes de las correcciones, `danados` sola subía 57 KB en 20 pulsaciones.
     - Paso 6: el WAV `100% pure %s %d.wav` se muestra con su nombre exacto.
@@ -46,4 +46,5 @@
     - Paso 7: el MP3 mono suena y pasa solo a la pista siguiente sin que la aplicación se caiga.
     - Paso 3: con R veinte veces rápido en `flac/` queda sonando una sola pista; la memoria libre de usuario no cambia en ningún momento. Con R y con el mini reproductor no hay cortes ni dos pistas a la vez.
     - Reescaneo de la Biblioteca y navegación por Carpetas: funcionan como antes.
-    - Paso 5: **no cumplido**. Al elegir los archivos dañados en la Biblioteca no se reproducen, pero tampoco aparece el aviso. Causa: un `.mp3` que no es MP3 "abría" porque `MP3_Init` ignoraba `mpg123_getformat`. Se corrige en la tarea 3.4; falta repetir el paso.
+    - Paso 5: **no cumplido**. Al elegir los archivos dañados en la Biblioteca no se reproducen, pero tampoco aparece el aviso. Causa: un `.mp3` que no es MP3 "abría" porque `MP3_Init` ignoraba `mpg123_getformat`. Se corrige en la tarea 3.4.
+    - Paso 5, repetido con la 3.4: al elegir el `.mp3` dañado diez veces en la Biblioteca, aparece el aviso cada vez y el heap no cambia. El MP3 válido de `formatos/` sigue sonando.

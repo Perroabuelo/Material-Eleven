@@ -1076,6 +1076,7 @@ SceBool Library_RunScan(void) {
 	// hace falta releer.
 	Library_Track *old_tracks = library_tracks;
 	int old_count = library_count;
+	SceBool old_built = library_built, old_truncated = library_truncated;
 
 	library_tracks = NULL;
 	library_count = 0;
@@ -1092,8 +1093,19 @@ SceBool Library_RunScan(void) {
 	// estado del escaneo es esta pila.
 	Library_Pending *stack = (Library_Pending *)malloc(sizeof(Library_Pending) * LIBRARY_MAX_DEPTH * 8);
 
-	if (stack == NULL)
+	if (stack == NULL) {
+		// Sin memoria para escanear, el indice anterior vuelve a ser el vigente
+		// tal cual. Abandonar lo recarga del disco; aqui no hace falta tocar la
+		// tarjeta justo cuando falta memoria, porque sigue entero en memoria.
+		// Las vistas se rehacen solas desde el indice cuando se piden.
+		free(carry);
+		library_tracks = old_tracks;
+		library_count = old_count;
+		library_capacity = old_count;
+		library_built = old_built;
+		library_truncated = old_truncated;
 		return SCE_FALSE;
+	}
 
 	const int stack_max = LIBRARY_MAX_DEPTH * 8;
 	int top = 0;

@@ -1,5 +1,6 @@
 #include <psp2/io/dirent.h>
 #include <psp2/io/stat.h>
+#include <psp2/kernel/error.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -290,6 +291,13 @@ int Queue_FillFromFolder(const char *dir) {
 	if (R_SUCCEEDED(fd = sceIoDopen(dir))) {
 		int entryCount = 0, i = 0;
 		SceIoDirent *entries = (SceIoDirent *)calloc(MAX_FILES, sizeof(SceIoDirent));
+
+		// Without the listing there is nothing to queue; the track that was
+		// picked still plays on its own.
+		if (entries == NULL) {
+			sceIoDclose(fd);
+			return SCE_KERNEL_ERROR_NO_MEMORY;
+		}
 
 		while ((entryCount < MAX_FILES) && (sceIoDread(fd, &entries[entryCount]) > 0))
 			entryCount++;

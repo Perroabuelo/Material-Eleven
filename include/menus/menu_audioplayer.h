@@ -3,18 +3,21 @@
 
 #include <psp2/types.h>
 
-// Starts playback of `path` and shows the Now Playing screen. Tears down
-// whatever track was previously loaded first, if any.
-// SCE_FALSE si el archivo no se pudo decodificar; entonces no se entra a
+#include "ui_screen.h"
+
+// Starts playback of `path` and asks to go to Now Playing through
+// NavRequest_Set; the screen that called it goes there once it takes the
+// request. Tears down whatever track was previously loaded first, if any.
+// SCE_FALSE si el archivo no se pudo decodificar; entonces no se pide ir a
 // Now Playing y no suena nada.
 SceBool Menu_PlayAudio(char *path);
 // Igual, pero sin construir la cola: la trae hecha quien llama. Es lo que
 // usa la biblioteca, cuya cola es la vista y no la carpeta del archivo.
 SceBool Menu_PlayQueued(const char *path);
-// Re-enters the Now Playing screen for the track already loaded in the
-// background (used by the nav rail from Folders/Settings). No-op if
-// nothing is currently loaded.
-void Menu_ShowNowPlaying(void);
+// Runs the Now Playing screen for the track already loaded until the user
+// leaves it, and returns the screen to go to next. Returns UI_SCREEN_FOLDERS
+// at once if nothing is loaded.
+UI_Screen Menu_ShowNowPlaying(void);
 
 // Cross-screen playback state/controls for Folders' docked mini-player
 // and the nav rail. These reflect the most recently opened track and

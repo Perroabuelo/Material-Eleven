@@ -17,12 +17,15 @@
 File *files = NULL;
 static char filter_query[64] = "";
 
-static void Dirbrowse_RecursiveFree(File *node) {
-	if (node == NULL) // End of list
-		return;
+// One node at a time: a recursive free took a stack frame per entry, up to the
+// whole listing on top of whatever screen was running.
+static void Dirbrowse_FreeList(File *node) {
+	while (node != NULL) {
+		File *next = node->next;
 
-	Dirbrowse_RecursiveFree(node->next); // Nest further
-	free(node); // Free memory
+		free(node);
+		node = next;
+	}
 }
 
 static void Dirbrowse_SaveLastDirectory(void) {
@@ -57,7 +60,7 @@ static int cmpstringp(const void *p1, const void *p2) {
 int Dirbrowse_PopulateFiles(SceBool refresh) {
 	SceUID dir = 0;
 
-	Dirbrowse_RecursiveFree(files);
+	Dirbrowse_FreeList(files);
 	files = NULL;
 	file_count = 0;
 

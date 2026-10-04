@@ -16,6 +16,7 @@
 #include "menu_library.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
+#include "nav_request.h"
 #include "queue.h"
 #include "status_bar.h"
 #include "touch.h"
@@ -372,16 +373,17 @@ static SceBool Menu_HandleTransportTouch(void) {
 	return SCE_FALSE;
 }
 
-static void Menu_RunNowPlayingLoop(void) {
+static UI_Screen Menu_RunNowPlayingLoop(void) {
 	track_failed = SCE_FALSE;
 
 	while (SCE_TRUE) {
 		// Antes de dibujar: sin track, las cadenas de esta pantalla estan
 		// liberadas y puestas a NULL.
+		// Ninguna pista de la cola abrio: se vuelve adonde se eligio, igual
+		// que con el boton de volver.
 		if (track_failed) {
 			track_failed = SCE_FALSE;
-			Touch_Reset();
-			return;
+			return playback_origin;
 		}
 
 		vita2d_start_drawing();
@@ -465,21 +467,8 @@ static void Menu_RunNowPlayingLoop(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
-		if (tapped == UI_SCREEN_FOLDERS) {
-			Touch_Reset();
-			Menu_DisplayFiles();
-			return;
-		}
-		else if (tapped == UI_SCREEN_LIBRARY) {
-			Touch_Reset();
-			Menu_DisplayLibrary();
-			return;
-		}
-		else if (tapped == UI_SCREEN_SETTINGS) {
-			Touch_Reset();
-			Menu_DisplaySettings();
-			return;
-		}
+		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_LIBRARY || tapped == UI_SCREEN_SETTINGS)
+			return tapped;
 
 		if (pressed & SCE_CTRL_ENTER)
 			Audio_Pause();
@@ -509,14 +498,8 @@ static void Menu_RunNowPlayingLoop(void) {
 				Music_HandleNext(SCE_TRUE, SCE_FALSE);
 		}
 
-		if (pressed & SCE_CTRL_CANCEL) {
-			Touch_Reset();
-			if (playback_origin == UI_SCREEN_LIBRARY)
-				Menu_DisplayLibrary();
-			else
-				Menu_DisplayFiles();
-			return;
-		}
+		if (pressed & SCE_CTRL_CANCEL)
+			return playback_origin;
 	}
 }
 
@@ -545,7 +528,7 @@ SceBool Menu_PlayAudio(char *path) {
 	// encima del techo - la pista suena igual y la cola sigue desde su principio.
 	Queue_SeekToPath(path);
 
-	Menu_RunNowPlayingLoop();
+	NavRequest_Set(UI_SCREEN_NOW_PLAYING);
 	return SCE_TRUE;
 }
 
@@ -561,13 +544,13 @@ SceBool Menu_PlayQueued(const char *path) {
 	playback_origin = UI_SCREEN_LIBRARY;
 	Queue_SeekToPath(path);
 
-	Menu_RunNowPlayingLoop();
+	NavRequest_Set(UI_SCREEN_NOW_PLAYING);
 	return SCE_TRUE;
 }
 
-void Menu_ShowNowPlaying(void) {
+UI_Screen Menu_ShowNowPlaying(void) {
 	if (!Audio_HasTrack())
-		return;
+		return UI_SCREEN_FOLDERS;
 
-	Menu_RunNowPlayingLoop();
+	return Menu_RunNowPlayingLoop();
 }

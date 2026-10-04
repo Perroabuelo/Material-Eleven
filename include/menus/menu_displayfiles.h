@@ -3,7 +3,10 @@
 
 #include <psp2/types.h>
 
-void Menu_DisplayFiles(void);
+#include "ui_screen.h"
+
+// Runs the Folders screen until the user picks another one, and returns it.
+UI_Screen Menu_DisplayFiles(void);
 
 // Abre esta misma pantalla en modo seleccion de carpeta: la misma
 // navegacion y los mismos controles que el usuario ya conoce, pero

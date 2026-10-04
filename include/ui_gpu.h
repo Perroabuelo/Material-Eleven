@@ -70,6 +70,12 @@ void UI_Debug_Free(void);
 // because that call always reports success - see UI_InitGraphics in main.c.
 void UI_Debug_SetGraphicsMode(const char *mode, int cdram_kb_at_init);
 
+// Called once, first thing in main(): records where the main thread's stack
+// starts, so the overlay can show how much of it the current screen sits on.
+// The stack is reserved whole when the thread is created, so the free-memory
+// figures never move while it fills; this is the only way to watch it.
+void UI_Debug_MarkStackBase(void);
+
 // Once per frame, before drawing: samples the pad and flips the overlay.
 void UI_Debug_Update(void);
 // Once per frame, last of all, so the panel sits on top of the screen below it.

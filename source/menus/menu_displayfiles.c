@@ -11,6 +11,7 @@
 #include "mini_player.h"
 #include "menu_settings.h"
 #include "nav_rail.h"
+#include "nav_request.h"
 #include "status_bar.h"
 #include "touch.h"
 #include "ui_gpu.h"
@@ -412,7 +413,7 @@ SceBool Menu_PickFolder(char *out, int cap) {
 	return picked;
 }
 
-void Menu_DisplayFiles(void) {
+UI_Screen Menu_DisplayFiles(void) {
 	Dirbrowse_PopulateFiles(SCE_FALSE);
 	vita2d_set_clear_color(UI_COLOR_BG);
 
@@ -449,18 +450,10 @@ void Menu_DisplayFiles(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
-		if (tapped == UI_SCREEN_SETTINGS) {
-			Menu_DisplaySettings();
-			return;
-		}
-		else if (tapped == UI_SCREEN_LIBRARY) {
-			Menu_DisplayLibrary();
-			return;
-		}
-		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {
-			Menu_ShowNowPlaying();
-			return;
-		}
+		if (tapped == UI_SCREEN_SETTINGS || tapped == UI_SCREEN_LIBRARY)
+			return tapped;
+		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
+			return tapped;
 
 		if (MiniPlayer_HandleTouch())
 			continue;
@@ -472,9 +465,12 @@ void Menu_DisplayFiles(void) {
 
 		Menu_HandleControls();
 
-		if (pressed & SCE_CTRL_SELECT) {
-			Menu_DisplaySettings();
-			return;
-		}
+		// Abrir un archivo de audio no entra a Reproduciendo: lo pide.
+		UI_Screen requested = NavRequest_Take();
+		if (requested != UI_SCREEN_NONE)
+			return requested;
+
+		if (pressed & SCE_CTRL_SELECT)
+			return UI_SCREEN_SETTINGS;
 	}
 }

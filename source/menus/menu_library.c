@@ -15,6 +15,7 @@
 #include "menu_settings.h"
 #include "mini_player.h"
 #include "nav_rail.h"
+#include "nav_request.h"
 #include "queue.h"
 #include "status_bar.h"
 #include "touch.h"
@@ -596,7 +597,7 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 		Menu_LibraryPickRoot();
 }
 
-void Menu_DisplayLibrary(void) {
+UI_Screen Menu_DisplayLibrary(void) {
 	vita2d_set_clear_color(UI_COLOR_BG);
 
 	while (SCE_TRUE) {
@@ -668,30 +669,22 @@ void Menu_DisplayLibrary(void) {
 		if (notice_frames > 0)
 			notice_frames--;
 
-		if (tapped == UI_SCREEN_FOLDERS) {
-			Touch_Reset();
-			Menu_DisplayFiles();
-			return;
-		}
-		else if (tapped == UI_SCREEN_SETTINGS) {
-			Touch_Reset();
-			Menu_DisplaySettings();
-			return;
-		}
-		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {
-			Touch_Reset();
-			Menu_ShowNowPlaying();
-			return;
-		}
+		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_SETTINGS)
+			return tapped;
+		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
+			return tapped;
 
 		if (MiniPlayer_HandleTouch())
 			continue;
 
 		Menu_HandleLibraryControls(state);
 
-		if (pressed & SCE_CTRL_SELECT) {
-			Menu_DisplaySettings();
-			return;
-		}
+		// Reproducir una pista no entra a Reproduciendo: lo pide.
+		UI_Screen requested = NavRequest_Take();
+		if (requested != UI_SCREEN_NONE)
+			return requested;
+
+		if (pressed & SCE_CTRL_SELECT)
+			return UI_SCREEN_SETTINGS;
 	}
 }

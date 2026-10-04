@@ -66,3 +66,4 @@ templates/
 /tests/test_accent
 /tests/test_track_meta
 /tests/test_library_row
+/tests/test_nav_request

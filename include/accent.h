@@ -8,7 +8,11 @@
 // (tests/test_accent.c). Colors are RGBA8 packed the way vita2d packs them, red
 // in the low byte. Reading the cover texture itself stays in ui_theme.c.
 
-#define ACCENT_RGBA8(r, g, b, a) ((((a) & 0xFF) << 24) | (((b) & 0xFF) << 16) | (((g) & 0xFF) << 8) | (((r) & 0xFF) << 0))
+// Each component goes through unsigned int before its shift: alpha 128 or more
+// shifted 24 bits does not fit in an int.
+#define ACCENT_RGBA8(r, g, b, a) \
+	((((unsigned int)(a) & 0xFFu) << 24) | (((unsigned int)(b) & 0xFFu) << 16) | \
+	 (((unsigned int)(g) & 0xFFu) << 8) | (((unsigned int)(r) & 0xFFu) << 0))
 
 #define UI_HUE_BUCKETS 24
 // Below this share of sampled pixels, the cover has no usable hue at all and

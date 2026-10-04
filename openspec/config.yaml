@@ -15,10 +15,10 @@ context: |
   Se compila con -Wall -Werror. El producto es el .vpk (Title ID ELEVENMPV).
   Decodificadores: dr_flac/dr_wav, libopus/opusfile y libxmp-lite en libs/;
   mpg123, libFLAC y libvorbis/libogg vienen de VitaSDK.
-  Pruebas: por ahora, compilación limpia más verificación manual en la consola.
-  Los tests en PC para la lógica pura (cola, biblioteca) se agregan cuando existan.
-  CI: GitHub Actions compila el .vpk con VitaSDK. Un release adjunta el .vpk al
-  GitHub Release de su tag.
+  Pruebas: compilación limpia, tests en PC de la lógica pura en tests/ (make -C tests,
+  con AddressSanitizer y UBSan, también en CI) y verificación manual en la consola.
+  CI: GitHub Actions compila el .vpk con VitaSDK y corre los tests en PC. Un release
+  adjunta el .vpk al GitHub Release de su tag.
   Repo: Perroabuelo/Material-Eleven. La rama principal es main.
   Git: cada cambio de OpenSpec vive en su propia rama change/<nombre-del-cambio>,
   creada desde main al proponerlo, y se integra a main solo mediante PR con CI en verde.
@@ -41,6 +41,9 @@ rules:
     - Indicar cualquier cambio necesario en el pipeline de CI
     - Mantener la logica (cola, biblioteca, parsing) como codigo puro, sin llamadas a vita2d ni SCE, para poder probarla en PC
     - Si se incorpora codigo o assets de terceros, indicar su licencia y su compatibilidad con GPLv3
+    - >-
+      Si el cambio reserva memoria, abre archivos o crea hilos, indicar quien libera cada
+      recurso y en que momento, tambien cuando algo falla a mitad de camino
   specs:
     - Cada requirement debe tener al menos un scenario verificable por un test o por una prueba en consola descrita paso a paso
   tasks:
@@ -48,6 +51,10 @@ rules:
     - Cada tarea incluye sus pruebas y el criterio de listo (que debe compilar, que test debe pasar o que se verifica en consola)
     - Ninguna tarea se marca completa si la compilacion (-Werror) o los tests fallan
     - Si el CI aun no existe, la configuracion de CI es de las primeras tareas
+    - >-
+      Si el cambio reserva memoria, abre archivos o crea hilos, la verificacion en consola
+      anota el HEAP del overlay de debug antes y despues de repetir la accion N veces, y en
+      los modulos puros un test en PC cubre el camino de error
 
 operations:
   apply:

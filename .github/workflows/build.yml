@@ -31,3 +31,14 @@ jobs:
           name: ElevenMPV.vpk
           path: build/ElevenMPV.vpk
           if-no-files-found: error
+
+  # PC tests of the pure logic, with the runner's gcc and under ASan/UBSan.
+  # No container: LeakSanitizer needs the plain runner, and the tests must not
+  # follow the VitaSDK image's update cycle.
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Test
+        run: make -C tests

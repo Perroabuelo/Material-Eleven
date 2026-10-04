@@ -5,6 +5,7 @@
 #include <vita2d.h>
 
 #include "accent.h"
+#include "ui_screen.h"
 
 // ---- Text ----
 //
@@ -175,17 +176,6 @@ SceBool UI_TouchTarget(float x, float y, float w, float h);
 // Nominal pixel size behind each UI_TextSize token, indexed by the enum.
 // Draw sites name the token, never the number.
 extern const unsigned int ui_text_px[UI_TS_COUNT];
-
-// Screen identifiers for the nav rail / cross-screen state.
-typedef enum {
-	UI_SCREEN_NOW_PLAYING = 0,
-	UI_SCREEN_FOLDERS = 1,
-	UI_SCREEN_SETTINGS = 2,
-	// Añadida al final y no intercalada: el orden del rail lo decide
-	// NavRail_GetButtons, asi que renumerar no compraria nada.
-	UI_SCREEN_LIBRARY = 3,
-	UI_SCREEN_NONE = -1
-} UI_Screen;
 
 void UI_Theme_Load(void);
 void UI_Theme_Free(void);

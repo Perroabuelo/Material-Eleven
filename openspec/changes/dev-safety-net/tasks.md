@@ -6,7 +6,7 @@
 
 ## 2. Regla de memoria en OpenSpec
 
-- [ ] 2.1 En `openspec/config.yaml`, agregar la regla de memoria en `rules.design` y en `rules.tasks`, y actualizar la línea de pruebas del `context` (decisión 4). Listo cuando `openspec instructions design --change dev-safety-net --json` y `openspec instructions tasks --change dev-safety-net --json` muestren las reglas nuevas, y `openspec validate dev-safety-net` pase.
+- [x] 2.1 En `openspec/config.yaml`, agregar la regla de memoria en `rules.design` y en `rules.tasks`, y actualizar la línea de pruebas del `context` (decisión 4). Listo cuando `openspec instructions design --change dev-safety-net --json` y `openspec instructions tasks --change dev-safety-net --json` muestren las reglas nuevas, y `openspec validate dev-safety-net` pase.
 
 ## 3. Herramientas en `tools/`
 

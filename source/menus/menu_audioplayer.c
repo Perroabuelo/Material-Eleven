@@ -60,10 +60,26 @@ static SceBool Menu_InitMusic(const char *path) {
 	sceAudioOutSetAlcMode(config.alc_mode);
 
 	filename = malloc(128);
-	snprintf(filename, 128, Utils_Basename(path));
 	position_time = malloc(35);
 	length_time = malloc(35);
 	length_time_width = 0;
+
+	// Out of memory: undo Audio_Init too, so the caller's "could not open"
+	// path finds nothing loaded, as it would after any other failure.
+	if (filename == NULL || position_time == NULL || length_time == NULL) {
+		free(filename);
+		free(position_time);
+		free(length_time);
+		filename = position_time = length_time = NULL;
+
+		UI_GpuFreeTexture(&metadata.cover_image);
+		Audio_Term();
+		return SCE_FALSE;
+	}
+
+	// The name is data, never a format: a file called "100% %s.wav" has to
+	// come out as exactly that.
+	snprintf(filename, 128, "%s", Utils_Basename(path));
 
 	Menu_ConvertSecondsToString(length_time, Audio_GetLengthSeconds());
 	length_time_width = UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, length_time);
@@ -88,7 +104,7 @@ static SceBool Menu_InitMusic(const char *path) {
 
 static void Music_FreeCurrentTrack(void) {
 	// Tearing a track down stalls the render loop for a long time - Audio_Term
-	// sleeps 100ms and the next track decodes its cover art - so the frame still
+	// waits for the audio thread and the next track decodes its cover art - so the frame still
 	// in flight has to be retired first. Otherwise the next vita2d_start_drawing
 	// resets the vertex pool out from under vertices the GPU is still reading.
 	// This used to sit inside the branch below, which meant it only ran when the

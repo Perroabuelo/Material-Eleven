@@ -277,7 +277,7 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 	}
 }
 
-void Menu_DisplaySettings(void) {
+UI_Screen Menu_DisplaySettings(void) {
 	int category_index = 0, item_index = 0;
 
 	vita2d_set_clear_color(UI_COLOR_BG);
@@ -310,23 +310,13 @@ void Menu_DisplaySettings(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
-		if (tapped == UI_SCREEN_FOLDERS) {
-			Menu_DisplayFiles();
-			return;
-		}
-		else if (tapped == UI_SCREEN_LIBRARY) {
-			Menu_DisplayLibrary();
-			return;
-		}
-		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack()) {
-			Menu_ShowNowPlaying();
-			return;
-		}
+		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_LIBRARY)
+			return tapped;
+		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
+			return tapped;
 
-		if (pressed & SCE_CTRL_CANCEL) {
-			Menu_DisplayFiles();
-			return;
-		}
+		if (pressed & SCE_CTRL_CANCEL)
+			return UI_SCREEN_FOLDERS;
 
 		if (pressed & SCE_CTRL_LTRIGGER) {
 			category_index--;

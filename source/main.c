@@ -18,7 +18,11 @@
 #include "lang.h"
 #include "cover.h"
 #include "library.h"
+#include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
+#include "menu_library.h"
+#include "menu_settings.h"
+#include "nav_request.h"
 #include "touch.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
@@ -117,9 +121,37 @@ int main(int argc, char *argv[]) {
 	sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
 	Utils_InitPowerTick();
 
-	Menu_DisplayFiles();
+	// Every screen runs until the user picks another one and returns it, and
+	// only this loop opens the next. A screen that opened the next one itself
+	// would never return, so each jump would leave its frame on the stack for
+	// good and a long session would overflow it.
+	UI_Screen next = UI_SCREEN_FOLDERS;
+	while (next != UI_SCREEN_NONE) {
+		// Once per jump and in one place: a touch that changed screen must not
+		// count on the new one, and a request nobody took must not leak into it.
+		Touch_Reset();
+		NavRequest_Take();
 
-	// No screen returns here any more: START turns the screen off instead of
+		switch (next) {
+			case UI_SCREEN_FOLDERS:
+				next = Menu_DisplayFiles();
+				break;
+			case UI_SCREEN_LIBRARY:
+				next = Menu_DisplayLibrary();
+				break;
+			case UI_SCREEN_SETTINGS:
+				next = Menu_DisplaySettings();
+				break;
+			case UI_SCREEN_NOW_PLAYING:
+				next = Audio_HasTrack() ? Menu_ShowNowPlaying() : UI_SCREEN_FOLDERS;
+				break;
+			default:
+				next = UI_SCREEN_FOLDERS;
+				break;
+		}
+	}
+
+	// No screen returns UI_SCREEN_NONE yet: START turns the screen off instead of
 	// exiting, and the app is closed from the PS button, which ends the
 	// process without unwinding. The teardown stays for any future way out,
 	// and a track may still be loaded then, since playback survives

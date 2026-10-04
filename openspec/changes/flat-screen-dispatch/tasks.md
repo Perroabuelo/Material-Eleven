@@ -11,7 +11,7 @@
 
 ## 3. Despachador
 
-- [ ] 3.1 Convertir las cuatro pantallas y `main.c` en un solo paso, porque las firmas cambian juntas. `Menu_DisplayFiles`, `Menu_DisplayLibrary`, `Menu_DisplaySettings` y `Menu_ShowNowPlaying` devuelven `UI_Screen`, y cada `Menu_X(); return;` pasa a `return UI_SCREEN_X;`. Reproduciendo devuelve `playback_origin` al volver y cuando `track_failed` está puesto (decisión 3). `Menu_PlayAudio` y `Menu_PlayQueued` dejan de entrar al lazo de Reproduciendo y llaman a `NavRequest_Set(UI_SCREEN_NOW_PLAYING)`. Carpetas y Biblioteca revisan `NavRequest_Take()` después de sus controles. `main.c` corre el lazo despachador con `Touch_Reset()` y `NavRequest_Take()` en cada cambio (decisión 1). Listo cuando `scripts/build.sh` compile y `grep -n "Menu_Display\|Menu_ShowNowPlaying" source/menus source/dirbrowse.c` no muestre ninguna llamada, solo definiciones.
+- [x] 3.1 Convertir las cuatro pantallas y `main.c` en un solo paso, porque las firmas cambian juntas. `Menu_DisplayFiles`, `Menu_DisplayLibrary`, `Menu_DisplaySettings` y `Menu_ShowNowPlaying` devuelven `UI_Screen`, y cada `Menu_X(); return;` pasa a `return UI_SCREEN_X;`. Reproduciendo devuelve `playback_origin` al volver y cuando `track_failed` está puesto (decisión 3). `Menu_PlayAudio` y `Menu_PlayQueued` dejan de entrar al lazo de Reproduciendo y llaman a `NavRequest_Set(UI_SCREEN_NOW_PLAYING)`. Carpetas y Biblioteca revisan `NavRequest_Take()` después de sus controles. `main.c` corre el lazo despachador con `Touch_Reset()` y `NavRequest_Take()` en cada cambio (decisión 1). Listo cuando `scripts/build.sh` compile y `grep -n "Menu_Display\|Menu_ShowNowPlaying" source/menus source/dirbrowse.c` no muestre ninguna llamada, solo definiciones.
 
 ## 4. Listado de Carpetas sin recursión
 

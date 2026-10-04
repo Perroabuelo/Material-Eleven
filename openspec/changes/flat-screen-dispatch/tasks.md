@@ -5,8 +5,8 @@
 
 ## 2. Pedido diferido de pantalla
 
-- [ ] 2.1 Mover el `enum UI_Screen` de `include/ui_theme.h` a `include/ui_screen.h`, sin dependencias, e incluirlo desde `ui_theme.h`. Listo cuando `scripts/build.sh` compile sin tocar ningún otro `#include`.
-- [ ] 2.2 Agregar `include/nav_request.h` y `source/nav_request.c` con `NavRequest_Set` y `NavRequest_Take` (decisión 2), sin vita2d ni SCE. Agregar `tests/test_nav_request.c` (sin pedido devuelve `UI_SCREEN_NONE`; `Take` devuelve el pedido y lo borra; gana el último pedido) y sumarlo a `tests/Makefile`. Listo cuando `make -C tests` pase completo y `scripts/build.sh` compile.
+- [x] 2.1 Mover el `enum UI_Screen` de `include/ui_theme.h` a `include/ui_screen.h`, sin dependencias, e incluirlo desde `ui_theme.h`. Listo cuando `scripts/build.sh` compile sin tocar ningún otro `#include`.
+- [x] 2.2 Agregar `include/nav_request.h` y `source/nav_request.c` con `NavRequest_Set` y `NavRequest_Take` (decisión 2), sin vita2d ni SCE. Agregar `tests/test_nav_request.c` (sin pedido devuelve `UI_SCREEN_NONE`; `Take` devuelve el pedido y lo borra; gana el último pedido) y sumarlo a `tests/Makefile`. Listo cuando `make -C tests` pase completo y `scripts/build.sh` compile.
 
 ## 3. Despachador
 

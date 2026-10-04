@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Reads a PS Vita crash dump (psp2dmp) and shows why the app stopped.
 
-    python3 psp2dmp.py ux0-data/psp2core-...-eboot.bin.psp2dmp
-    python3 psp2dmp.py DUMP --elf ~/empv-build/ElevenMPV
+    python3 psp2dmp.py DUMP [DUMP...] [--elf build/ElevenMPV]
 
 Shows, in this order: the app the dump belongs to, its threads with their stop
 reason, the registers of every thread that stopped with a fault, and the module,
@@ -266,22 +265,17 @@ def show_section(title, func, *args):
         return None
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Show why a PS Vita app crashed, from its psp2dmp.")
-    ap.add_argument("dump", help="psp2dmp file, gzipped or not")
-    ap.add_argument("--elf", help=f"unstripped ELF of the same build (e.g. ~/empv-build/{APP_MODULE})")
-    ap.add_argument("--addr2line", help=f"path to {ADDR2LINE} (default: PATH, then $VITASDK/bin)")
-    ap.add_argument("--module", default=APP_MODULE, help=f"module the ELF belongs to (default: {APP_MODULE})")
-    args = ap.parse_args()
-
+def show_dump(path, args):
     try:
-        notes = read_notes(load(args.dump))
+        notes = read_notes(load(path))
     except (OSError, EOFError, gzip.BadGzipFile, FormatError) as e:
-        sys.exit(f"psp2dmp.py: {args.dump}: {e}")
+        print(f"psp2dmp.py: {path}: {e}")
+        return 1
 
     for note in ("APP_INFO", "THREAD_INFO", "THREAD_REG_INFO", "MODULE_INFO"):
         if note not in notes:
-            sys.exit(f"psp2dmp.py: the dump has no {note} note")
+            print(f"psp2dmp.py: {path}: the dump has no {note} note")
+            return 1
 
     app = show_section("APP_INFO", parse_app, notes["APP_INFO"])
     if app is None:
@@ -355,6 +349,24 @@ def main():
             print(f"  {label}  {func}  {loc}")
             first = False
     return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Show why a PS Vita app crashed, from its psp2dmp.")
+    ap.add_argument("dumps", nargs="+", metavar="dump", help="psp2dmp file, gzipped or not")
+    ap.add_argument("--elf", help=f"unstripped ELF of the same build (e.g. build/{APP_MODULE})")
+    ap.add_argument("--addr2line", help=f"path to {ADDR2LINE} (default: PATH, then $VITASDK/bin)")
+    ap.add_argument("--module", default=APP_MODULE, help=f"module the ELF belongs to (default: {APP_MODULE})")
+    args = ap.parse_args()
+
+    status = 0
+    for i, path in enumerate(args.dumps):
+        if len(args.dumps) > 1:
+            if i:
+                print()
+            print(f"=== {path}")
+        status |= show_dump(path, args)
+    return status
 
 
 if __name__ == "__main__":

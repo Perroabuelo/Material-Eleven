@@ -1,7 +1,8 @@
 ## 1. Medir antes de cambiar
 
-- [ ] 1.1 En `source/ui_gpu.c` e `include/ui_gpu.h`, agregar `UI_Debug_MarkStackBase()` y una línea "pila" en el overlay de debug con la pila usada y el máximo de la sesión (decisión 4 de design.md). Llamarla al principio de `main()`. Agrandar `UI_DEBUG_PANEL_H` si hace falta para que la línea entre. Listo cuando `scripts/build.sh` compile con `-Wall -Werror` y, en la consola, el overlay muestre la línea nueva.
-- [ ] 1.2 Verificar en la consola, con el código de 1.1 y sin el despachador, que la pila crece: anotar la cifra en Carpetas, recorrer Biblioteca → Ajustes → Reproduciendo → Carpetas con el nav rail cinco veces y anotar la cifra otra vez. Listo cuando las dos cifras queden anotadas en esta tarea y la segunda sea mayor que la primera.
+- [x] 1.1 En `source/ui_gpu.c` e `include/ui_gpu.h`, agregar `UI_Debug_MarkStackBase()` y una línea "pila" en el overlay de debug con la pila usada y el máximo de la sesión (decisión 4 de design.md). Llamarla al principio de `main()`. Agrandar `UI_DEBUG_PANEL_H` si hace falta para que la línea entre. Listo cuando `scripts/build.sh` compile con `-Wall -Werror` y, en la consola, el overlay muestre la línea nueva.
+- [x] 1.2 Verificar en la consola, con el código de 1.1 y sin el despachador, que la pila crece: anotar la cifra en Carpetas, recorrer Biblioteca → Ajustes → Reproduciendo → Carpetas con el nav rail cinco veces y anotar la cifra otra vez. Listo cuando las dos cifras queden anotadas en esta tarea y la segunda sea mayor que la primera.
+  - Resultado (2026-10-03, consola, sin despachador): el overlay muestra la línea de pila. En Carpetas, 392 B. Después de cinco vueltas Biblioteca → Ajustes → Reproduciendo → Carpetas, 8904 B. La pila crece unos 1,7 KB por vuelta.
 
 ## 2. Pedido diferido de pantalla
 

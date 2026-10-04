@@ -2,7 +2,10 @@
 
 - [x] 1.1 En `source/ui_gpu.c`, agregar a `UI_Debug_SampleMemory` la lectura de `mallinfo().uordblks` y una línea "HEAP" en el overlay de debug, con el heap en uso en KB (decisión 6 de design.md; el contador de recogidas diferidas se suma en 2.1). Agrandar `UI_DEBUG_PANEL_H` si hace falta. Listo cuando `scripts/build.sh` compile con `-Wall -Werror` y, en la consola, la cifra cambie al entrar a la Biblioteca o al reproducir. Si `mallinfo` no existe o no se mueve, aplicar la alternativa de Risks y actualizar design.md antes de seguir.
   - Resultado (2026-10-04): `mallinfo` existe en el newlib de VitaSDK y se mueve. En la consola, el HEAP arranca en 1374 KB, sube de 1 a 3 KB al entrar a la Biblioteca y queda entre 1603 y 1612 KB al reproducir.
-- [ ] 1.2 Verificar en la consola, con el código de 1.1 y sin las correcciones, que las fugas existen: anotar el heap, recorrer tres veces una carpeta de módulos de tracker con R y anotar de nuevo; repetir con la carpeta de archivos dañados. Listo cuando las cifras queden anotadas en esta tarea y el heap haya subido en al menos uno de los dos casos.
+- [x] 1.2 Verificar en la consola, con el código de 1.1 y sin las correcciones, que las fugas existen: anotar el heap, recorrer tres veces una carpeta de módulos de tracker con R y anotar de nuevo; repetir con la carpeta de archivos dañados. Listo cuando las cifras queden anotadas en esta tarea y el heap haya subido en al menos uno de los dos casos.
+  - Resultado (2026-10-04), con los archivos de `ux0:/pruebas-eleven/` generados para la prueba (3 MOD y 3 XM; un WAV bueno y archivos de texto renombrados a `.mp3`, `.ogg`, `.opus`, `.xm` y `.mod`):
+    - Tracker, 18 pulsaciones de R (tres vueltas): de 1529 KB a 1536 KB, **+7 KB**.
+    - Dañados, 20 pulsaciones de R: de 1529 KB a 1586 KB, **+57 KB**.
 
 ## 2. Hilo de audio
 

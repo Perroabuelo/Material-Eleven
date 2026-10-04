@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.4.2] - 2026-10-04
+
+### Fixed
+
+- Fixed memory leaks when changing tracks, when playing tracker modules (MOD, XM, IT, S3M) and when a file can't be opened.
+- Fixed file names containing "%" showing garbled on Now Playing.
+- Fixed a crash when playing mono MP3 files, and a possible memory overrun on some Opus files.
+- A file named .mp3 that isn't really an MP3 now shows the "can't play" notice in the Library instead of opening a silent track.
+
 ## [3.4.1] - 2026-10-03
 
 ### Fixed

@@ -1,7 +1,7 @@
 ## 1. Tests en PC con sanitizers y en CI
 
 - [x] 1.1 En `include/accent.h`, convertir cada componente de `ACCENT_RGBA8` a `unsigned int` antes del desplazamiento (decisión 2). Listo cuando `scripts/build.sh` compile con `-Wall -Werror`, `make -C tests` pase y `test_accent` compilado a mano con `-fsanitize=address,undefined -fno-sanitize-recover=undefined` ya no informe el desplazamiento de `test_accent.c:75`.
-- [ ] 1.2 En `tests/Makefile`, compilar por defecto con `-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined` y `-O1`, con `SANITIZE ?= 1` para apagarlos (decisión 1). Listo cuando `make -C tests` pase con los seis tests y, agregando a mano y sin commit primero una fuga y después una escritura fuera de un arreglo en un test, `make -C tests` falle en cada caso; y cuando `make -C tests SANITIZE=0` compile sin sanitizers.
+- [x] 1.2 En `tests/Makefile`, compilar por defecto con `-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined` y `-O1`, con `SANITIZE ?= 1` para apagarlos (decisión 1). Listo cuando `make -C tests` pase con los seis tests y, agregando a mano y sin commit primero una fuga y después una escritura fuera de un arreglo en un test, `make -C tests` falle en cada caso; y cuando `make -C tests SANITIZE=0` compile sin sanitizers.
 - [ ] 1.3 En `.github/workflows/build.yml`, agregar el job `tests` en `ubuntu-latest`, sin contenedor, que corre `make -C tests` (decisión 3). Listo cuando el PR de este cambio muestre el job `tests` en verde junto a `build`.
 
 ## 2. Regla de memoria en OpenSpec

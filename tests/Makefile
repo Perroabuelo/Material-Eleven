@@ -1,18 +1,39 @@
 # Pruebas en PC de la logica pura, con el gcc del host (no el del VitaSDK).
 #
-#     make -C tests          compila y corre todas las pruebas
+#     make -C tests              compila y corre todas las pruebas
+#     make -C tests SANITIZE=0   sin sanitizers, para depurar con gdb
 #     make -C tests clean
+#
+# Por defecto compila con AddressSanitizer (incluye LeakSanitizer) y UBSan:
+# una fuga, una escritura fuera de buffer o un comportamiento indefinido hace
+# fallar la prueba. Con -fno-sanitize-recover, UBSan corta en vez de avisar.
 
-CC      ?= gcc
-CFLAGS  ?= -std=gnu11 -O0 -g -Wall -Werror
+CC       ?= gcc
+SANITIZE ?= 1
+
+ifeq ($(SANITIZE),1)
+SANFLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined
+else
+SANFLAGS :=
+endif
+
+CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
+CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
 BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request
 
-.PHONY: all clean
+.PHONY: all clean FORCE
 
 all: $(BIN)
 	@for t in $(BIN); do ./$$t || exit 1; done
+
+# Rewritten only when the compiler or the flags change (SANITIZE=0, say), so
+# every test depends on it and gets rebuilt with the new flags.
+.cflags: FORCE
+	@echo '$(CC) $(CFLAGS)' | cmp -s - $@ || echo '$(CC) $(CFLAGS)' > $@
+
+$(BIN): .cflags
 
 test_lang: test_lang.c ../source/lang.c ../include/lang.h ../include/lang_strings.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_lang.c ../source/lang.c
@@ -33,4 +54,4 @@ test_nav_request: test_nav_request.c ../source/nav_request.c ../include/nav_requ
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_nav_request.c ../source/nav_request.c
 
 clean:
-	rm -f $(BIN)
+	rm -f $(BIN) .cflags

@@ -45,6 +45,7 @@ link_directories(
 
 add_executable(${PROJECT_NAME}
   source/accent.c
+  source/capture_bmp.c
   source/common.c
   source/config.c
   source/cover.c

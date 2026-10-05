@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp
 
 .PHONY: all clean FORCE
 
@@ -52,6 +52,9 @@ test_library_row: test_library_row.c ../source/library_row.c ../include/library_
 
 test_nav_request: test_nav_request.c ../source/nav_request.c ../include/nav_request.h ../include/ui_screen.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_nav_request.c ../source/nav_request.c
+
+test_capture_bmp: test_capture_bmp.c ../source/capture_bmp.c ../include/capture_bmp.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_capture_bmp.c ../source/capture_bmp.c
 
 clean:
 	rm -f $(BIN) .cflags

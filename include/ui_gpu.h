@@ -55,8 +55,8 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 
 // ---- Debug overlay ----
 //
-// L + R + SELECT cycles: off -> resource stats -> glyph probe -> off. Off at
-// startup, so it costs nothing in normal use.
+// L + R + SELECT cycles: off -> resource stats -> glyph probe -> capture ->
+// off. Off at startup, so it costs nothing in normal use.
 //
 // The glyph probe answers the half of task 5.1 that needs the console: which
 // scripts the firmware's own fonts can draw. It renders the same samples three
@@ -67,12 +67,25 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 // side by side is what makes that trade judgeable rather than theoretical.
 #define UI_DEBUG_TOGGLE_COMBO (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_SELECT)
 
+//
+// The capture mode (fix-track-change-glitch) keeps a copy of the first frame
+// drawn after each track change, and the vertex pool each of the first two
+// frames used. The copy is taken one frame late, once the next frame has
+// already been recorded: copying the frame as soon as it was drawn would mean
+// waiting for the GPU first, and that wait is exactly what keeps the glitch
+// from happening. Its ~2 MB buffer exists only while the mode is showing.
 typedef enum {
 	UI_DEBUG_OFF = 0,
 	UI_DEBUG_STATS,
 	UI_DEBUG_GLYPHS,
+	UI_DEBUG_CAPTURE,
 	UI_DEBUG_MODE_COUNT
 } UI_DebugMode;
+
+// Called on every track change. Does nothing unless the capture mode is
+// showing; when it is, the next two frames are recorded and the first one
+// is copied.
+void UI_Debug_ArmCapture(void);
 
 // Releases anything the overlay allocated. Called once, at shutdown.
 void UI_Debug_Free(void);

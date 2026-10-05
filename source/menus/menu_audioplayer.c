@@ -154,6 +154,10 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 	Music_FreeCurrentTrack();
 	Audio_Term();
 
+	// Every route to a new track passes here, and no frame is drawn until it
+	// returns, so the next frame drawn is the first one after the change.
+	UI_Debug_ArmCapture();
+
 	if (replay)
 		Queue_PeekAhead(0, &next, NULL, NULL);
 	else

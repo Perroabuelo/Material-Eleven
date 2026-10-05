@@ -1,5 +1,7 @@
 #include <psp2/ctrl.h>
 #include <psp2/display.h>
+#include <psp2/io/fcntl.h>
+#include <psp2/io/stat.h>
 #include <psp2/kernel/sysmem.h>
 #include <psp2/pvf.h>
 #include <malloc.h>
@@ -8,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "capture_bmp.h"
 #include "common.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
@@ -59,6 +62,8 @@ static unsigned int stack_used = 0, stack_peak = 0;
 #define UI_CAPTURE_W 960
 #define UI_CAPTURE_H 544
 #define UI_CAPTURE_BYTES (UI_CAPTURE_W * UI_CAPTURE_H * 4)
+#define UI_CAPTURE_DIR "ux0:data/ElevenMPV/glitch"
+#define UI_CAPTURE_MAX_FILES 1000
 
 typedef enum {
 	UI_CAPTURE_IDLE = 0,
@@ -72,7 +77,13 @@ static UI_CaptureStep capture_step = UI_CAPTURE_IDLE;
 static void *capture_fb = NULL;
 static unsigned int capture_pool_used[2];
 static SceBool capture_ready = SCE_FALSE;
+// The sync setting the captured frame was drawn with, which is not
+// necessarily the current one by the time it is saved.
+static SceBool capture_sync = SCE_FALSE;
 static const char *capture_status = "sin captura";
+static char capture_saved[32];
+// Buttons held on the previous frame, for the rising edges of SELECT and Up.
+static unsigned int capture_prev_buttons = 0;
 
 void UI_GpuFreeTexture(vita2d_texture **texture) {
 	if (!texture || !*texture)
@@ -320,6 +331,9 @@ static void UI_Debug_DrawGlyphProbe(void) {
 // ---- Capture mode ----
 
 static void UI_Capture_Enter(void) {
+	// SELECT is still held from the combo that opened the mode; it must not
+	// count as a press.
+	capture_prev_buttons = UI_DEBUG_TOGGLE_COMBO;
 	capture_step = UI_CAPTURE_IDLE;
 	capture_ready = SCE_FALSE;
 	capture_pixels = malloc(UI_CAPTURE_BYTES);
@@ -386,7 +400,116 @@ static void UI_Capture_CopyIfDue(void) {
 			(const unsigned char *)capture_fb + (size_t)y * fb.pitch * 4, UI_CAPTURE_W * 4);
 
 	capture_ready = SCE_TRUE;
+	capture_sync = frame_sync;
 	capture_status = "lista";
+}
+
+static SceBool UI_Capture_WriteBmp(const char *path) {
+	unsigned char header[CAPTURE_BMP_HEADER_SIZE];
+	unsigned char *row;
+	SceUID fd;
+	SceBool ok;
+
+	if (!CaptureBmp_WriteHeader(header, UI_CAPTURE_W, UI_CAPTURE_H))
+		return SCE_FALSE;
+
+	row = malloc(UI_CAPTURE_W * 4);
+	if (!row)
+		return SCE_FALSE;
+
+	fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+	if (fd < 0) {
+		free(row);
+		return SCE_FALSE;
+	}
+
+	ok = (sceIoWrite(fd, header, sizeof(header)) == (int)sizeof(header));
+
+	for (unsigned int file_row = 0; ok && file_row < UI_CAPTURE_H; file_row++) {
+		unsigned int src_row = CaptureBmp_SourceRow(file_row, UI_CAPTURE_H);
+
+		CaptureBmp_ConvertRow(capture_pixels + (size_t)src_row * UI_CAPTURE_W * 4, row, UI_CAPTURE_W);
+		ok = (sceIoWrite(fd, row, UI_CAPTURE_W * 4) == UI_CAPTURE_W * 4);
+	}
+
+	// A short write leaves a partial file behind; it is a debug artifact and
+	// is deleted by hand.
+	sceIoClose(fd);
+	free(row);
+	return ok;
+}
+
+static SceBool UI_Capture_WriteNotes(const char *path) {
+	char text[256];
+	SceUID fd;
+	int len;
+	SceBool ok;
+
+	len = snprintf(text, sizeof(text),
+		"pool_n1_bytes=%u\npool_n2_bytes=%u\npool_diff_bytes=%d\nsync=%s\ngfx=%s\n",
+		capture_pool_used[0], capture_pool_used[1],
+		(int)capture_pool_used[1] - (int)capture_pool_used[0],
+		capture_sync ? "on" : "off", graphics_mode);
+	if (len < 0 || len >= (int)sizeof(text))
+		return SCE_FALSE;
+
+	fd = sceIoOpen(path, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+	if (fd < 0)
+		return SCE_FALSE;
+
+	ok = (sceIoWrite(fd, text, len) == len);
+	sceIoClose(fd);
+	return ok;
+}
+
+// Runs between frames, and only when asked: writing 2 MB stalls the loop, and
+// doing it after every track change would cause the very stall-then-resume
+// being studied.
+static void UI_Capture_Save(void) {
+	char path[96];
+	SceIoStat st;
+	int n;
+
+	if (!capture_ready) {
+		capture_status = "sin captura";
+		return;
+	}
+
+	sceIoMkdir(UI_CAPTURE_DIR, 0777);
+
+	for (n = 0; n < UI_CAPTURE_MAX_FILES; n++) {
+		snprintf(path, sizeof(path), "%s/glitch_%03d.bmp", UI_CAPTURE_DIR, n);
+		if (sceIoGetstat(path, &st) < 0)
+			break;
+	}
+
+	if (n == UI_CAPTURE_MAX_FILES || !UI_Capture_WriteBmp(path)) {
+		capture_status = "ERROR AL GUARDAR";
+		return;
+	}
+
+	snprintf(path, sizeof(path), "%s/glitch_%03d.txt", UI_CAPTURE_DIR, n);
+	if (!UI_Capture_WriteNotes(path)) {
+		capture_status = "ERROR AL GUARDAR";
+		return;
+	}
+
+	snprintf(capture_saved, sizeof(capture_saved), "guardada glitch_%03d", n);
+	capture_status = capture_saved;
+}
+
+// SELECT alone saves, Up toggles the frame sync. Neither does anything on Now
+// Playing, where the test runs; on the lists they also act on the list.
+static void UI_Capture_HandleButtons(unsigned int buttons) {
+	unsigned int pressed = buttons & ~capture_prev_buttons;
+
+	capture_prev_buttons = buttons;
+
+	if ((pressed & SCE_CTRL_UP))
+		frame_sync = !frame_sync;
+
+	if ((pressed & SCE_CTRL_SELECT) && !(buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER)))
+		UI_Capture_Save();
 }
 
 static void UI_Capture_DrawPanel(void) {
@@ -401,7 +524,7 @@ static void UI_Capture_DrawPanel(void) {
 		capture_pixels ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TRACKER, line);
 	y += UI_DEBUG_LINE_H;
 
-	snprintf(line, sizeof(line), "SYNC   %s", frame_sync ? "encendido" : "apagado");
+	snprintf(line, sizeof(line), "SYNC   %s   (Arriba)", frame_sync ? "encendido" : "apagado");
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;
@@ -427,6 +550,10 @@ static void UI_Capture_DrawPanel(void) {
 	}
 	else
 		y += 3 * UI_DEBUG_LINE_H;
+
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+		UI_COLOR_TEXT_MUTED, "SELECT  guarda la captura");
+	y += UI_DEBUG_LINE_H;
 
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		UI_COLOR_TEXT_MUTED, "L + R + SELECT  para cerrar");
@@ -467,8 +594,10 @@ void UI_Debug_Update(void) {
 	if (free_space < pool_low_water)
 		pool_low_water = free_space;
 
-	if (debug_mode == UI_DEBUG_CAPTURE)
+	if (debug_mode == UI_DEBUG_CAPTURE) {
 		UI_Capture_CopyIfDue();
+		UI_Capture_HandleButtons(pad.buttons);
+	}
 
 	if (debug_mode != UI_DEBUG_STATS)
 		return;

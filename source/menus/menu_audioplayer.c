@@ -402,7 +402,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 			return playback_origin;
 		}
 
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		vita2d_draw_rectangle(CONTENT_X, STATUS_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);

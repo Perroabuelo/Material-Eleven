@@ -603,7 +603,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 	while (SCE_TRUE) {
 		Menu_LibraryState state = Menu_LibraryGetState();
 
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		StatusBar_Display();

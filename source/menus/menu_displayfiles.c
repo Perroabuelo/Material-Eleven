@@ -118,7 +118,7 @@ static void Menu_AbandonFilterDialog(void) {
 	sceImeDialogAbort();
 
 	for (int i = 0; i < FILTER_DRAIN_FRAMES && sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING; i++) {
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		Menu_DrawFilterFrame();
 		vita2d_end_drawing();
 		vita2d_common_dialog_update();
@@ -185,7 +185,7 @@ static void Menu_PromptFilter(void) {
 	Utils_SetScreenOffEnabled(SCE_FALSE);
 
 	while (sceImeDialogGetStatus() == SCE_COMMON_DIALOG_STATUS_RUNNING) {
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		Menu_DrawFilterFrame();
 		vita2d_end_drawing();
 		// Detrás del cierre de la escena y delante de la presentación: la
@@ -330,7 +330,7 @@ SceBool Menu_PickFolder(char *out, int cap) {
 	Touch_Reset();
 
 	while (SCE_TRUE) {
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		Menu_DrawFoldersContent();
@@ -418,7 +418,7 @@ UI_Screen Menu_DisplayFiles(void) {
 	vita2d_set_clear_color(UI_COLOR_BG);
 
 	while (SCE_TRUE) {
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		Menu_DrawFoldersContent();

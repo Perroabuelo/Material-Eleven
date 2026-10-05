@@ -25,6 +25,19 @@ void UI_GpuFreeTexture(vita2d_texture **texture);
 void UI_GpuFreeFont(vita2d_font **font);
 void UI_GpuFreePvf(vita2d_pvf **font);
 
+// ---- Frame start ----
+//
+// The only place a frame begins; no other translation unit calls
+// vita2d_start_drawing. That call rewinds the vertex pool to its start without
+// waiting for the GPU, so after the render loop has stalled - a track change,
+// a library scan - the CPU is no longer held back by the display queue and can
+// write the next frame's geometry over vertices the GPU is still reading from
+// the previous one. fix-track-change-glitch is testing whether that is what
+// breaks the first frame after a track change: when the frame sync is on,
+// this retires the frame in flight before the pool is rewound. Off by default
+// for now, so the build reproduces the behaviour being measured against.
+void UI_GpuBeginFrame(void);
+
 // ---- Per-frame vertex pool ----
 //
 // The only route geometry takes to vita2d_draw_array. vita2d hands the pointer

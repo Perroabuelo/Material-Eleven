@@ -74,6 +74,17 @@ void UI_GpuFreePvf(vita2d_pvf **font) {
 	*font = NULL;
 }
 
+// Toggled from the capture panel of the debug overlay; see UI_GpuBeginFrame
+// in ui_gpu.h.
+static SceBool frame_sync = SCE_FALSE;
+
+void UI_GpuBeginFrame(void) {
+	if (frame_sync)
+		vita2d_wait_rendering_done();
+
+	vita2d_start_drawing();
+}
+
 void *UI_GpuPoolAlloc(unsigned int size, unsigned int alignment) {
 	void *p = vita2d_pool_memalign(size, alignment);
 

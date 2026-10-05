@@ -16,6 +16,7 @@
 #include "nav_rail.h"
 #include "tags.h"
 #include "track_meta.h"
+#include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
 
@@ -764,7 +765,7 @@ int Library_PendingTags(void) {
 static void Library_DrawTagProgress(int done, int total, const char *path) {
 	char detail[128];
 
-	vita2d_start_drawing();
+	UI_GpuBeginFrame();
 	vita2d_clear_screen();
 
 	float x = 80.0f, y = 200.0f;
@@ -853,7 +854,7 @@ SceBool Library_RunTagPass(void) {
 static void Library_DrawCoverProgress(int done, int total, const char *path) {
 	char detail[128];
 
-	vita2d_start_drawing();
+	UI_GpuBeginFrame();
 	vita2d_clear_screen();
 
 	float x = 80.0f, y = 200.0f;
@@ -955,7 +956,7 @@ static SceBool Library_FitsPath(const char *dir, const char *name, int trailing_
 static void Library_DrawScanProgress(const char *folder, int found, int skipped) {
 	char detail[128];
 
-	vita2d_start_drawing();
+	UI_GpuBeginFrame();
 	vita2d_clear_screen();
 
 	float x = 80.0f, y = 200.0f;

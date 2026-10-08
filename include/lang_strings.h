@@ -128,6 +128,11 @@ X(STR_UP_NEXT,               "UP NEXT",                  "A CONTINUACIÓN")
 // Confirmar anuncia lo que hace ahora: "Pausa" mientras suena y STR_HINT_PLAY
 // en pausa. "Reproducir / Pausa" entero no cabe en la barra en español.
 X(STR_HINT_PAUSE,            "Pause",                    "Pausa")
-X(STR_HINT_PREV_NEXT,        "Previous / Next",          "Anterior / Siguiente")
+// "Anterior / Siguiente" dejaba fuera a START en español al sumarse Letras;
+// los chips L y R ya dicen la dirección.
+X(STR_HINT_PREV_NEXT,        "Previous / Next",          "Pista")
 X(STR_HINT_SHUFFLE,          "Shuffle",                  "Aleatorio")
 X(STR_HINT_REPEAT,           "Repeat",                   "Repetir")
+// D-pad arriba abre y cierra la vista de letras (ui/now-playing).
+X(STR_HINT_LYRICS,           "Lyrics",                   "Letras")
+X(STR_NO_LYRICS,             "No lyrics",                "Sin letra")

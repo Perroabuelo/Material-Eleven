@@ -1,4 +1,5 @@
 #include <psp2/audioout.h>
+#include <psp2/kernel/processmgr.h>
 #include <psp2/power.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,9 @@
 #include "cover.h"
 #include "fs.h"
 #include "lang.h"
+#include "lyrics.h"
+#include "lyrics_layout.h"
+#include "lyrics_load.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_library.h"
@@ -37,6 +41,11 @@ static char *position_time = NULL, *length_time = NULL, *filename = NULL;
 // pista no la cambia.
 static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
 
+// The lyrics follow the track's lifecycle: loaded and laid out in
+// Menu_InitMusic, freed in Music_FreeCurrentTrack. Defined with the lyrics view.
+static void Music_LoadLyrics(const char *path, char *embedded, size_t embedded_len);
+static void Music_FreeLyrics(void);
+
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 	int h = 0, m = 0, s = 0;
 	h = (seconds / 3600);
@@ -53,6 +62,12 @@ static SceBool Menu_InitMusic(const char *path) {
 	// Sin esto, todo lo de abajo interroga a un decoder que no abrio.
 	if (R_FAILED(Audio_Init(path)))
 		return SCE_FALSE;
+
+	// The embedded lyrics belong to this screen from here on.
+	char *embedded_lyrics = metadata.lyrics;
+	size_t embedded_lyrics_len = metadata.lyrics_len;
+	metadata.lyrics = NULL;
+	metadata.lyrics_len = 0;
 
 	// A failing ALC mode is no reason to leave the screen without its strings.
 	// This used to return here, and since the teardown frees them and nulls
@@ -71,6 +86,7 @@ static SceBool Menu_InitMusic(const char *path) {
 		free(position_time);
 		free(length_time);
 		filename = position_time = length_time = NULL;
+		free(embedded_lyrics);
 
 		UI_GpuFreeTexture(&metadata.cover_image);
 		Audio_Term();
@@ -99,6 +115,10 @@ static SceBool Menu_InitMusic(const char *path) {
 	// waiting rather than on the first frame they look at.
 	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayTitle());
 	UI_TextWidth(UI_FACE_UI, UI_TS_BODY, Music_GetDisplayArtist());
+
+	// Laying the lyrics out measures every row, which warms the atlas the same
+	// way for the whole text, inside the same stall.
+	Music_LoadLyrics(path, embedded_lyrics, embedded_lyrics_len);
 	return SCE_TRUE;
 }
 
@@ -120,6 +140,7 @@ static void Music_FreeCurrentTrack(void) {
 	free(position_time);
 	filename = length_time = position_time = NULL;
 
+	Music_FreeLyrics();
 	UI_GpuFreeTexture(&metadata.cover_image);
 }
 
@@ -393,6 +414,359 @@ static SceBool Menu_HandleTransportTouch(void) {
 	return SCE_FALSE;
 }
 
+// ---- Lyrics view ----
+//
+// Inside the content column, below the status bar: a compact header, the
+// lyrics, and a seek bar over the hint bar. The lyrics are laid out once per
+// track (Music_LoadLyrics), so a frame neither reads, allocates nor measures
+// lyric text.
+
+#define LYRICS_MARGIN_X   48
+#define LYRICS_X          (CONTENT_X + LYRICS_MARGIN_X)
+#define LYRICS_W          (960 - CONTENT_X - 2 * LYRICS_MARGIN_X)
+#define LYRICS_HEADER_Y   (STATUS_H + 8)
+#define LYRICS_HEADER_H   56
+#define LYRICS_ART        40
+#define LYRICS_BAR_H      40
+#define LYRICS_TOP        (LYRICS_HEADER_Y + LYRICS_HEADER_H)
+#define LYRICS_BOTTOM     (544 - UI_HINT_BAR_HEIGHT - LYRICS_BAR_H)
+#define LYRICS_SEEK_Y     (LYRICS_BOTTOM + 10)
+#define LYRICS_ROW_H      34
+#define LYRICS_LINE_GAP   8
+// An unsynced text starts this far below the top of the lyrics area.
+#define LYRICS_TOP_PAD    16
+// After a drag, synced lyrics stay where the user left them this long.
+#define LYRICS_RETURN_US  3000000
+// Share of the remaining distance the view covers each frame.
+#define LYRICS_EASE       0.2f
+
+// Lyrics_Line.flags bit this screen sets once per track.
+#define LYRICS_FLAG_FALLBACK LYRICS_LINE_CALLER_FLAGS
+
+static Lyrics lyrics = { 0 };
+static LyricsLayout lyrics_layout = { 0 };
+
+// Which view is open. Kept in memory only, so it survives track changes and
+// trips through other screens, and the app always starts on the normal view.
+static SceBool lyrics_view = SCE_FALSE;
+
+// Content y shown at the vertical middle of the lyrics area.
+static float lyrics_scroll = 0.0f;
+static SceBool lyrics_dragging = SCE_FALSE;
+// The user moved the lyrics: synced ones wait LYRICS_RETURN_US after the
+// release before following the song again.
+static SceBool lyrics_moved = SCE_FALSE;
+static int lyrics_drag_y = 0;
+static SceUInt64 lyrics_release_time = 0;
+
+// Lines that need the fallback are drawn at its largest sharp size, current
+// or not, so they only differ by color (ui/typography: nothing is rescaled).
+static UI_TextSize Menu_LyricsLineSize(uint32_t line, SceBool current) {
+	if (lyrics.lines[line].flags & LYRICS_FLAG_FALLBACK)
+		return UI_TS_FALLBACK_MAX;
+
+	return current ? UI_TS_TITLE : UI_TS_BODY;
+}
+
+// The layout measures each line at its largest size, so highlighting a line
+// never changes how many rows it takes.
+static float Menu_LyricsMeasure(const char *text, size_t len, uint32_t line, void *ctx) {
+	char row[LYRICS_LAYOUT_MAX_ROW_BYTES + 1];
+
+	memcpy(row, text, len);
+	row[len] = '\0';
+	return UI_TextWidth(UI_FACE_UI, Menu_LyricsLineSize(line, SCE_TRUE), row);
+}
+
+static float Menu_LyricsRowY(uint32_t row) {
+	return row * LYRICS_ROW_H + lyrics_layout.rows[row].line * LYRICS_LINE_GAP;
+}
+
+// Synced lyrics stop with the first and the last row at the middle of the
+// area; unsynced ones with the text against the top or the bottom.
+static void Menu_LyricsScrollRange(float *lo, float *hi) {
+	float half = (LYRICS_BOTTOM - LYRICS_TOP) / 2.0f;
+	float last = (lyrics_layout.count > 0) ? Menu_LyricsRowY(lyrics_layout.count - 1) : 0.0f;
+
+	if (lyrics.synced) {
+		*lo = LYRICS_ROW_H / 2.0f;
+		*hi = last + LYRICS_ROW_H / 2.0f;
+	}
+	else {
+		*lo = half - LYRICS_TOP_PAD;
+		*hi = last + LYRICS_ROW_H - (half - LYRICS_TOP_PAD);
+		if (*hi < *lo)
+			*hi = *lo;
+	}
+}
+
+// Where the view rests: the first row of the line playing at the middle
+// (the first line before its time comes), or the top of an unsynced text.
+static float Menu_LyricsTarget(int line) {
+	float lo, hi;
+	Menu_LyricsScrollRange(&lo, &hi);
+
+	if (!lyrics.synced || lyrics_layout.count == 0)
+		return lo;
+
+	uint32_t row = (line < 0) ? 0 : LyricsLayout_FirstRow(&lyrics_layout, line);
+
+	if (row >= lyrics_layout.count)
+		row = 0;
+
+	return Menu_LyricsRowY(row) + LYRICS_ROW_H / 2.0f;
+}
+
+static void Menu_LyricsSnap(void) {
+	lyrics_dragging = SCE_FALSE;
+	lyrics_moved = SCE_FALSE;
+	lyrics_scroll = Menu_LyricsTarget(Lyrics_LineAt(&lyrics, Audio_GetPositionMs()));
+}
+
+static void Music_LoadLyrics(const char *path, char *embedded, size_t embedded_len) {
+	LyricsLoad_ForTrack(path, embedded, embedded_len, &lyrics);
+
+	for (uint32_t i = 0; i < lyrics.count; i++) {
+		if (UI_TextNeedsFallback(UI_FACE_UI, lyrics.text + lyrics.lines[i].off))
+			lyrics.lines[i].flags |= LYRICS_FLAG_FALLBACK;
+	}
+
+	// Without memory for the rows there is nothing to draw: no lyrics, then.
+	if (LyricsLayout_Build(&lyrics, LYRICS_W, Menu_LyricsMeasure, NULL, &lyrics_layout) < 0)
+		Lyrics_Free(&lyrics);
+
+	Menu_LyricsSnap();
+}
+
+static void Music_FreeLyrics(void) {
+	LyricsLayout_Free(&lyrics_layout);
+	Lyrics_Free(&lyrics);
+	lyrics_scroll = 0.0f;
+	lyrics_dragging = SCE_FALSE;
+	lyrics_moved = SCE_FALSE;
+}
+
+// Synced lyrics ease towards the line playing, unless the user is holding
+// them or let go less than LYRICS_RETURN_US ago. Unsynced ones never move
+// on their own.
+static void Menu_LyricsFollow(int current) {
+	if (!lyrics.synced || lyrics_dragging)
+		return;
+
+	if (lyrics_moved) {
+		if (sceKernelGetProcessTimeWide() - lyrics_release_time < LYRICS_RETURN_US)
+			return;
+		lyrics_moved = SCE_FALSE;
+	}
+
+	float target = Menu_LyricsTarget(current);
+	float d = target - lyrics_scroll;
+
+	lyrics_scroll = (d > -0.5f && d < 0.5f) ? target : lyrics_scroll + d * LYRICS_EASE;
+}
+
+static void Menu_LyricsHandleDrag(void) {
+	if (lyrics_layout.count == 0) {
+		lyrics_dragging = SCE_FALSE;
+		return;
+	}
+
+	if (Touch_CheckPressed()) {
+		// Only a touch that starts on the lyrics drags them; the rail and the
+		// seek bar keep theirs.
+		lyrics_dragging = Touch_GetX() >= CONTENT_X && Touch_GetY() >= LYRICS_TOP && Touch_GetY() < LYRICS_SEEK_Y - 12;
+		lyrics_drag_y = Touch_GetY();
+		return;
+	}
+
+	if (!lyrics_dragging)
+		return;
+
+	if (Touch_CheckHeld()) {
+		int dy = Touch_GetY() - lyrics_drag_y;
+
+		if (dy != 0) {
+			float lo, hi;
+			Menu_LyricsScrollRange(&lo, &hi);
+
+			lyrics_scroll -= dy;
+			if (lyrics_scroll < lo)
+				lyrics_scroll = lo;
+			if (lyrics_scroll > hi)
+				lyrics_scroll = hi;
+
+			lyrics_drag_y = Touch_GetY();
+			lyrics_moved = SCE_TRUE;
+		}
+	}
+	else {
+		lyrics_dragging = SCE_FALSE;
+		lyrics_release_time = sceKernelGetProcessTimeWide();
+	}
+}
+
+// The bar spans the view, but Audio_Seek still takes a pixel on the old
+// 450 px bar, so the touch is scaled to that.
+static void Menu_LyricsHandleSeek(void) {
+	if (!Touch_Position(LYRICS_X, LYRICS_SEEK_Y - 12, LYRICS_X + LYRICS_W, LYRICS_SEEK_Y + 12))
+		return;
+
+	SceBool was_paused = Audio_IsPaused();
+	if (!was_paused)
+		Audio_Pause();
+
+	Audio_Seek((SceUInt64)((Touch_GetX() - LYRICS_X) * 450 / LYRICS_W));
+
+	if (was_paused != Audio_IsPaused())
+		Audio_Pause();
+}
+
+static void Menu_DrawLyricsHeader(void) {
+	float y = LYRICS_HEADER_Y + (LYRICS_HEADER_H - LYRICS_ART) / 2.0f;
+
+	if ((metadata.has_meta) && (metadata.cover_image))
+		vita2d_draw_texture_scale(metadata.cover_image, LYRICS_X, y,
+			(float)LYRICS_ART / vita2d_texture_get_width(metadata.cover_image), (float)LYRICS_ART / vita2d_texture_get_height(metadata.cover_image));
+	else
+		UI_DrawRoundedRect(LYRICS_X, y, LYRICS_ART, LYRICS_ART, 9, UI_COLOR_SURFACE);
+
+	float text_x = LYRICS_X + LYRICS_ART + 14;
+	float right = LYRICS_X + LYRICS_W;
+
+	const char *badge_label; unsigned int badge_color, badge_wash;
+	if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash)) {
+		float badge_w = UI_BadgeWidth(UI_TS_BADGE, badge_label);
+		right -= badge_w;
+		UI_DrawBadge(right, LYRICS_HEADER_Y + LYRICS_HEADER_H / 2.0f - 11, UI_TS_BADGE, badge_label, badge_wash, badge_color);
+		right -= 16;
+	}
+
+	const char *artist = Music_GetDisplayArtist();
+	float title_top = (artist[0] != '\0') ? y - 2 : y + 8;
+
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, title_top, 24),
+		right - text_x, UI_COLOR_TEXT_PRIMARY, Music_GetDisplayTitle());
+
+	if (artist[0] != '\0')
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, text_x, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, title_top + 22, 20),
+			right - text_x, UI_COLOR_TEXT_SECONDARY, artist);
+}
+
+static void Menu_DrawLyricsRows(void) {
+	int current = Lyrics_LineAt(&lyrics, Audio_GetPositionMs());
+	Menu_LyricsFollow(current);
+
+	float mid = (LYRICS_TOP + LYRICS_BOTTOM) / 2.0f;
+	char row[LYRICS_LAYOUT_MAX_ROW_BYTES + 1];
+
+	vita2d_set_clip_rectangle(CONTENT_X, LYRICS_TOP, 960, LYRICS_BOTTOM);
+	vita2d_enable_clipping();
+
+	for (uint32_t r = 0; r < lyrics_layout.count; r++) {
+		float top = mid + Menu_LyricsRowY(r) - lyrics_scroll - LYRICS_ROW_H / 2.0f;
+
+		if (top + LYRICS_ROW_H < LYRICS_TOP)
+			continue;
+		if (top > LYRICS_BOTTOM)
+			break;
+
+		const LyricsLayout_Row *rw = &lyrics_layout.rows[r];
+
+		if (rw->len == 0)
+			continue;
+
+		SceBool is_current = lyrics.synced && (int)rw->line == current;
+		UI_TextSize ts = Menu_LyricsLineSize(rw->line, is_current);
+		unsigned int color;
+
+		if (is_current)
+			color = UI_COLOR_TEXT_PRIMARY;
+		else if (lyrics.lines[rw->line].flags & LYRICS_LINE_HEADER)
+			color = UI_COLOR_TEXT_MUTED;
+		else
+			color = lyrics.synced ? UI_COLOR_TEXT_TERTIARY : UI_COLOR_TEXT_SECONDARY;
+
+		memcpy(row, lyrics.text + rw->off, rw->len);
+		row[rw->len] = '\0';
+		UI_DrawText(UI_FACE_UI, ts, LYRICS_X, UI_TextBaselineY(UI_FACE_UI, ts, top, LYRICS_ROW_H), color, row);
+	}
+
+	vita2d_disable_clipping();
+}
+
+static void Menu_DrawLyricsView(void) {
+	Menu_DrawLyricsHeader();
+
+	if (lyrics_layout.count > 0)
+		Menu_DrawLyricsRows();
+	else {
+		const char *none = Lang_Get(STR_NO_LYRICS);
+		float x = LYRICS_X + (LYRICS_W - UI_TextWidth(UI_FACE_UI, UI_TS_BODY, none)) / 2.0f;
+		UI_DrawText(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, (LYRICS_TOP + LYRICS_BOTTOM) / 2.0f - 15, 30),
+			UI_COLOR_TEXT_TERTIARY, none);
+	}
+
+	SceUInt64 length = Audio_GetLength();
+	double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
+	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, LYRICS_W, SEEK_H, UI_COLOR_SURFACE);
+	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, (float)(LYRICS_W * ratio), SEEK_H, ui_color_accent);
+
+	Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
+	float time_y = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, LYRICS_SEEK_Y + 8, 22);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X, time_y, UI_COLOR_TEXT_TERTIARY, position_time);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X + LYRICS_W - length_time_width, time_y, UI_COLOR_TEXT_TERTIARY, length_time);
+}
+
+static void Menu_DrawPlayerView(void) {
+	// Cover art panel. vita2d does offer rectangular clipping, and the
+	// text overflow policy uses it; what it has no equivalent for is a
+	// stencil or an arbitrary-shape clip, so the artwork is still drawn as
+	// a plain rect rather than one with rounded corners.
+	float cover_y = STATUS_H + 22;
+	if ((metadata.has_meta) && (metadata.cover_image))
+		vita2d_draw_texture_scale(metadata.cover_image, LEFT_PANEL_X, cover_y,
+			(float)NP_COVER_SIZE / vita2d_texture_get_width(metadata.cover_image), (float)NP_COVER_SIZE / vita2d_texture_get_height(metadata.cover_image));
+	else
+		UI_DrawRoundedRect(LEFT_PANEL_X, cover_y, NP_COVER_SIZE, NP_COVER_SIZE, UI_RADIUS_LG, UI_COLOR_SURFACE);
+
+	const char *title = Music_GetDisplayTitle();
+	const char *artist = Music_GetDisplayArtist();
+	float info_y = cover_y + NP_COVER_SIZE + 20;
+
+	// The fallback rasterises near 18 px and is soft above the body token,
+	// so a title the app's own face cannot cover is drawn one step down
+	// rather than large and blurry. Only tracks that would otherwise be
+	// unreadable are affected.
+	UI_TextSize title_ts = UI_TextNeedsFallback(UI_FACE_UI, title) ? UI_TS_FALLBACK_MAX : UI_TS_DISPLAY;
+	float title_box = (title_ts == UI_TS_DISPLAY) ? 38.0f : 30.0f;
+
+	UI_DrawTextClipped(UI_FACE_UI, title_ts, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, title_ts, info_y, title_box), LEFT_PANEL_W, UI_COLOR_TEXT_PRIMARY, title);
+	info_y += title_box;
+
+	if (artist[0] != '\0') {
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 26), LEFT_PANEL_W, UI_COLOR_TEXT_SECONDARY, artist);
+		info_y += 26;
+	}
+
+	const char *badge_label; unsigned int badge_color, badge_wash;
+	if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
+		UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color);
+
+	// Seek bar
+	SceUInt64 length = Audio_GetLength();
+	double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
+	float seek_w = RIGHT_PANEL_R - RIGHT_PANEL_X;
+	UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, seek_w, SEEK_H, UI_COLOR_SURFACE);
+	UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
+
+	Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, position_time);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, length_time);
+
+	Menu_DrawTransportControls();
+	Menu_DrawUpNext();
+}
+
 static UI_Screen Menu_RunNowPlayingLoop(void) {
 	track_failed = SCE_FALSE;
 
@@ -412,64 +786,23 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		vita2d_draw_rectangle(CONTENT_X, STATUS_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 		StatusBar_Display();
 
-		// Cover art panel. vita2d does offer rectangular clipping, and the
-		// text overflow policy uses it; what it has no equivalent for is a
-		// stencil or an arbitrary-shape clip, so the artwork is still drawn as
-		// a plain rect rather than one with rounded corners.
-		float cover_y = STATUS_H + 22;
-		if ((metadata.has_meta) && (metadata.cover_image))
-			vita2d_draw_texture_scale(metadata.cover_image, LEFT_PANEL_X, cover_y,
-				(float)NP_COVER_SIZE / vita2d_texture_get_width(metadata.cover_image), (float)NP_COVER_SIZE / vita2d_texture_get_height(metadata.cover_image));
+		if (lyrics_view)
+			Menu_DrawLyricsView();
 		else
-			UI_DrawRoundedRect(LEFT_PANEL_X, cover_y, NP_COVER_SIZE, NP_COVER_SIZE, UI_RADIUS_LG, UI_COLOR_SURFACE);
-
-		const char *title = Music_GetDisplayTitle();
-		const char *artist = Music_GetDisplayArtist();
-		float info_y = cover_y + NP_COVER_SIZE + 20;
-
-		// The fallback rasterises near 18 px and is soft above the body token,
-		// so a title the app's own face cannot cover is drawn one step down
-		// rather than large and blurry. Only tracks that would otherwise be
-		// unreadable are affected.
-		UI_TextSize title_ts = UI_TextNeedsFallback(UI_FACE_UI, title) ? UI_TS_FALLBACK_MAX : UI_TS_DISPLAY;
-		float title_box = (title_ts == UI_TS_DISPLAY) ? 38.0f : 30.0f;
-
-		UI_DrawTextClipped(UI_FACE_UI, title_ts, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, title_ts, info_y, title_box), LEFT_PANEL_W, UI_COLOR_TEXT_PRIMARY, title);
-		info_y += title_box;
-
-		if (artist[0] != '\0') {
-			UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, LEFT_PANEL_X, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, info_y, 26), LEFT_PANEL_W, UI_COLOR_TEXT_SECONDARY, artist);
-			info_y += 26;
-		}
-
-		const char *badge_label; unsigned int badge_color, badge_wash;
-		if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
-			UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color);
-
-		// Seek bar
-		SceUInt64 length = Audio_GetLength();
-		double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
-		float seek_w = RIGHT_PANEL_R - RIGHT_PANEL_X;
-		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, seek_w, SEEK_H, UI_COLOR_SURFACE);
-		UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
-
-		Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, position_time);
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, length_time);
-
-		Menu_DrawTransportControls();
-		Menu_DrawUpNext();
+			Menu_DrawPlayerView();
 
 		// Confirmar pausa y reanuda, y la leyenda dice cual de las dos hara ahora.
+		// Letras va antes de Triangulo: la barra corta desde el final.
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(Audio_IsPaused() ? STR_HINT_PLAY : STR_HINT_PAUSE) },
 			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_PREV_NEXT) },
+			{ { HINT_BTN_UP }, 0, Lang_Get(STR_HINT_LYRICS) },
 			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SHUFFLE) },
 			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_REPEAT) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
-		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, sizeof(hints) / sizeof(hints[0]));
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_NOW_PLAYING);
 		UI_Debug_Draw();
@@ -493,7 +826,22 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		if (pressed & SCE_CTRL_ENTER)
 			Audio_Pause();
 
-		if (!Menu_HandleTransportTouch() && Touch_CheckHeld() && Touch_Position(RIGHT_PANEL_X, SEEK_Y - 12, RIGHT_PANEL_R, SEEK_Y + 12)) {
+		if (pressed & SCE_CTRL_UP) {
+			lyrics_view = !lyrics_view;
+
+			// Synced lyrics open on the line playing, not scrolling there from
+			// wherever they were left.
+			if (lyrics_view && !lyrics_moved)
+				Menu_LyricsSnap();
+		}
+
+		// The lyrics view has no on-screen transport: touches there scroll the
+		// lyrics or seek with its own bar.
+		if (lyrics_view) {
+			Menu_LyricsHandleDrag();
+			Menu_LyricsHandleSeek();
+		}
+		else if (!Menu_HandleTransportTouch() && Touch_CheckHeld() && Touch_Position(RIGHT_PANEL_X, SEEK_Y - 12, RIGHT_PANEL_R, SEEK_Y + 12)) {
 			SceBool was_paused = Audio_IsPaused();
 			if (!was_paused)
 				Audio_Pause();

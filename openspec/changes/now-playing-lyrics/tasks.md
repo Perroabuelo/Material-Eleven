@@ -1,0 +1,32 @@
+## 1. Comprobar lo incierto antes de construir
+
+- [ ] 1.1 En `source/audio/mp3.c`, de forma provisional, registrar con el overlay de debug (o `sceClibPrintf`) el `id`, el idioma y los primeros bytes de cada `v2->text[i]` al abrir una pista (Risks de design.md). Listo cuando, en la consola, *Golden* de *KPop Demon Hunters* muestre una entrada `USLT` cuyo texto es UTF-8 válido con el hangul de "어두워진". Anotar el resultado en esta tarea y quitar el registro. Si el texto no viene en UTF-8, actualizar la decisión 3 de design.md antes de seguir.
+
+## 2. Lógica pura y fixtures
+
+- [ ] 2.1 En `tools/testmedia/gen_testfiles.py`, agregar los `.lrc` nuevos de la estrategia de pruebas (UTF-16 LE y BE, `[offset:]` positivo, negativo y que baja de cero, desorden, marcas por palabra, una letra estilo Genius sin tiempos con encabezados, y solo etiquetas de metadatos) y una opción que escriba solo los `.lrc` en `tests/fixtures/lyrics/`. Versionar esos fixtures. Listo cuando el script genere la carpeta de la consola y la de `tests/` con los mismos bytes para los casos comunes.
+- [ ] 2.2 Crear `source/text_encoding.c` e `include/text_encoding.h` con `TextEncoding_ToUtf8` (decisión 1), y `tests/test_text_encoding.c` con sus casos y la prueba de bytes aleatorios. Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
+- [ ] 2.3 Crear `source/lyrics.c` e `include/lyrics.h` con `Lyrics_Parse`, `Lyrics_LineAt`, `Lyrics_Choose` y `Lyrics_Free` (decisiones 1 y 2), y `tests/test_lyrics.c` con todos los escenarios marcados "prueba en PC" de `specs/playback/lyrics`, usando los fixtures. Listo cuando `make -C tests` pase con sanitizers y sin fugas.
+- [ ] 2.4 Crear `source/lyrics_layout.c` e `include/lyrics_layout.h` con `LyricsLayout_Build` y `LyricsLayout_Free` (decisión 1), y `tests/test_lyrics_layout.c` con los casos de la estrategia de pruebas. Listo cuando `make -C tests` pase con sanitizers.
+
+## 3. Carga de la letra
+
+- [ ] 3.1 En `include/audio/audio.h`, agregar `lyrics` y `lyrics_len` a `Audio_Metadata`. En `source/audio/audio.c`, liberarlos en el camino de fallo de `Audio_Init` y en `Audio_Term`, y agregar `Audio_GetPositionMs` (decisiones 3 y 5). Listo cuando `scripts/build.sh` compile y las pistas de `ux0:/pruebas-eleven/formatos/` suenen igual que antes.
+- [ ] 3.2 En `source/audio/flac.c`, `ogg.c` y `opus.c`, copiar `LYRICS` o `UNSYNCEDLYRICS` a `metadata.lyrics` si mide 64 KB o menos; en `mp3.c`, copiar el primer `USLT` no vacío (decisión 3). Listo cuando `scripts/build.sh` compile y, con un registro provisional, la consola muestre la longitud de la letra embebida de *Golden* y 0 para `TWICE - TAKEDOWN (JEONGYEON, JIHYO, CHAEYOUNG).mp3`.
+- [ ] 3.3 Crear `source/lyrics_load.c` e `include/lyrics_load.h` con `LyricsLoad_ForTrack` (decisión 4). Agregar los cuatro archivos nuevos de `source/` a `CMakeLists.txt`. En `source/menus/menu_audioplayer.c`, cargar la letra y armar el layout en `Menu_InitMusic`, precalentando los glifos, y liberarlos en `Music_FreeCurrentTrack`. Listo cuando `scripts/build.sh` compile y, con el overlay de debug abierto, pasar treinta veces con R por `I NEVER DIE - i-dle` deje el heap igual que al principio, con una diferencia de no más de unos pocos KB.
+
+## 4. Vista de letras
+
+- [ ] 4.1 En `include/lang_strings.h`, agregar `STR_HINT_LYRICS` y `STR_NO_LYRICS` en inglés y español. En `include/nav_rail.h` y `source/nav_rail.c`, agregar `HINT_BTN_UP`, dibujado como chip neutro con una flecha (decisión 7). Agregar la entrada a la leyenda de Reproduciendo después de L/R. Listo cuando `make -C tests` pase (test_lang) y, en la consola, la leyenda de Reproduciendo muestre el chip con la flecha junto a "Letras" en español y "Lyrics" en inglés, con todas las entradas visibles en ambos idiomas.
+- [ ] 4.2 En `source/menus/menu_audioplayer.c`, agregar `lyrics_view`, el toggle con D-pad arriba, y `Menu_DrawLyricsView` con la cabecera, la barra de progreso escalada a 450 y el aviso "Sin letra" (decisión 6). En esta vista no se procesan los toques del transporte. Listo cuando `scripts/build.sh` compile y, en la consola, abrir y cerrar la vista funcione, una pista de tracker muestre "Sin letra" / "No lyrics", y tocar la mitad y el extremo derecho de la barra lleve a la mitad y al final de la canción.
+- [ ] 4.3 Dibujar la letra sincronizada: la línea actual resaltada y centrada, las vecinas atenuadas, el desplazamiento suave, los tamaños con el tope del fallback y el recorte al área de la letra (decisión 6). Listo cuando `scripts/build.sh` compile y, en la consola, *TOMBOY* siga el canto línea por línea, `04 linea larga.wav` se vea completa en varios renglones, y buscar con la barra mueva la letra al punto nuevo.
+- [ ] 4.4 Agregar el arrastre táctil con tope y el regreso a los 3 s, y la letra sin tiempos estática con los encabezados atenuados (decisión 6). Listo cuando `scripts/build.sh` compile y, en la consola, arrastrar la letra de *TOMBOY* la deje quieta y vuelva sola unos tres segundos después, y *Golden* se vea desde su primera línea, con `[Verse: …]` atenuado, y se quede donde se la arrastra.
+
+## 5. Documentación y versión
+
+- [ ] 5.1 En `README.md`, documentar la vista de letras, las dos fuentes, la regla de prioridad y la nota de que los `.lrc` deben estar en UTF-8 (los que están en Shift-JIS, GBK u otra codificación se verán con caracteres incorrectos). Listo cuando el README lo explique en inglés.
+- [ ] 5.2 Subir la versión a 3.5.0 (`VITA_VERSION "03.50"` en `CMakeLists.txt` y donde más figure) y agregar la entrada de v3.5.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` con la versión nueva.
+
+## 6. Verificación en consola
+
+- [ ] 6.1 Recorrer en la consola, paso a paso, todos los escenarios de `specs/ui/now-playing`, `specs/ui/nav-shell` y los escenarios de consola de `specs/playback/lyrics`, con la colección real (`I NEVER DIE - i-dle`, *KPop Demon Hunters*), `ux0:/pruebas-eleven/letras/` (regenerada con 2.1, más un `.lrc` de 100 KB junto a `01 bien.wav`) y `ux0:/pruebas-eleven/tracker/`, en español y en inglés. Listo cuando todos se cumplan y el resultado, con las cifras de heap, quede anotado en esta tarea.

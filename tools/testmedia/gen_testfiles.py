@@ -2,6 +2,7 @@
 """Generates the folders of test files to copy to the console.
 
     python3 gen_testfiles.py OUT_DIR [--ffmpeg PATH] [--vita-dir ux0:/pruebas-eleven]
+    python3 gen_testfiles.py tests/fixtures/lyrics --lyrics-only
 
   formatos-mono/      FLAC, MP3, OGG, Opus and WAV with tags, one channel;
                       FLAC and MP3 carry a cover
@@ -13,13 +14,18 @@
   nombre/             a WAV called "100% pure %s %d.wav"
   nombres-largos/     short WAVs with 100, 200 and 250 byte names, in ASCII and
                       in UTF-8 with Japanese characters
-  letras/             WAVs with a well-formed .lrc and with broken ones
+  letras/             WAVs with a well-formed .lrc and with broken ones, in
+                      UTF-16, with [offset:], out of order, with word marks,
+                      without timestamps and with tags only
   playlists/          .m3u files: relative and ux0: paths, missing files,
                       #EXTINF, CRLF, empty and a long one
 
 FLAC, MP3, OGG and Opus need ffmpeg (PATH or --ffmpeg); without it they are
 skipped and everything else is still written. Every case of .lrc and .m3u is a
 function of its own, so the lyrics and playlist changes can adjust them.
+
+--lyrics-only writes just the .lrc cases into OUT; that is how the PC test
+fixtures in tests/fixtures/lyrics/ are made.
 
 Python 3 standard library only.
 """
@@ -344,6 +350,50 @@ def lrc_crlf():
     return lrc_good().replace(b"\n", b"\r\n")
 
 
+def lrc_utf16_le():
+    return b"\xff\xfe" + lrc_good().decode("utf-8").encode("utf-16-le")
+
+
+def lrc_utf16_be():
+    return b"\xfe\xff" + lrc_good().decode("utf-8").encode("utf-16-be")
+
+
+def lrc_offset_positive():
+    return "[offset:+500]\n[00:10.00]Diez segundos menos medio\n".encode("utf-8")
+
+
+def lrc_offset_negative():
+    return "[offset:-250]\n[00:10.00]Diez segundos más un cuarto\n".encode("utf-8")
+
+
+def lrc_offset_below_zero():
+    return "[offset:1000]\n[00:00.40]No baja de cero\n[00:05.00]Cuatro segundos\n".encode("utf-8")
+
+
+def lrc_unordered():
+    return "[00:10.00]A los diez\n[00:02.00]A los dos\n[00:05.00]A los cinco\n".encode("utf-8")
+
+
+def lrc_word_marks():
+    return "[00:00.00]Antes\n[00:12.30]<00:12.30>Hola <00:12.80>mundo\n".encode("utf-8")
+
+
+def lrc_genius():
+    # Genius style, as embedded in the user's MP3s: no timestamps, section
+    # headers in brackets and blank lines between stanzas. The verses are made up.
+    return ('[헌트릭스 "Golden" 가사]\n\n[Verse: Rumi, Zoey, Mira, All]\n'
+            "Primera estrofa, primera línea   \nPrimera estrofa, segunda línea\n\n"
+            "[Chorus: All]\n어두워진 하늘 아래\nSegunda estrofa, última línea\n").encode("utf-8")
+
+
+def lrc_tags_only():
+    return "[ti:Solo etiquetas]\n[ar:Generador]\n".encode("utf-8")
+
+
+def lrc_first_at_3s():
+    return "[00:03.00]La primera línea llega a los tres segundos\n[00:08.00]La segunda\n".encode("utf-8")
+
+
 LYRICS = [
     ("01 bien", lrc_good),
     ("02 marcas invalidas", lrc_bad_timestamps),
@@ -353,6 +403,16 @@ LYRICS = [
     ("06 bom utf8", lrc_utf8_bom),
     ("07 no utf8", lrc_not_utf8),
     ("08 crlf", lrc_crlf),
+    ("09 utf16 le", lrc_utf16_le),
+    ("10 utf16 be", lrc_utf16_be),
+    ("11 offset positivo", lrc_offset_positive),
+    ("12 offset negativo", lrc_offset_negative),
+    ("13 offset bajo cero", lrc_offset_below_zero),
+    ("14 desordenadas", lrc_unordered),
+    ("15 marcas por palabra", lrc_word_marks),
+    ("16 sin tiempos genius", lrc_genius),
+    ("17 solo etiquetas", lrc_tags_only),
+    ("18 primera a los 3 s", lrc_first_at_3s),
 ]
 
 
@@ -362,6 +422,14 @@ def gen_lyrics(out):
     for name, case in LYRICS:
         make_wav(os.path.join(folder, name + ".wav"), seconds=20, freqs=(523, 523))
         write(os.path.join(folder, name + ".lrc"), case())
+
+
+def gen_lyrics_fixtures(out):
+    """Only the .lrc cases, straight into OUT: the PC tests read them from
+    tests/fixtures/lyrics/, with the same bytes as letras/ on the console."""
+    os.makedirs(out, exist_ok=True)
+    for name, case in LYRICS:
+        write(os.path.join(out, name + ".lrc"), case())
 
 
 # --- playlists (.m3u) ------------------------------------------------------
@@ -435,7 +503,14 @@ def main():
     ap.add_argument("--vita-dir", default="ux0:/pruebas-eleven",
                     help="where OUT will be copied on the console, for absolute .m3u paths "
                          "(default: ux0:/pruebas-eleven)")
+    ap.add_argument("--lyrics-only", action="store_true",
+                    help="write only the .lrc cases, directly into OUT")
     args = ap.parse_args()
+
+    if args.lyrics_only:
+        gen_lyrics_fixtures(args.out)
+        print(f"done: {os.path.abspath(args.out)}")
+        return
 
     exe = args.ffmpeg or shutil.which("ffmpeg")
     if args.ffmpeg and not (os.path.isfile(exe) or shutil.which(exe)):

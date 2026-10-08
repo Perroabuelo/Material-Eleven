@@ -1,0 +1,6 @@
+[00:00.00]Esta marca es válida
+[99:99.99]Minutos y segundos fuera de rango
+[0a:1b.2c]Letras en vez de números
+[-00:01.00]Marca negativa
+[00:05]Sin centésimas
+[00:08.123456]Demasiados decimales

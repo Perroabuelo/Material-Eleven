@@ -367,22 +367,34 @@ static void test_choose(void) {
 }
 
 static void test_size_limit(void) {
-	// Mas de 64 KB es como si no existiera; justo 64 KB todavia se lee.
-	size_t big = 100 * 1024;
+	// El tope de 64 KB del archivo lo aplica la carga antes de leer
+	// (lyrics_load.c). El parser acepta el triple, que es lo que puede llegar a
+	// medir un .lrc de 64 KB en Windows-1252 una vez convertido, y nada mas.
+	size_t big = LYRICS_MAX_TEXT_BYTES + 1;
 	char *text = malloc(big);
 	for (size_t i = 0; i < big; i++)
 		text[i] = (i % 40 == 39) ? '\n' : 'a';
 
 	Lyrics l;
-	CHECK(Lyrics_Parse(text, big, &l) == 0 && l.count == 0, "una letra de 100 KB se cargo");
+	CHECK(Lyrics_Parse(text, LYRICS_MAX_TEXT_BYTES, &l) == 0 && l.count > 0, "una letra de 192 KB no se cargo");
 	Lyrics_Free(&l);
 
-	CHECK(Lyrics_Parse(text, LYRICS_MAX_BYTES, &l) == 0 && l.count > 0, "una letra de 64 KB no se cargo");
+	CHECK(Lyrics_Parse(text, big, &l) == 0 && l.count == 0, "una letra de mas de 192 KB se cargo");
 	Lyrics_Free(&l);
 
-	CHECK(Lyrics_Parse(text, LYRICS_MAX_BYTES + 1, &l) == 0 && l.count == 0, "una letra de 64 KB + 1 se cargo");
+	// 64 KB en Latin-1, todo con acentos, pasa a 128 KB de UTF-8 y se sigue leyendo.
+	unsigned char *latin = malloc(LYRICS_MAX_BYTES);
+	for (size_t i = 0; i < LYRICS_MAX_BYTES; i++)
+		latin[i] = (i % 40 == 39) ? '\n' : 0xE9;
+
+	char *utf8 = NULL;
+	size_t utf8_len = 0;
+	CHECK(TextEncoding_ToUtf8(latin, LYRICS_MAX_BYTES, &utf8, &utf8_len) == 0 && utf8_len > LYRICS_MAX_BYTES, "ToUtf8 de 64 KB en Latin-1");
+	CHECK(Lyrics_Parse(utf8, utf8_len, &l) == 0 && l.count > 0, "64 KB en Latin-1 no se cargo despues de convertir");
 	Lyrics_Free(&l);
 
+	free(utf8);
+	free(latin);
 	free(text);
 }
 

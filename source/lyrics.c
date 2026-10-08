@@ -238,7 +238,7 @@ static uint32_t Lyrics_CopyText(char *dst, const char *p, const char *end) {
 int Lyrics_Parse(const char *utf8, size_t len, Lyrics *out) {
 	memset(out, 0, sizeof(*out));
 
-	if (utf8 == NULL || len == 0 || len > LYRICS_MAX_BYTES)
+	if (utf8 == NULL || len == 0 || len > LYRICS_MAX_TEXT_BYTES)
 		return 0;
 
 	// First pass: how many lines and timestamps there are, and the offset.

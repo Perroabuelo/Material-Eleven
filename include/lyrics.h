@@ -9,8 +9,18 @@
 // logic: no vita2d and no SCE headers, so it is tested on the PC
 // (tests/test_lyrics.c). Reading the file is source/lyrics_load.c's job.
 
-// A .lrc or an embedded text larger than this is ignored as if it did not exist.
+// A .lrc or an embedded text larger than this is ignored as if it did not
+// exist. The loaders check it before reading (source/lyrics_load.c, Audio_SetLyrics).
 #define LYRICS_MAX_BYTES (64 * 1024)
+
+// Converting to UTF-8 can triple a text (every Windows-1252 byte, or every
+// invalid byte that becomes U+FFFD), so the parser takes up to this much.
+#define LYRICS_MAX_TEXT_BYTES (3 * LYRICS_MAX_BYTES)
+
+// Bits of Lyrics_Line.flags from this one up are left to the caller, which
+// can mark lines with what it works out about them once (the lyrics view
+// stores whether a line needs the fallback font).
+#define LYRICS_LINE_CALLER_FLAGS 0x80
 
 // Lyrics_Line.flags: the whole line is between brackets, like a Genius
 // section header "[Verse: Rumi, Zoey]". It is drawn dimmed.
@@ -39,7 +49,7 @@ typedef struct {
 // is kept in order, blank ones included. In both cases the known metadata tags
 // ([ti:], [ar:], [al:], [au:], [by:], [length:], [offset:], [re:], [ve:]) are
 // dropped and trailing spaces are trimmed. Text without any non-blank line,
-// or longer than LYRICS_MAX_BYTES, gives count 0.
+// or longer than LYRICS_MAX_TEXT_BYTES, gives count 0.
 //
 // Returns 0, or -1 when memory runs out (and then count is 0 too). `utf8` may
 // be NULL when `len` is 0. Free the result with Lyrics_Free.

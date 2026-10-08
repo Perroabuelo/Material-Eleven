@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.4.3] - 2026-10-07
+
 ### Fixed
 
 - Fixed colored streaks and garbled text that sometimes flashed across the screen right after changing tracks.

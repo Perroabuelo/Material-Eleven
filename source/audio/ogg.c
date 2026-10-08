@@ -74,6 +74,10 @@ int OGG_Init(const char *path) {
 
 		if ((value = vorbis_comment_query(comment, "genre", 0)) != NULL)
 			snprintf(metadata.genre, 31, "%s\n", value);
+
+		if ((value = vorbis_comment_query(comment, "LYRICS", 0)) != NULL
+			|| (value = vorbis_comment_query(comment, "UNSYNCEDLYRICS", 0)) != NULL)
+			Audio_SetLyrics(value, strlen(value));
 	}
 
 	return 0;

@@ -129,6 +129,15 @@ int FLAC_Init(const char *path) {
 				metadata.has_meta = SCE_TRUE;
 				snprintf(metadata.genre, 31, "%s\n", tag + 6);
 			}
+
+			// The first of the two that shows up; read whatever the cover
+			// settings say.
+			FLAC__uint32 tag_len = tags->data.vorbis_comment.comments[i].length;
+
+			if (tag_len >= 7 && !strncasecmp("LYRICS=", tag, 7))
+				Audio_SetLyrics(tag + 7, tag_len - 7);
+			else if (tag_len >= 15 && !strncasecmp("UNSYNCEDLYRICS=", tag, 15))
+				Audio_SetLyrics(tag + 15, tag_len - 15);
 		}
 	}
 

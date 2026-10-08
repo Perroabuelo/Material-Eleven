@@ -10,7 +10,8 @@
   - Hecho: además de `TextEncoding_ToUtf8`, el módulo expone `TextEncoding_SanitizeUtf8` (la validación de la letra embebida de la decisión 4) y `TextEncoding_Utf8SeqLen` (para que el layout no corte dentro de una secuencia). El test usa un validador UTF-8 propio, independiente del módulo.
 - [x] 2.3 Crear `source/lyrics.c` e `include/lyrics.h` con `Lyrics_Parse`, `Lyrics_LineAt`, `Lyrics_Choose` y `Lyrics_Free` (decisiones 1 y 2), y `tests/test_lyrics.c` con todos los escenarios marcados "prueba en PC" de `specs/playback/lyrics`, usando los fixtures. Listo cuando `make -C tests` pase con sanitizers y sin fugas.
   - Hecho: `Lyrics_Choose(from_lrc, embedded, out)` mueve la ganadora a `out` y libera la otra. El texto se copia a un buffer propio de `len + 1` bytes, cada línea terminada en NUL para dibujarla directo. `Lyrics_Parse` también aplica el tope de 64 KB, para que la prueba de más de 64 KB (generada al vuelo) se haga en PC. `0` también corta línea, como en los marcos de texto de ID3.
-- [ ] 2.4 Crear `source/lyrics_layout.c` e `include/lyrics_layout.h` con `LyricsLayout_Build` y `LyricsLayout_Free` (decisión 1), y `tests/test_lyrics_layout.c` con los casos de la estrategia de pruebas. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 2.4 Crear `source/lyrics_layout.c` e `include/lyrics_layout.h` con `LyricsLayout_Build` y `LyricsLayout_Free` (decisión 1), y `tests/test_lyrics_layout.c` con los casos de la estrategia de pruebas. Listo cuando `make -C tests` pase con sanitizers.
+  - Hecho: la medida recibe además el índice de la línea (design.md, decisión 1, actualizada), porque el tamaño se decide por línea. `LyricsLayout_FirstRow` busca la primera fila de una línea por búsqueda binaria, sin una reserva más. Un renglón nunca pasa de 512 bytes, para copiarlo a un buffer fijo al dibujarlo.
 
 ## 3. Carga de la letra
 

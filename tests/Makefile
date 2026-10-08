@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout
 
 .PHONY: all clean FORCE
 
@@ -61,6 +61,9 @@ test_text_encoding: test_text_encoding.c ../source/text_encoding.c ../include/te
 
 test_lyrics: test_lyrics.c ../source/lyrics.c ../include/lyrics.h ../source/text_encoding.c ../include/text_encoding.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_lyrics.c ../source/lyrics.c ../source/text_encoding.c
+
+test_lyrics_layout: test_lyrics_layout.c ../source/lyrics_layout.c ../include/lyrics_layout.h ../source/lyrics.c ../include/lyrics.h ../source/text_encoding.c ../include/text_encoding.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_lyrics_layout.c ../source/lyrics_layout.c ../source/lyrics.c ../source/text_encoding.c
 
 clean:
 	rm -f $(BIN) .cflags

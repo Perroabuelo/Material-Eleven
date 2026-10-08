@@ -70,4 +70,5 @@ templates/
 /tests/test_capture_bmp
 /tests/test_text_encoding
 /tests/test_lyrics
+/tests/test_lyrics_layout
 /tests/.cflags

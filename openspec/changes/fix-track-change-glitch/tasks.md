@@ -30,4 +30,5 @@
 
 ## 4. Cierre
 
-- [ ] 4.1 Agregar el bullet de `proposal.md` (Notas de version) a `CHANGELOG.md` bajo `[Unreleased]` y subir `VITA_VERSION` a `03.43` en `CMakeLists.txt`. Listo cuando CI del PR esté en verde. Solo si se hizo la etapa 3; si el change se detuvo en 2.3, no se toca ninguno de los dos.
+- [x] 4.1 Agregar el bullet de `proposal.md` (Notas de version) a `CHANGELOG.md` bajo `[Unreleased]` y subir `VITA_VERSION` a `03.43` en `CMakeLists.txt`. Listo cuando CI del PR esté en verde. Solo si se hizo la etapa 3; si el change se detuvo en 2.3, no se toca ninguno de los dos.
+  - Hecho el 2026-10-07 en `ad31501`. CI del PR #29 en verde (build y tests).

@@ -154,6 +154,10 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 	Music_FreeCurrentTrack();
 	Audio_Term();
 
+	// Every route to a new track passes here, and no frame is drawn until it
+	// returns, so the next frame drawn is the first one after the change.
+	UI_Debug_ArmCapture();
+
 	if (replay)
 		Queue_PeekAhead(0, &next, NULL, NULL);
 	else
@@ -402,7 +406,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 			return playback_origin;
 		}
 
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		vita2d_draw_rectangle(CONTENT_X, STATUS_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);

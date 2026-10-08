@@ -285,7 +285,7 @@ UI_Screen Menu_DisplaySettings(void) {
 	while (SCE_TRUE) {
 		const SettingsCategory *cat = &categories[category_index];
 
-		vita2d_start_drawing();
+		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
 		Menu_DrawSettingsCategoryColumn(category_index);

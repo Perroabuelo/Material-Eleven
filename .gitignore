@@ -67,4 +67,5 @@ templates/
 /tests/test_track_meta
 /tests/test_library_row
 /tests/test_nav_request
+/tests/test_capture_bmp
 /tests/.cflags

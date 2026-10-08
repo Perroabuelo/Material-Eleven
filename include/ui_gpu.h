@@ -6,9 +6,11 @@
 
 // GPU resource lifetime and observability. Everything here exists because the
 // same class of bug landed twice during vectorize-ui-controls (ac8f53d,
-// f3d908e): the CPU released or reused memory the GPU was still reading. The
-// lesson was not that the synchronisation was missing but that it sat in the
-// wrong place, so these are single points of passage rather than conventions.
+// f3d908e), and a third time as the track-change glitch that
+// fix-track-change-glitch traced to the vertex pool: the CPU released or
+// reused memory the GPU was still reading. The lesson was not that the
+// synchronisation was missing but that it sat in the wrong place, so these are
+// single points of passage rather than conventions.
 
 // ---- Single destruction point ----
 //
@@ -24,6 +26,19 @@
 void UI_GpuFreeTexture(vita2d_texture **texture);
 void UI_GpuFreeFont(vita2d_font **font);
 void UI_GpuFreePvf(vita2d_pvf **font);
+
+// ---- Frame start ----
+//
+// The only place a frame begins; no other translation unit calls
+// vita2d_start_drawing. That call rewinds the vertex pool to its start without
+// waiting for the GPU, so after the render loop has stalled - a track change,
+// a library scan - the CPU is no longer held back by the display queue and can
+// write the next frame's geometry over vertices the GPU is still reading from
+// the previous one. That is what drew colored wedges across the first frames
+// after a track change: 6 in 70 changes with 4x MSAA, and none in 100 once the
+// frame in flight was retired first. So this always waits for the GPU before
+// the pool is rewound, unconditionally and on every screen.
+void UI_GpuBeginFrame(void);
 
 // ---- Per-frame vertex pool ----
 //
@@ -42,8 +57,8 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 
 // ---- Debug overlay ----
 //
-// L + R + SELECT cycles: off -> resource stats -> glyph probe -> off. Off at
-// startup, so it costs nothing in normal use.
+// L + R + SELECT cycles: off -> resource stats -> glyph probe -> capture ->
+// off. Off at startup, so it costs nothing in normal use.
 //
 // The glyph probe answers the half of task 5.1 that needs the console: which
 // scripts the firmware's own fonts can draw. It renders the same samples three
@@ -54,12 +69,24 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 // side by side is what makes that trade judgeable rather than theoretical.
 #define UI_DEBUG_TOGGLE_COMBO (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER | SCE_CTRL_SELECT)
 
+//
+// The capture mode (fix-track-change-glitch) keeps a copy of the first frame
+// drawn after each track change, and the vertex pool each of the first two
+// frames used. The copy is taken one frame late, once the next frame has
+// already been recorded, so taking it never adds a wait of its own. Its ~2 MB
+// buffer exists only while the mode is showing.
 typedef enum {
 	UI_DEBUG_OFF = 0,
 	UI_DEBUG_STATS,
 	UI_DEBUG_GLYPHS,
+	UI_DEBUG_CAPTURE,
 	UI_DEBUG_MODE_COUNT
 } UI_DebugMode;
+
+// Called on every track change. Does nothing unless the capture mode is
+// showing; when it is, the next two frames are recorded and the first one
+// is copied.
+void UI_Debug_ArmCapture(void);
 
 // Releases anything the overlay allocated. Called once, at shutdown.
 void UI_Debug_Free(void);

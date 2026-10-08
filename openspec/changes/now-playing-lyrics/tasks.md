@@ -1,6 +1,7 @@
 ## 1. Comprobar lo incierto antes de construir
 
-- [ ] 1.1 En `source/audio/mp3.c`, de forma provisional, registrar con el overlay de debug (o `sceClibPrintf`) el `id`, el idioma y los primeros bytes de cada `v2->text[i]` al abrir una pista (Risks de design.md). Listo cuando, en la consola, *Golden* de *KPop Demon Hunters* muestre una entrada `USLT` cuyo texto es UTF-8 válido con el hangul de "어두워진". Anotar el resultado en esta tarea y quitar el registro. Si el texto no viene en UTF-8, actualizar la decisión 3 de design.md antes de seguir.
+- [x] 1.1 En `source/audio/mp3.c`, de forma provisional, registrar con el overlay de debug (o `sceClibPrintf`) el `id`, el idioma y los primeros bytes de cada `v2->text[i]` al abrir una pista (Risks de design.md). Listo cuando, en la consola, *Golden* de *KPop Demon Hunters* muestre una entrada `USLT` cuyo texto es UTF-8 válido con el hangul de "어두워진". Anotar el resultado en esta tarea y quitar el registro. Si el texto no viene en UTF-8, actualizar la decisión 3 de design.md antes de seguir.
+  - Resultado (2026-10-08, registro en `ux0:data/ElevenMPV/uslt_probe.txt`): en el archivo, el `USLT` de *Golden* viene en UTF-16 con BOM (codificación 1 de ID3v2.3), y mpg123 lo entrega en `v2->text` como `id=USLT lang=XXX` ya convertido a UTF-8: empieza con `5B ED 97 8C ED 8A B8…` (`[헌트릭스 "Golden" 가사]`) e incluye "어두워진". `text.fill` cuenta dos NUL al final. La decisión 3 no cambia. Se quitó el registro.
 
 ## 2. Lógica pura y fixtures
 

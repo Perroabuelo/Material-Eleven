@@ -6,9 +6,11 @@
 
 // GPU resource lifetime and observability. Everything here exists because the
 // same class of bug landed twice during vectorize-ui-controls (ac8f53d,
-// f3d908e): the CPU released or reused memory the GPU was still reading. The
-// lesson was not that the synchronisation was missing but that it sat in the
-// wrong place, so these are single points of passage rather than conventions.
+// f3d908e), and a third time as the track-change glitch that
+// fix-track-change-glitch traced to the vertex pool: the CPU released or
+// reused memory the GPU was still reading. The lesson was not that the
+// synchronisation was missing but that it sat in the wrong place, so these are
+// single points of passage rather than conventions.
 
 // ---- Single destruction point ----
 //
@@ -32,10 +34,10 @@ void UI_GpuFreePvf(vita2d_pvf **font);
 // waiting for the GPU, so after the render loop has stalled - a track change,
 // a library scan - the CPU is no longer held back by the display queue and can
 // write the next frame's geometry over vertices the GPU is still reading from
-// the previous one. fix-track-change-glitch is testing whether that is what
-// breaks the first frame after a track change: when the frame sync is on,
-// this retires the frame in flight before the pool is rewound. Off by default
-// for now, so the build reproduces the behaviour being measured against.
+// the previous one. That is what drew colored wedges across the first frames
+// after a track change: 6 in 70 changes with 4x MSAA, and none in 100 once the
+// frame in flight was retired first. So this always waits for the GPU before
+// the pool is rewound, unconditionally and on every screen.
 void UI_GpuBeginFrame(void);
 
 // ---- Per-frame vertex pool ----
@@ -71,9 +73,8 @@ void UI_GpuDrawTexture(vita2d_texture *texture, float x, float y);
 // The capture mode (fix-track-change-glitch) keeps a copy of the first frame
 // drawn after each track change, and the vertex pool each of the first two
 // frames used. The copy is taken one frame late, once the next frame has
-// already been recorded: copying the frame as soon as it was drawn would mean
-// waiting for the GPU first, and that wait is exactly what keeps the glitch
-// from happening. Its ~2 MB buffer exists only while the mode is showing.
+// already been recorded, so taking it never adds a wait of its own. Its ~2 MB
+// buffer exists only while the mode is showing.
 typedef enum {
 	UI_DEBUG_OFF = 0,
 	UI_DEBUG_STATS,

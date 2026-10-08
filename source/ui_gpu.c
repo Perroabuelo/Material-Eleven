@@ -55,10 +55,10 @@ static unsigned int stack_used = 0, stack_peak = 0;
 // ---- Capture mode (fix-track-change-glitch) ----
 //
 // After a track change, frame N+1 is the first drawn with the display queue
-// empty, and N+2 is the one whose geometry may overwrite N+1's vertices while
-// the GPU is still reading them. So: note where N+1 is drawn and how much pool
-// it used, note N+2's usage, and only after N+2 has been submitted wait for
-// the GPU and copy N+1 out. The wait protects N+2 from N+3, not N+1 from N+2.
+// empty, and N+2 is the one whose geometry used to overwrite N+1's vertices
+// while the GPU was still reading them, before UI_GpuBeginFrame waited. So:
+// note where N+1 is drawn and how much pool it used, note N+2's usage, and
+// only after N+2 has been submitted copy N+1 out.
 #define UI_CAPTURE_W 960
 #define UI_CAPTURE_H 544
 #define UI_CAPTURE_BYTES (UI_CAPTURE_W * UI_CAPTURE_H * 4)
@@ -77,12 +77,9 @@ static UI_CaptureStep capture_step = UI_CAPTURE_IDLE;
 static void *capture_fb = NULL;
 static unsigned int capture_pool_used[2];
 static SceBool capture_ready = SCE_FALSE;
-// The sync setting the captured frame was drawn with, which is not
-// necessarily the current one by the time it is saved.
-static SceBool capture_sync = SCE_FALSE;
 static const char *capture_status = "sin captura";
 static char capture_saved[32];
-// Buttons held on the previous frame, for the rising edges of SELECT and Up.
+// Buttons held on the previous frame, for the rising edge of SELECT.
 static unsigned int capture_prev_buttons = 0;
 
 void UI_GpuFreeTexture(vita2d_texture **texture) {
@@ -112,18 +109,12 @@ void UI_GpuFreePvf(vita2d_pvf **font) {
 	*font = NULL;
 }
 
-// Toggled from the capture panel of the debug overlay; see UI_GpuBeginFrame
-// in ui_gpu.h.
-static SceBool frame_sync = SCE_FALSE;
-
 // Free pool space right after the rewind, so a frame's usage is this minus
 // what is left when it ends.
 static unsigned int frame_pool_total = 0;
 
 void UI_GpuBeginFrame(void) {
-	if (frame_sync)
-		vita2d_wait_rendering_done();
-
+	vita2d_wait_rendering_done();
 	vita2d_start_drawing();
 	frame_pool_total = vita2d_pool_free_space();
 }
@@ -400,7 +391,6 @@ static void UI_Capture_CopyIfDue(void) {
 			(const unsigned char *)capture_fb + (size_t)y * fb.pitch * 4, UI_CAPTURE_W * 4);
 
 	capture_ready = SCE_TRUE;
-	capture_sync = frame_sync;
 	capture_status = "lista";
 }
 
@@ -446,10 +436,10 @@ static SceBool UI_Capture_WriteNotes(const char *path) {
 	SceBool ok;
 
 	len = snprintf(text, sizeof(text),
-		"pool_n1_bytes=%u\npool_n2_bytes=%u\npool_diff_bytes=%d\nsync=%s\ngfx=%s\n",
+		"pool_n1_bytes=%u\npool_n2_bytes=%u\npool_diff_bytes=%d\ngfx=%s\n",
 		capture_pool_used[0], capture_pool_used[1],
 		(int)capture_pool_used[1] - (int)capture_pool_used[0],
-		capture_sync ? "on" : "off", graphics_mode);
+		graphics_mode);
 	if (len < 0 || len >= (int)sizeof(text))
 		return SCE_FALSE;
 
@@ -498,15 +488,12 @@ static void UI_Capture_Save(void) {
 	capture_status = capture_saved;
 }
 
-// SELECT alone saves, Up toggles the frame sync. Neither does anything on Now
-// Playing, where the test runs; on the lists they also act on the list.
+// SELECT alone saves. It does nothing else on Now Playing; on the lists it
+// also acts on the list.
 static void UI_Capture_HandleButtons(unsigned int buttons) {
 	unsigned int pressed = buttons & ~capture_prev_buttons;
 
 	capture_prev_buttons = buttons;
-
-	if ((pressed & SCE_CTRL_UP))
-		frame_sync = !frame_sync;
 
 	if ((pressed & SCE_CTRL_SELECT) && !(buttons & (SCE_CTRL_LTRIGGER | SCE_CTRL_RTRIGGER)))
 		UI_Capture_Save();
@@ -522,11 +509,6 @@ static void UI_Capture_DrawPanel(void) {
 	snprintf(line, sizeof(line), "CAPTURA  %s", capture_status);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		capture_pixels ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TRACKER, line);
-	y += UI_DEBUG_LINE_H;
-
-	snprintf(line, sizeof(line), "SYNC   %s   (Arriba)", frame_sync ? "encendido" : "apagado");
-	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
-		UI_COLOR_TEXT_PRIMARY, line);
 	y += UI_DEBUG_LINE_H;
 
 	if (capture_ready) {

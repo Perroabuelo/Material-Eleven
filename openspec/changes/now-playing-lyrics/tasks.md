@@ -16,7 +16,8 @@
 
 ## 3. Carga de la letra
 
-- [ ] 3.1 En `include/audio/audio.h`, agregar `lyrics` y `lyrics_len` a `Audio_Metadata`. En `source/audio/audio.c`, liberarlos en el camino de fallo de `Audio_Init` y en `Audio_Term`, y agregar `Audio_GetPositionMs` (decisiones 3 y 5). Listo cuando `scripts/build.sh` compile y las pistas de `ux0:/pruebas-eleven/formatos/` suenen igual que antes.
+- [x] 3.1 En `include/audio/audio.h`, agregar `lyrics` y `lyrics_len` a `Audio_Metadata`. En `source/audio/audio.c`, liberarlos en el camino de fallo de `Audio_Init` y en `Audio_Term`, y agregar `Audio_GetPositionMs` (decisiones 3 y 5). Listo cuando `scripts/build.sh` compile y las pistas de `ux0:/pruebas-eleven/formatos/` suenen igual que antes.
+  - Hecho: `Audio_SetLyrics(text, len)` en `audio.c` es la copia que usan los decoders (la primera gana, y se descarta la vacía o la de más de 64 KB). En la consola abrieron y sonaron las diez pistas de `formatos-mono/` y `formatos-estereo/` (FLAC, MP3, OGG, Opus y WAV).
 - [ ] 3.2 En `source/audio/flac.c`, `ogg.c` y `opus.c`, copiar `LYRICS` o `UNSYNCEDLYRICS` a `metadata.lyrics` si mide 64 KB o menos; en `mp3.c`, copiar el primer `USLT` no vacío (decisión 3). Listo cuando `scripts/build.sh` compile y, con un registro provisional, la consola muestre la longitud de la letra embebida de *Golden* y 0 para `TWICE - TAKEDOWN (JEONGYEON, JIHYO, CHAEYOUNG).mp3`.
 - [ ] 3.3 Crear `source/lyrics_load.c` e `include/lyrics_load.h` con `LyricsLoad_ForTrack` (decisión 4). Agregar los cuatro archivos nuevos de `source/` a `CMakeLists.txt`. En `source/menus/menu_audioplayer.c`, cargar la letra y armar el layout en `Menu_InitMusic`, precalentando los glifos, y liberarlos en `Music_FreeCurrentTrack`. Listo cuando `scripts/build.sh` compile y, con el overlay de debug abierto, pasar treinta veces con R por `I NEVER DIE - i-dle` deje el heap igual que al principio, con una diferencia de no más de unos pocos KB.
 

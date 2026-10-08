@@ -23,8 +23,10 @@
 
 - [x] 3.1 Volver incondicional la espera en `UI_GpuBeginFrame()`: quitar `frame_sync` y el control de Arriba, y dejar en el panel de captura solo la captura y los valores de pool. Actualizar el comentario de cabecera de `ui_gpu.h` para registrar esta tercera aparición de la misma clase de fallo. Listo cuando compile con `-Werror`, `make -C tests` pase y el panel de captura ya no ofrezca el interruptor.
   - Hecho el 2026-10-07: compila con `-Werror` y `make -C tests` pasa. El `.txt` de las capturas ya no lleva la línea `sync`.
-- [ ] 3.2 Verificación en consola del escenario "Cambio de track sin artefactos visuales": 70 cambios con R, con MSAA 4x, sin el modo captura abierto. Listo cuando el resultado sea 0/70 y quede anotado.
-- [ ] 3.3 Verificación en consola de rendimiento y regresión: Carpetas, Biblioteca, Now Playing y Ajustes siguen a 60 fps (mismo método que `close-ui-contract` 2.2), el escaneo de biblioteca se dibuja bien, y el escenario "Cambio repetido de track", alternando pistas con y sin carátula, no tira la app. Listo cuando los tres resultados queden anotados.
+- [x] 3.2 Verificación en consola del escenario "Cambio de track sin artefactos visuales": 70 cambios con R, con MSAA 4x, sin el modo captura abierto. Listo cuando el resultado sea 0/70 y quede anotado.
+  - Verificado en consola el 2026-10-07: **0/70**.
+- [x] 3.3 Verificación en consola de rendimiento y regresión: Carpetas, Biblioteca, Now Playing y Ajustes siguen a 60 fps (mismo método que `close-ui-contract` 2.2), el escaneo de biblioteca se dibuja bien, y el escenario "Cambio repetido de track", alternando pistas con y sin carátula, no tira la app. Listo cuando los tres resultados queden anotados.
+  - Verificado en consola el 2026-10-07: las cuatro pantallas siguen a 60 fps, el escaneo de biblioteca se dibuja bien y el cambio repetido de pista, con y sin carátula, no tira la app.
 
 ## 4. Cierre
 

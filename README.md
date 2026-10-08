@@ -53,6 +53,22 @@ Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/Elev
 - Seeking with the touch screen.
 - Displays ID3v1 and ID3v2 metadata for MP3 files. Other tags are displayed for OGG, FLAC, OPUS and XM.
 - Turn off the display and keep listening in the background.
+- A full-screen lyrics view on Now Playing (see Lyrics below).
+
+**Lyrics**
+- Press Up on the D-pad on Now Playing to open the lyrics view, and again to close it.
+- Lyrics come from two places: a `.lrc` file next to the track with the same name (`Song.flac` and
+  `Song.lrc`), and the lyrics embedded in the track (`LYRICS` or `UNSYNCEDLYRICS` in FLAC, OGG and
+  Opus, `USLT` in MP3).
+- When both exist, the one with timestamps wins; if both have them, or neither does, the `.lrc` wins.
+- Synced lyrics follow the song line by line, with the current line highlighted. Drag them to look
+  around; a few seconds after you let go, the view returns to the line being sung. `[offset:]` in
+  a `.lrc` is honoured; per-word timestamps are ignored and the line's time is used.
+- Lyrics without timestamps are shown as text you can scroll, with section headers such as
+  `[Verse]` dimmed.
+- Files over 64 KB are ignored.
+- **Save `.lrc` files as UTF-8.** UTF-16 with a byte order mark and Windows-1252 are also read, but
+  a file in any other encoding (Shift-JIS, GBK, Big5, EUC-KR...) will show the wrong characters.
 
 **Audio** (ported from ElevenMPV-A)
 - The volume follows the system volume control.
@@ -91,10 +107,12 @@ The enter and cancel buttons (cross/circle) follow your console's settings.
 - Cancel button: return to Folders.
 - L trigger: previous track in the queue.
 - R trigger: next track in the queue.
+- DPAD Up: open or close the lyrics view.
 - Triangle: toggle shuffle.
 - Square: toggle repeat.
 - Start: turn off the display and keep playing audio in the background.
-- Touch: touch anywhere on the progress bar to seek to that location.
+- Touch: touch anywhere on the progress bar to seek to that location. In the lyrics view, drag the
+  lyrics to scroll them.
 
 **Settings:**
 

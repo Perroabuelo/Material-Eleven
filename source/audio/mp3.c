@@ -164,6 +164,22 @@ int MP3_Init(const char *path) {
 		if (v2 != NULL) {
 			print_v2(&metadata, v2);
 
+			// mpg123 hands every text frame over in UTF-8, USLT included, and
+			// fill counts the trailing NULs. The first one with text wins;
+			// read whatever the cover settings say.
+			for (size_t i = 0; i < v2->texts; i++) {
+				mpg123_text *text = &v2->text[i];
+
+				if (memcmp(text->id, "USLT", 4) == 0 && text->text.p != NULL) {
+					size_t len = strnlen(text->text.p, text->text.fill);
+
+					if (len > 0) {
+						Audio_SetLyrics(text->text.p, len);
+						break;
+					}
+				}
+			}
+
 			if (config.meta_mp3) {
 				for (size_t count = 0; count < v2->pictures; count++) {
 					mpg123_picture *pic = &v2->picture[count];

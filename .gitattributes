@@ -6,3 +6,6 @@
 
 # Makefiles run with make in WSL, where CRLF breaks recipes
 Makefile text eol=lf
+
+# Test fixtures are compared byte for byte (CRLF, UTF-16 and Latin-1 cases)
+tests/fixtures/** -text

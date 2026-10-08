@@ -175,7 +175,9 @@ static float NavRail_HintButtonWidth(NavRail_HintButton button) {
 	if (NavRail_HintSymbolOf(button) != HINT_SYM_CHIP)
 		return HINT_GLYPH_BOX;
 
-	return UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, NavRail_HintChipName(button)) + HINT_CHIP_PAD_X * 2;
+	// The arrow chip is as wide as a one-letter chip, so it sits like L and R.
+	const char *name = (button == HINT_BTN_UP) ? "L" : NavRail_HintChipName(button);
+	return UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, name) + HINT_CHIP_PAD_X * 2;
 }
 
 // The four symbols in outline, as the console's face buttons print them,
@@ -279,8 +281,14 @@ void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count) {
 
 			if (symbol == HINT_SYM_CHIP) {
 				UI_DrawPill(x, chip_y, w, HINT_CHIP_H, UI_COLOR_SURFACE_2);
-				UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x + HINT_CHIP_PAD_X, chip_baseline, UI_COLOR_TEXT_SECONDARY,
-					NavRail_HintChipName(hint->buttons[b]));
+
+				if (hint->buttons[b] == HINT_BTN_UP) {
+					float cx = x + w / 2.0f, half = HINT_CHIP_H * 0.22f;
+					UI_DrawTriangle(cx, mid - half, cx + half, mid + half * 0.7f, cx - half, mid + half * 0.7f, UI_COLOR_TEXT_SECONDARY);
+				}
+				else
+					UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x + HINT_CHIP_PAD_X, chip_baseline, UI_COLOR_TEXT_SECONDARY,
+						NavRail_HintChipName(hint->buttons[b]));
 			}
 			else
 				NavRail_DrawHintSymbol(symbol, x + w / 2.0f, mid);

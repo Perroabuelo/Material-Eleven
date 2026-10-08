@@ -1,8 +1,10 @@
 #include <psp2/kernel/threadmgr.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "audio.h"
+#include "lyrics.h"
 #include "ui_theme.h"
 #include "vitaaudiolib.h"
 #include "fs.h"
@@ -152,6 +154,9 @@ int Audio_Init(const char *path) {
 	// vitaAudioInit era leer de un handle que nunca existio. Cualquier archivo
 	// con extension reconocida y contenido inservible tumbaba la aplicacion.
 	if ((* decoder.init)(path) != 0) {
+		// A decoder may have copied the lyrics before failing, and nobody else
+		// will take them.
+		free(metadata.lyrics);
 		decoder = empty_decoder;
 		metadata = empty_metadata;
 		file_type = FILE_TYPE_NONE;
@@ -203,6 +208,16 @@ SceUInt64 Audio_GetLengthSeconds(void) {
 	return (Audio_GetLength() / (* decoder.rate)());
 }
 
+SceUInt32 Audio_GetPositionMs(void) {
+	SceUInt32 rate = (* decoder.rate)();
+
+	if (rate == 0)
+		return 0;
+
+	SceUInt64 ms = Audio_GetPosition() * 1000ULL / rate;
+	return (ms > 0xFFFFFFFFULL) ? 0xFFFFFFFFU : (SceUInt32)ms;
+}
+
 SceUInt64 Audio_Seek(SceUInt64 index) {
 	return (* decoder.seek)(index);
 }
@@ -217,10 +232,27 @@ void Audio_Term(void) {
 	vitaAudioEnd(); // waits for the output thread itself
 	(* decoder.term)();
 
-	// Clear metadata struct
+	// Clear metadata struct. The lyrics are normally gone already, taken by
+	// Menu_InitMusic; this covers any path that loads a track without it.
+	free(metadata.lyrics);
 	metadata = empty_metadata;
 	decoder = empty_decoder;
 
 	// No track loaded any more, so the accent goes back to the fixed color.
 	UI_Theme_ResetAccent();
+}
+
+void Audio_SetLyrics(const char *text, size_t len) {
+	if (metadata.lyrics != NULL || text == NULL || len == 0 || len > LYRICS_MAX_BYTES)
+		return;
+
+	char *copy = malloc(len + 1);
+
+	if (copy == NULL)
+		return;
+
+	memcpy(copy, text, len);
+	copy[len] = '\0';
+	metadata.lyrics = copy;
+	metadata.lyrics_len = len;
 }

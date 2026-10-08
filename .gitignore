@@ -68,4 +68,7 @@ templates/
 /tests/test_library_row
 /tests/test_nav_request
 /tests/test_capture_bmp
+/tests/test_text_encoding
+/tests/test_lyrics
+/tests/test_lyrics_layout
 /tests/.cflags

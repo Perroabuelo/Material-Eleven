@@ -34,7 +34,8 @@
 ## 5. Documentación y versión
 
 - [x] 5.1 En `README.md`, documentar la vista de letras, las dos fuentes, la regla de prioridad y la nota de que los `.lrc` deben estar en UTF-8 (los que están en Shift-JIS, GBK u otra codificación se verán con caracteres incorrectos). Listo cuando el README lo explique en inglés.
-- [ ] 5.2 Subir la versión a 3.5.0 (`VITA_VERSION "03.50"` en `CMakeLists.txt` y donde más figure) y agregar la entrada de v3.5.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` con la versión nueva.
+- [x] 5.2 Subir la versión a 3.5.0 (`VITA_VERSION "03.50"` en `CMakeLists.txt` y donde más figure) y agregar la entrada de v3.5.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` con la versión nueva.
+  - Hecho: `VITA_VERSION` solo figura en `CMakeLists.txt`; el `param.sfo` del `.vpk` dice `03.50`.
 
 ## 6. Verificación en consola
 

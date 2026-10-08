@@ -8,6 +8,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-10-08
+
+### Added
+
+- Now Playing can show the song's lyrics: press Up on the D-pad to open a full-screen lyrics view, and again to close it.
+- Synced lyrics follow the song line by line, with the current line highlighted.
+- Drag the lyrics to look around; after a few seconds the view returns to the line being sung.
+- Lyrics are read from a `.lrc` file next to the track (same name) or from the lyrics embedded in the file (FLAC, OGG and Opus `LYRICS`, MP3 `USLT`).
+- Lyrics without timestamps are shown as scrollable text, and tracks without lyrics say so.
+- `.lrc` files should be saved as UTF-8; files in other encodings such as Shift-JIS or GBK may show wrong characters.
+
 ## [3.4.3] - 2026-10-07
 
 ### Fixed

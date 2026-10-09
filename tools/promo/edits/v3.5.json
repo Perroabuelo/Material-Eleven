@@ -1,0 +1,74 @@
+{
+  "recording": "OBS capture of 3.5.0 on a PS Vita, 2:49, 1920x1080 at 60 fps, recorded 2026-10-08",
+  "accents": {
+    "orange": "E8743B",
+    "green": "7BD35A",
+    "pink": "F08BA0",
+    "red": "F0457A",
+    "blue": "5B8DEF"
+  },
+  "captions": {
+    "intro": ["Material-Eleven", "A Material You music player for PS Vita"],
+    "folders": ["Browse your memory card", "Folders, files and the lyrics next to them"],
+    "scan": ["Scans your music once", "Tags are cached, so the next start is instant"],
+    "library": ["Your library, your way", "Songs, artists, albums and recents"],
+    "settings": ["Make it yours", "Sort order, normalizer, equalizer, language"],
+    "mini": ["Keeps playing while you browse", "A mini player follows you everywhere"],
+    "colour": ["Colour from every cover", "The whole interface follows the album art"],
+    "lyrics": ["Synced lyrics", "Reads .lrc files next to your songs"]
+  },
+  "bed": {
+    "song": "NewJeans - Supernatural",
+    "drop": 7.95
+  },
+  "lyrics_song": {
+    "song": "i-dle - TOMBOY",
+    "start": 150.35
+  },
+  "outro": {
+    "title": "Material-Eleven",
+    "subtitle": "A Material You music player for PS Vita",
+    "formats": "FLAC  MP3  OGG  OPUS  WAV  IT  MOD  S3M  XM",
+    "author": "Perroabuelo",
+    "url": "github.com/Perroabuelo/Material-Eleven"
+  },
+  "cuts": {
+    "github": {
+      "outro": 3.5,
+      "scenes": [
+        {"name": "intro", "src": 2.2, "dur": 3.4, "caption": "intro"},
+        {"name": "library", "src": 18.3, "dur": 5.0, "caption": "library"},
+        {"name": "ido", "src": 46.6, "dur": 1.9, "caption": "colour"},
+        {"name": "wgb", "src": 106.0, "dur": 1.9, "caption": "colour", "accent": "green", "fade": false, "xf": 0.2},
+        {"name": "easy", "src": 111.05, "dur": 1.8, "caption": "colour", "accent": "pink", "fade": false, "xf": 0.2},
+        {"name": "freak", "src": 123.2, "dur": 1.7, "caption": "colour", "accent": "red", "fade": false, "xf": 0.2},
+        {"name": "adore", "src": 130.4, "dur": 1.9, "caption": "colour", "accent": "blue", "fade": false, "xf": 0.2},
+        {"name": "ideserve", "src": 141.0, "dur": 2.0, "caption": "colour", "accent": "blue", "fade": false, "xf": 0.2},
+        {"name": "tomboy", "src": 152.0, "dur": 7.5, "caption": "lyrics", "accent": "red", "lyrics": true}
+      ]
+    },
+    "full": {
+      "outro": 4.5,
+      "scenes": [
+        {"name": "intro", "src": 2.2, "dur": 4.0, "caption": "intro"},
+        {"name": "folders", "src": 6.0, "dur": 3.6, "caption": "folders"},
+        {"name": "scan", "src": 16.0, "dur": 2.2, "caption": "scan"},
+        {"name": "library", "src": 18.3, "dur": 7.4, "caption": "library"},
+        {"name": "settings", "src": 26.0, "dur": 6.5, "caption": "settings", "speed": 1.7},
+        {"name": "mini", "src": 98.0, "dur": 4.5, "caption": "mini", "accent": "green"},
+        {"name": "ido", "src": 46.6, "dur": 2.2, "caption": "colour"},
+        {"name": "eyes", "src": 54.6, "dur": 2.2, "caption": "colour", "fade": false, "xf": 0.2},
+        {"name": "wgb", "src": 106.0, "dur": 2.2, "caption": "colour", "accent": "green", "fade": false, "xf": 0.2},
+        {"name": "easy", "src": 111.05, "dur": 1.85, "caption": "colour", "accent": "pink", "fade": false, "xf": 0.2},
+        {"name": "freak", "src": 123.2, "dur": 1.8, "caption": "colour", "accent": "red", "fade": false, "xf": 0.2},
+        {"name": "adore", "src": 130.4, "dur": 2.2, "caption": "colour", "accent": "blue", "fade": false, "xf": 0.2},
+        {"name": "ideserve", "src": 141.0, "dur": 2.6, "caption": "colour", "accent": "blue", "fade": false, "xf": 0.2},
+        {"name": "tomboy", "src": 151.6, "dur": 11.4, "caption": "lyrics", "accent": "red", "lyrics": true}
+      ]
+    }
+  },
+  "gif": [
+    [2.4, 1.8], [46.6, 1.3], [106.0, 1.3], [111.1, 1.3], [123.2, 1.2],
+    [130.4, 1.3], [141.0, 1.3], [154.2, 3.2]
+  ]
+}

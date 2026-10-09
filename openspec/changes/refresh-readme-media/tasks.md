@@ -32,7 +32,7 @@
   - una línea que enlaza a `docs/screenshots/` para las versiones anteriores.
 
   **Listo cuando** cada ruta de imagen del README existe en el repo y la vista del README en la rama de GitHub muestra el GIF animado y la tabla completa.
-- [ ] 3.2 (Manual, el autor) Subir `material-eleven-github.mp4` (con audio) desde el editor web de GitHub y reemplazar el GIF del README por la URL `user-attachments`, sola en su línea. **Listo cuando** la vista del README en la rama muestra el reproductor, el video se reproduce y el audio suena al activarlo.
+- [x] 3.2 (Manual, el autor) Subir `material-eleven-github.mp4` (con audio) desde el editor web de GitHub y reemplazar el GIF del README por la URL `user-attachments`, sola en su línea. **Listo cuando** la vista del README en la rama muestra el reproductor, el video se reproduce y el audio suena al activarlo.
 
 ## 4. Cierre
 

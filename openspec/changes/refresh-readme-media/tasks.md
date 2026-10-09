@@ -26,7 +26,7 @@
 
 ## 3. README
 
-- [ ] 3.1 Actualizar `README.md`:
+- [x] 3.1 Actualizar `README.md`:
   - bajo el banner, el GIF de `docs/media/` como lugar del video, con un comentario HTML que dice que se reemplaza por la URL `user-attachments`;
   - bajo `# Screenshots:`, la tabla de 2×4 con las capturas de `v3.5/` y su texto alternativo;
   - una línea que enlaza a `docs/screenshots/` para las versiones anteriores.

@@ -6,7 +6,7 @@
   - la carpeta de trabajo dentro de `--out`.
 
   **Listo cuando** `py -I tools/promo/build.py --help` muestra las opciones y `git grep -n "C:/Users\|/c/Users" tools/` no encuentra nada.
-- [ ] 1.2 Escribir `tools/promo/edits/v3.5.json` con la edición de la 3.5:
+- [x] 1.2 Escribir `tools/promo/edits/v3.5.json` con la edición de la 3.5:
   - las escenas y los tiempos del prototipo;
   - el inicio de TOMBOY en 150.35 s;
   - la caída del beat de Supernatural en 7.95 s;

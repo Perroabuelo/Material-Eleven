@@ -115,3 +115,99 @@ On Windows without long paths enabled (`LongPathsEnabled`), paths are limited
 to 260 characters. The 250 byte ASCII name does not fit under that limit in any
 folder, so the script skips the names that do not fit and says so; keep the
 output folder short and enable long paths to get all of them.
+
+## `promo/build.py`: build the promo video
+
+Turns a screen recording of the console into the promo video shown in the
+README. Each scene shows the console screen in a rounded frame, over a dark
+canvas lit with that scene's accent colour, with a caption above it. The
+scenes are joined with short crossfades, and the video ends on the app icon,
+the supported formats and, when given an avatar, the author's signature.
+
+The audio is laid over afterwards, because the capture has none. A background
+song starts so that its beat drop lands on the first cut after the intro.
+Under the lyrics scene, the song on screen comes in at the exact point the app's
+elapsed counter shows, so the highlighted line matches the voice.
+
+| Output | What it is |
+| --- | --- |
+| `material-eleven-github.mp4` | About 28 s, 1080p at 30 fps, under 10 MB: the one uploaded to the README |
+| `material-eleven-full.mp4` | About 55 s, 1080p at 60 fps, with more scenes (folders, scan, settings, mini player) |
+| `*-muted.mp4` | The same two videos without the audio track |
+| `material-eleven.gif`, `.webp` | A frameless 640x360 loop, muted, used as the README fallback |
+
+**Needs:** Python 3 and `ffmpeg`/`ffprobe` in `PATH`, built with libx264,
+libwebp and drawtext (libfreetype). Unlike the other tools, ffmpeg is not
+optional here. The fonts come from `res/`.
+
+What goes where:
+
+- **`tools/promo/edits/<version>.json`** describes one recording: each scene's
+  start (`src`) and length (`dur`) in seconds of the recording, its caption,
+  its accent, its playback speed, and which scene is the lyrics one. It also
+  holds where the lyrics song started (`lyrics_song.start`, in seconds of the
+  recording), the beat drop of the background song (`bed.drop`, in seconds of
+  that song), and the outro text. `v3.5.json` is the edit of the 3.5 release.
+- **Arguments** give the files, which stay out of the repository: the
+  recording, the songs (they are copyrighted) and the avatar.
+
+From Windows (PowerShell), where ffmpeg is usually installed:
+
+```powershell
+python tools\promo\build.py `
+  --recording "D:\capturas\3.5.mkv" --edit tools\promo\edits\v3.5.json `
+  --bed "D:\musica\Supernatural.flac" --lyrics-song "D:\musica\TOMBOY.flac" `
+  --avatar "D:\avatar.png" --fix-obs-range --out "D:\promo"
+```
+
+Scenes are cached in `<out>/work`, keyed by their settings, so after changing
+one scene only that scene is rendered again. `--only github` (repeatable) builds
+just some of the outputs; the GIF needs neither song.
+
+Do not commit the outputs: the videos with audio carry copyrighted songs, and
+GitHub does not play a video stored in the repository. Upload
+`material-eleven-github.mp4` by dragging it into GitHub's web editor (for
+example, while editing `README.md` on the site), which gives a
+`github.com/user-attachments/assets/...` URL, and put that URL on a line of its
+own in the README.
+
+### Writing the edit for a new recording
+
+A contact sheet with one frame every two seconds, each stamped with its time,
+shows where each screen starts:
+
+```powershell
+ffmpeg -i rec.mkv -vf "setparams=range=pc,fps=1/2,scale=320:180,drawtext=fontfile='C\:/Windows/Fonts/arial.ttf':text='%{pts\:hms}':x=4:y=4:fontsize=20:fontcolor=yellow:box=1:boxcolor=black,tile=8x11" -frames:v 1 sheet.jpg
+```
+
+For the lyrics song, read the elapsed counter of the lyrics view ten times a
+second around a known time (here 152 s; `crop` frames the counter in a
+1920x1080 recording) and note when it ticks over. The stamps count from the
+`-ss` time: if the counter reaches `00:02` at stamp 0.35, that is 152.35 s into
+the recording, so the song started at 150.35 s:
+
+```powershell
+ffmpeg -ss 152 -t 3 -i rec.mkv -vf "fps=10,crop=140:40:240:968,pad=240:40:100:0,drawtext=fontfile='C\:/Windows/Fonts/arial.ttf':text='%{pts\:flt}':x=4:y=8:fontsize=20:fontcolor=yellow,tile=6x5" -frames:v 1 counter.png
+```
+
+The beat drop of the background song is where its loudness jumps; this prints
+the level every tenth of a second between 6 and 10 s:
+
+```powershell
+ffmpeg -ss 6 -t 4 -i song.flac -af "asetnsamples=4410,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-" -f null -
+```
+
+### Recording with OBS
+
+- **Colour range.** OBS can write full-range pixels into a file tagged as
+  limited range; players then crush the blacks, and the app background looks
+  black instead of dark violet. Set Settings > Advanced > Color Range to match
+  the capture source, or pass `--fix-obs-range` to reinterpret the recording.
+  With the 3.5 recording, the app background goes from `RGB(1,1,8)` to
+  `RGB(17,16,23)`, the same as in a screenshot taken on the console.
+- **Sharpness.** The console draws at 960x544. Set the canvas to 1920x1088
+  (exactly twice that) and the capture source's scale filter to "Point"
+  (right click > Scale Filtering), so each console pixel becomes a crisp 2x2
+  block instead of a blur.
+- **Audio.** The capture brings no sound. Write down which songs play and when;
+  the songs are added from their files.

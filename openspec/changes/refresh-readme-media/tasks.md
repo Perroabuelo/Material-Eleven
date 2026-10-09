@@ -17,7 +17,7 @@
   - la completa dura 54.9 s ±0.2;
   - `ffprobe` no muestra pista de audio en las mudas;
   - en un fotograma de la biblioteca, el fondo de la app mide `RGB(17,16,23)` ±2.
-- [ ] 1.3 Agregar la sección `promo/build.py` a `tools/README.md`: qué necesita, cómo correrlo, cómo leer los tiempos de una grabación con una hoja de contactos y los ajustes de OBS (rango de color, lienzo de 1920×1088, filtro "Point" y audio aparte). **Listo cuando** los comandos del README, copiados tal cual con las rutas de ejemplo reemplazadas, reproducen las salidas de 1.2.
+- [x] 1.3 Agregar la sección `promo/build.py` a `tools/README.md`: qué necesita, cómo correrlo, cómo leer los tiempos de una grabación con una hoja de contactos y los ajustes de OBS (rango de color, lienzo de 1920×1088, filtro "Point" y audio aparte). **Listo cuando** los comandos del README, copiados tal cual con las rutas de ejemplo reemplazadas, reproducen las salidas de 1.2.
 
 ## 2. Capturas y GIF
 

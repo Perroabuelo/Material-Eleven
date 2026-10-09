@@ -1,6 +1,6 @@
 ## 1. Herramienta del video
 
-- [ ] 1.1 Llevar el prototipo a `tools/promo/build.py`:
+- [x] 1.1 Llevar el prototipo a `tools/promo/build.py`:
   - argumentos: `--recording`, `--bed`, `--lyrics-song`, `--avatar` (opcional), `--edit`, `--out`, `--fix-obs-range` y `--only github|full|gif`;
   - fuentes desde `res/` resueltas relativas al repo;
   - la carpeta de trabajo dentro de `--out`.

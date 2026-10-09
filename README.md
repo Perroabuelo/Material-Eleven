@@ -6,8 +6,11 @@ A homebrew music player for PlayStation Vita, with a Material You interface, a m
 
 Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/ElevenMPV) by Joel16, and it includes audio improvements ported from [ElevenMPV-A](https://github.com/GrapheneCt/ElevenMPV-A) by GrapheneCt.
 
-<!-- Replace the GIF below with the github.com/user-attachments URL of material-eleven-github.mp4, on a line of its own (see tools/README.md). -->
-![Material-Eleven in action: library, accent colours and synced lyrics](docs/media/material-eleven.gif)
+![M
+
+https://github.com/user-attachments/assets/baf1d881-d672-44b8-8a34-a90e73f90dde
+
+aterial-Eleven in action: library, accent colours and synced lyrics](docs/media/material-eleven.gif)
 
 
 # Screenshots:

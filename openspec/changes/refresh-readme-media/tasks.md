@@ -21,7 +21,7 @@
 
 ## 2. Capturas y GIF
 
-- [ ] 2.1 Copiar sin recomprimir las 8 capturas de la tabla de design.md a `docs/screenshots/v3.5/`, con sus nombres nuevos. **Listo cuando** `ls docs/screenshots/v3.5` muestra los 8 archivos, cada uno idéntico byte a byte a su original (mismo hash), y las 13 capturas anteriores siguen en `docs/screenshots/` sin cambios (`git status` no las lista).
+- [x] 2.1 Copiar sin recomprimir las 8 capturas de la tabla de design.md a `docs/screenshots/v3.5/`, con sus nombres nuevos. **Listo cuando** `ls docs/screenshots/v3.5` muestra los 8 archivos, cada uno idéntico byte a byte a su original (mismo hash), y las 13 capturas anteriores siguen en `docs/screenshots/` sin cambios (`git status` no las lista).
 - [ ] 2.2 Agregar `docs/media/material-eleven.gif`, generado en 1.2. **Listo cuando** el archivo existe, pesa menos de 2 MB y se reproduce en loop en el navegador.
 
 ## 3. README

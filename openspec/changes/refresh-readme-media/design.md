@@ -46,7 +46,7 @@ Esta es la selección de la 3.5: dos columnas, cuatro filas, cada una con su tex
 | `now-playing-cyan.jpg` | `2026-10-08-210215.jpg` | Now playing, acento cian (Wish) |
 | `now-playing-green.jpg` | `2026-10-08-210313.jpg` | Now playing, acento verde (Wanna Go Back) |
 | `now-playing-blue.jpg` | `2026-10-08-210343.jpg` | Now playing, acento azul (Supernatural) |
-| `lyrics.jpg` | `2026-10-08-210158.jpg` | Letras sincronizadas (Eyes Roll) |
+| `lyrics.jpg` | `2026-10-08-210059.jpg` | Letras sincronizadas en coreano e inglés (VILLAIN DIES) |
 | `library-artist-mini-player.jpg` | `2026-10-08-210204.jpg` | Dentro de un artista, con el mini player |
 | `folders-lrc.jpg` | `2026-10-08-205955.jpg` | Navegador de carpetas con los `.lrc` |
 | `settings-playback.jpg` | `2026-10-08-205938.jpg` | Ajustes, qué hacer al terminar un álbum |

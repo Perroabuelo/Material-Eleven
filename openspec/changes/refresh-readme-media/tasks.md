@@ -36,4 +36,4 @@
 
 ## 4. Cierre
 
-- [ ] 4.1 Hacer push de la rama y abrir el PR a `main`. **Listo cuando** el CI queda en verde (el `.vpk` y los tests en PC no cambian) y el README de la rama se ve completo en GitHub.
+- [x] 4.1 Hacer push de la rama y abrir el PR a `main`. **Listo cuando** el CI queda en verde (el `.vpk` y los tests en PC no cambian) y el README de la rama se ve completo en GitHub.

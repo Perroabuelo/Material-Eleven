@@ -6,14 +6,20 @@ A homebrew music player for PlayStation Vita, with a Material You interface, a m
 
 Material-Eleven is a modified fork of [ElevenMPV](https://github.com/joel16/ElevenMPV) by Joel16, and it includes audio improvements ported from [ElevenMPV-A](https://github.com/GrapheneCt/ElevenMPV-A) by GrapheneCt.
 
+<!-- Replace the GIF below with the github.com/user-attachments URL of material-eleven-github.mp4, on a line of its own (see tools/README.md). -->
+![Material-Eleven in action: library, accent colours and synced lyrics](docs/media/material-eleven.gif)
+
 
 # Screenshots:
 
 | | |
 |---|---|
-| ![Now playing](docs/screenshots/now-playing-sunrise.jpg) | ![Now playing with a different accent colour](docs/screenshots/now-playing-red-rover.jpg) |
-| ![Library, albums view with the mini player](docs/screenshots/library-albums-mini-player.jpg) | ![Library, inside an artist](docs/screenshots/library-artist.jpg) |
-| ![Folder browser](docs/screenshots/folders-es.jpg) | ![Settings, language](docs/screenshots/settings-language.jpg) |
+| ![Now playing with a pink accent taken from the cover](docs/screenshots/v3.5/now-playing-pink.jpg) | ![Now playing with a cyan accent taken from the cover](docs/screenshots/v3.5/now-playing-cyan.jpg) |
+| ![Now playing with a green accent taken from the cover](docs/screenshots/v3.5/now-playing-green.jpg) | ![Now playing with a blue accent taken from the cover](docs/screenshots/v3.5/now-playing-blue.jpg) |
+| ![Synced lyrics](docs/screenshots/v3.5/lyrics.jpg) | ![Library, inside an artist, with the mini player](docs/screenshots/v3.5/library-artist-mini-player.jpg) |
+| ![Folder browser with tracks and their .lrc files](docs/screenshots/v3.5/folders-lrc.jpg) | ![Settings, what to play when an album or artist ends](docs/screenshots/v3.5/settings-playback.jpg) |
+
+Screenshots of earlier versions are in [docs/screenshots](docs/screenshots).
 
 
 # Currently supported formats: (16 bit signed samples)

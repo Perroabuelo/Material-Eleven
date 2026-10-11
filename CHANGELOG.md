@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Drag the progress bar to choose where to jump. The bar grows and shows a handle while you hold it, the elapsed time follows your finger, and the song jumps there when you let go.
+
+### Fixed
+
+- Touching the end of the progress bar now goes to the end of the song. Before, it stopped at about 95 %, and the filled part of the bar did not line up with your finger.
+- The progress bar is easier to hit: its touch area is taller.
+
 ## [3.5.1] - 2026-10-11
 
 ### Fixed

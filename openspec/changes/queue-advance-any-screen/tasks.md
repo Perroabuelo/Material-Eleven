@@ -1,6 +1,6 @@
 ## 1. Decisión pura del avance
 
-- [ ] 1.1 Crear `include/track_advance.h` y `source/track_advance.c` con `TrackAdvance_Ops` y `TrackAdvance_Run` (Decisión 2), sin vita2d ni SCE. Crear `tests/test_track_advance.c` con los casos de la estrategia de pruebas, con dobles que abren o fallan según una tabla y cuentan los intentos, y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers, incluido el caso en que ninguna pista abre (devuelve 0 después de exactamente `count` intentos).
+- [x] 1.1 Crear `include/track_advance.h` y `source/track_advance.c` con `TrackAdvance_Ops` y `TrackAdvance_Run` (Decisión 2), sin vita2d ni SCE. Crear `tests/test_track_advance.c` con los casos de la estrategia de pruebas, con dobles que abren o fallan según una tabla y cuentan los intentos, y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers, incluido el caso en que ninguna pista abre (devuelve 0 después de exactamente `count` intentos).
 
 ## 2. Un solo punto para el fin de pista
 

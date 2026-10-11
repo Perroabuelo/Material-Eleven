@@ -9,6 +9,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "menu_audioplayer.h"
 #include "screen_off.h"
 
 static SceCtrlData pad, old_pad;
@@ -27,6 +28,11 @@ void Utils_SetMin(int *set, int value, int min) {
 }
 
 int Utils_ReadControls(void) {
+	// Every screen, the search dialog and the library scans pass here once per
+	// frame, outside drawing: the one place where a finished track moves the
+	// queue on, whichever screen is open.
+	Music_Update();
+
 	memset(&pad, 0, sizeof(SceCtrlData));
 	sceCtrlPeekBufferPositive(0, &pad, 1);
 

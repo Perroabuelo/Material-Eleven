@@ -24,6 +24,7 @@
 #include "queue.h"
 #include "status_bar.h"
 #include "touch.h"
+#include "track_advance.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -163,13 +164,28 @@ static void Music_SeedOnce(void) {
 	seeded = SCE_TRUE;
 }
 
+// Adaptadores de la cola real y de Menu_InitMusic para TrackAdvance_Run.
+static int Music_AdvanceOpen(void *ctx, const char *path) {
+	return Menu_InitMusic(path) ? 1 : 0;
+}
+
+static const char *Music_AdvanceStep(void *ctx, int forward) {
+	return Queue_Advance(forward ? SCE_TRUE : SCE_FALSE);
+}
+
+static const char *Music_AdvanceCurrent(void *ctx) {
+	const char *path = NULL;
+	Queue_PeekAhead(0, &path, NULL, NULL);
+	return path;
+}
+
 // Solo avanza y abre: que pista toca lo decide la cola, venga el avance del
 // transporte, de los gatillos, del mini reproductor o del fin de la pista.
 // `replay` reabre la que suena en vez de moverse, que es lo que pide la
-// repeticion.
+// repeticion. Que se prueba y en que orden lo decide TrackAdvance_Run.
 static void Music_HandleNext(SceBool forward, SceBool replay) {
+	const TrackAdvance_Ops ops = { Music_AdvanceOpen, Music_AdvanceStep, Music_AdvanceCurrent, NULL };
 	int count = Queue_Count();
-	const char *next = NULL;
 
 	Audio_Stop();
 	Music_FreeCurrentTrack();
@@ -179,22 +195,8 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 	// returns, so the next frame drawn is the first one after the change.
 	UI_Debug_ArmCapture();
 
-	if (replay)
-		Queue_PeekAhead(0, &next, NULL, NULL);
-	else
-		next = Queue_Advance(forward);
-
-	// Una pista que no abre no puede quedarse con la pantalla: se salta y se
-	// prueba la siguiente del plan en la misma direccion. Como mucho una vuelta
-	// entera a la cola, que es lo que acota esto cuando no abre ninguna.
-	for (int tries = 0; tries < count; tries++) {
-		if (next != NULL && Menu_InitMusic(next))
-			return;
-
-		next = Queue_Advance(forward);
-	}
-
-	track_failed = SCE_TRUE;
+	if (!TrackAdvance_Run(&ops, count, forward, replay))
+		track_failed = SCE_TRUE;
 }
 
 // Se baraja al encenderlo, y ahi es donde hace falta el generador ya sembrado.
@@ -233,6 +235,16 @@ void Music_Previous(void) {
 void Music_Next(void) {
 	if (Audio_HasTrack() && Queue_Count() != 0)
 		Music_HandleNext(SCE_TRUE, SCE_FALSE);
+}
+
+// La pista termino sola: la repeticion la reabre y si no se avanza por el plan
+// vigente, barajado o no, igual que en un salto manual. Lo llama
+// Utils_ReadControls una vez por fotograma, asi que vale en cualquier pantalla.
+// Sin Audio_HasTrack, despues de que ninguna pista abriera se volveria a probar
+// la cola entera en cada fotograma.
+void Music_Update(void) {
+	if (Audio_HasTrack() && !playing && Queue_Count() != 0)
+		Music_HandleNext(SCE_TRUE, repeat);
 }
 
 // ---- Now Playing rendering ----
@@ -810,11 +822,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
 
-		// La pista termino sola. La repeticion la reabre; si no, se avanza por
-		// el plan vigente, barajado o no, igual que en un salto manual.
-		if (!playing && Queue_Count() != 0)
-			Music_HandleNext(SCE_TRUE, repeat);
-
+		// Utils_ReadControls atiende tambien el fin de la pista (Music_Update).
 		Utils_ReadControls();
 		Touch_Update();
 		UI_Debug_Update();

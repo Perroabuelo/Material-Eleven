@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+
+- When a track ended while you were on Folders, Library or Settings, the next one did not start. The queue now moves on, or repeats the track, from any screen, including with the screen turned off.
+
 ## [3.5.0] - 2026-10-08
 
 ### Added

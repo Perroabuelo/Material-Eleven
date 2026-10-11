@@ -41,7 +41,7 @@ SceUInt64 Audio_GetLengthSeconds(void);
 // Position in milliseconds, for the lyrics view. Like Audio_GetPosition it is
 // the decoded position, a block or two (some 20 ms) ahead of what is heard.
 SceUInt32 Audio_GetPositionMs(void);
-SceUInt64 Audio_Seek(SceUInt64 index);
+SceUInt64 Audio_Seek(double fraction);
 void Audio_Term(void);
 
 // For the decoders' *_Init: copies `len` bytes of embedded lyrics to

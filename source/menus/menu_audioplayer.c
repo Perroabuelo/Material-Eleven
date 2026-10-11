@@ -617,8 +617,6 @@ static void Menu_LyricsHandleDrag(void) {
 	}
 }
 
-// The bar spans the view, but Audio_Seek still takes a pixel on the old
-// 450 px bar, so the touch is scaled to that.
 static void Menu_LyricsHandleSeek(void) {
 	if (!Touch_Position(LYRICS_X, LYRICS_SEEK_Y - 12, LYRICS_X + LYRICS_W, LYRICS_SEEK_Y + 12))
 		return;
@@ -627,7 +625,7 @@ static void Menu_LyricsHandleSeek(void) {
 	if (!was_paused)
 		Audio_Pause();
 
-	Audio_Seek((SceUInt64)((Touch_GetX() - LYRICS_X) * 450 / LYRICS_W));
+	Audio_Seek((double)(Touch_GetX() - LYRICS_X) / LYRICS_W);
 
 	if (was_paused != Audio_IsPaused())
 		Audio_Pause();
@@ -854,7 +852,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 			if (!was_paused)
 				Audio_Pause();
 
-			Audio_Seek((SceUInt64)(Touch_GetX() - RIGHT_PANEL_X));
+			Audio_Seek((double)(Touch_GetX() - RIGHT_PANEL_X) / (RIGHT_PANEL_R - RIGHT_PANEL_X));
 
 			if (was_paused != Audio_IsPaused())
 				Audio_Pause();

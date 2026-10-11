@@ -35,8 +35,11 @@ SceUInt64 WAV_GetLength(void) {
 	return wav.totalPCMFrameCount;
 }
 
-SceUInt64 WAV_Seek(SceUInt64 index) {
-	drwav_uint64 seek_frame = (wav.totalPCMFrameCount * (index / 450.0));
+SceUInt64 WAV_Seek(double fraction) {
+	drwav_uint64 seek_frame = (drwav_uint64)(wav.totalPCMFrameCount * fraction);
+
+	if (wav.totalPCMFrameCount > 0 && seek_frame >= wav.totalPCMFrameCount)
+		seek_frame = wav.totalPCMFrameCount - 1;
 	
 	if (drwav_seek_to_pcm_frame(&wav, seek_frame) == DRWAV_TRUE) {
 		frames_read = seek_frame;

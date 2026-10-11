@@ -194,8 +194,11 @@ SceUInt64 FLAC_GetLength(void) {
 	return flac->totalPCMFrameCount;
 }
 
-SceUInt64 FLAC_Seek(SceUInt64 index) {
-	drflac_uint64 seek_frame = (flac->totalPCMFrameCount * (index / 450.0));
+SceUInt64 FLAC_Seek(double fraction) {
+	drflac_uint64 seek_frame = (drflac_uint64)(flac->totalPCMFrameCount * fraction);
+
+	if (flac->totalPCMFrameCount > 0 && seek_frame >= flac->totalPCMFrameCount)
+		seek_frame = flac->totalPCMFrameCount - 1;
 	
 	if (drflac_seek_to_pcm_frame(flac, seek_frame) == DRFLAC_TRUE) {
 		frames_read = seek_frame;

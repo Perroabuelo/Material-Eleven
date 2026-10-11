@@ -128,8 +128,11 @@ SceUInt64 OGG_GetLength(void) {
 	return max_lenth;
 }
 
-SceUInt64 OGG_Seek(SceUInt64 index) {
-	ogg_int64_t seek_sample = (max_lenth * (index / 450.0));
+SceUInt64 OGG_Seek(double fraction) {
+	ogg_int64_t seek_sample = (ogg_int64_t)(max_lenth * fraction);
+
+	if (max_lenth > 0 && seek_sample >= max_lenth)
+		seek_sample = max_lenth - 1;
 	
 	if (ov_pcm_seek(&ogg, seek_sample) >= 0) {
 		samples_read = seek_sample;

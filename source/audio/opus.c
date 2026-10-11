@@ -114,9 +114,12 @@ SceUInt64 OPUS_GetLength(void) {
 	return max_samples;
 }
 
-SceUInt64 OPUS_Seek(SceUInt64 index) {
+SceUInt64 OPUS_Seek(double fraction) {
 	if (op_seekable(opus) >= 0) {
-		ogg_int64_t seek_sample = (max_samples * (index / 450.0));
+		ogg_int64_t seek_sample = (ogg_int64_t)(max_samples * fraction);
+
+		if (max_samples > 0 && seek_sample >= max_samples)
+			seek_sample = max_samples - 1;
 	
 		if (op_pcm_seek(opus, seek_sample) >= 0) {
 			samples_read = seek_sample;

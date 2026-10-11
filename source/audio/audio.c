@@ -33,7 +33,7 @@ typedef struct {
 	void (* decode)(void *buf, unsigned int length, void *userdata);
 	SceUInt64 (* position)(void);
 	SceUInt64 (* length)(void);
-	SceUInt64 (* seek)(SceUInt64 index);
+	SceUInt64 (* seek)(double fraction);
 	void (* term)(void);
 } Audio_Decoder;
 
@@ -218,8 +218,13 @@ SceUInt32 Audio_GetPositionMs(void) {
 	return (ms > 0xFFFFFFFFULL) ? 0xFFFFFFFFU : (SceUInt32)ms;
 }
 
-SceUInt64 Audio_Seek(SceUInt64 index) {
-	return (* decoder.seek)(index);
+SceUInt64 Audio_Seek(double fraction) {
+	if (!(fraction > 0.0)) // also catches NaN
+		fraction = 0.0;
+	else if (fraction > 1.0)
+		fraction = 1.0;
+
+	return (* decoder.seek)(fraction);
 }
 
 void Audio_Term(void) {

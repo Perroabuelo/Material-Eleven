@@ -68,8 +68,11 @@ SceUInt64 XM_GetLength(void) {
 	return total_samples;
 }
 
-SceUInt64 XM_Seek(SceUInt64 index) {
-	int seek_sample = (total_samples * (index / 450.0));
+SceUInt64 XM_Seek(double fraction) {
+	SceUInt64 seek_sample = (SceUInt64)(total_samples * fraction);
+
+	if (total_samples > 0 && seek_sample >= total_samples)
+		seek_sample = total_samples - 1;
 	
 	if (xmp_seek_time(xmp, seek_sample/44.1) >= 0) {
 		samples_read = seek_sample;

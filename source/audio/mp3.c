@@ -243,8 +243,11 @@ SceUInt64 MP3_GetLength(void) {
 	return total_samples;
 }
 
-SceUInt64 MP3_Seek(SceUInt64 index) {
-	off_t seek_frame = (total_samples * (index / 450.0));
+SceUInt64 MP3_Seek(double fraction) {
+	off_t seek_frame = (off_t)(total_samples * fraction);
+
+	if (total_samples > 0 && seek_frame >= total_samples)
+		seek_frame = total_samples - 1;
 	
 	if (mpg123_seek(mp3, seek_frame, SEEK_SET) >= 0) {
 		frames_read = seek_frame;

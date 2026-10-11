@@ -22,6 +22,7 @@
 #include "nav_rail.h"
 #include "nav_request.h"
 #include "queue.h"
+#include "seek_bar.h"
 #include "status_bar.h"
 #include "touch.h"
 #include "track_advance.h"
@@ -46,6 +47,15 @@ static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
 // Menu_InitMusic, freed in Music_FreeCurrentTrack. Defined with the lyrics view.
 static void Music_LoadLyrics(const char *path, char *embedded, size_t embedded_len);
 static void Music_FreeLyrics(void);
+
+// The progress bar, while the user holds it. A grab never outlives the track,
+// the view or the visit to this screen: it would seek in something else.
+static SeekBar_State seek_state = { 0 }, lyrics_seek_state = { 0 };
+
+static void Menu_ResetSeekBars(void) {
+	SeekBar_Reset(&seek_state);
+	SeekBar_Reset(&lyrics_seek_state);
+}
 
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 	int h = 0, m = 0, s = 0;
@@ -143,6 +153,7 @@ static void Music_FreeCurrentTrack(void) {
 
 	Music_FreeLyrics();
 	UI_GpuFreeTexture(&metadata.cover_image);
+	Menu_ResetSeekBars();
 }
 
 // Puesta cuando ninguna pista de la cola llego a abrirse. La lee el lazo
@@ -267,6 +278,9 @@ void Music_Update(void) {
 #define TOGGLE_ICON_GAP  30
 #define SEEK_Y           220
 #define SEEK_H           5
+// While held the bar thickens about the same line and shows a round handle.
+#define SEEK_H_GRABBED   8
+#define SEEK_THUMB_R     8
 #define UPNEXT_ROW_H     48
 #define UPNEXT_ART       34
 // Covers read from disk per frame for Up Next: two rows, the second one a frame later.
@@ -426,6 +440,72 @@ static SceBool Menu_HandleTransportTouch(void) {
 	return SCE_FALSE;
 }
 
+// Touch area of a bar drawn at `y`: UI_TOUCH_MIN tall about its line, never
+// below `bottom`.
+static SeekBar_Geometry Menu_SeekGeometry(float x, float y, float w, float bottom) {
+	float mid = y + SEEK_H / 2.0f;
+	SeekBar_Geometry geo = { x, w, mid - UI_TOUCH_MIN / 2.0f, mid + UI_TOUCH_MIN / 2.0f };
+
+	if (geo.hit_bottom > bottom)
+		geo.hit_bottom = bottom;
+
+	return geo;
+}
+
+static SeekBar_Geometry Menu_PlayerSeekGeometry(void) {
+	return Menu_SeekGeometry(RIGHT_PANEL_X, SEEK_Y, RIGHT_PANEL_R - RIGHT_PANEL_X, 544);
+}
+
+// Feeds this frame's touch to the bar and seeks once when it is let go.
+// Returns SCE_TRUE on the frame that seeked.
+static SceBool Menu_HandleSeekTouch(SeekBar_State *state, const SeekBar_Geometry *geo) {
+	SeekBar_Input in = { Touch_CheckPressed(), Touch_CheckHeld(), Touch_CheckReleased(), (float)Touch_GetX(), (float)Touch_GetY() };
+	double fraction;
+
+	if (SeekBar_Update(state, geo, &in, &fraction) != SEEKBAR_COMMIT)
+		return SCE_FALSE;
+
+	SceBool was_paused = Audio_IsPaused();
+	if (!was_paused)
+		Audio_Pause();
+
+	Audio_Seek(fraction);
+
+	if (was_paused != Audio_IsPaused())
+		Audio_Pause();
+
+	return SCE_TRUE;
+}
+
+// Draws the bar with its line at `y` and returns the fraction it shows: the
+// finger's while held, the playback position otherwise.
+static float Menu_DrawSeekBar(const SeekBar_State *state, float x, float y, float w) {
+	SceUInt64 length = Audio_GetLength();
+	float playback = length ? (float)((double)Audio_GetPosition() / (double)length) : 0.0f;
+	float shown = SeekBar_DisplayFraction(state, playback);
+
+	if (!state->grabbed) {
+		UI_DrawPill(x, y, w, SEEK_H, UI_COLOR_SURFACE);
+		UI_DrawPill(x, y, w * shown, SEEK_H, ui_color_accent);
+		return shown;
+	}
+
+	float mid = y + SEEK_H / 2.0f;
+	float top = mid - SEEK_H_GRABBED / 2.0f;
+
+	UI_DrawPill(x, top, w, SEEK_H_GRABBED, UI_COLOR_SURFACE);
+	UI_DrawPill(x, top, w * shown, SEEK_H_GRABBED, ui_color_accent);
+	vita2d_draw_fill_circle(x + w * shown, mid, SEEK_THUMB_R, ui_color_accent);
+	return shown;
+}
+
+// Elapsed time to show beside a bar showing `shown`: the playback position, or
+// the time under the finger while the bar is held.
+static void Menu_SeekElapsed(const SeekBar_State *state, float shown) {
+	SceUInt64 seconds = state->grabbed ? (SceUInt64)(shown * Audio_GetLengthSeconds()) : Audio_GetPositionSeconds();
+	Menu_ConvertSecondsToString(position_time, seconds);
+}
+
 // ---- Lyrics view ----
 //
 // Inside the content column, below the status bar: a compact header, the
@@ -577,6 +657,12 @@ static void Menu_LyricsFollow(int current) {
 	lyrics_scroll = (d > -0.5f && d < 0.5f) ? target : lyrics_scroll + d * LYRICS_EASE;
 }
 
+// Clipped at the hint bar, which takes no touches, so a little under
+// UI_TOUCH_MIN tall.
+static SeekBar_Geometry Menu_LyricsSeekGeometry(void) {
+	return Menu_SeekGeometry(LYRICS_X, LYRICS_SEEK_Y, LYRICS_W, 544 - UI_HINT_BAR_HEIGHT);
+}
+
 static void Menu_LyricsHandleDrag(void) {
 	if (lyrics_layout.count == 0) {
 		lyrics_dragging = SCE_FALSE;
@@ -586,7 +672,8 @@ static void Menu_LyricsHandleDrag(void) {
 	if (Touch_CheckPressed()) {
 		// Only a touch that starts on the lyrics drags them; the rail and the
 		// seek bar keep theirs.
-		lyrics_dragging = Touch_GetX() >= CONTENT_X && Touch_GetY() >= LYRICS_TOP && Touch_GetY() < LYRICS_SEEK_Y - 12;
+		SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+		lyrics_dragging = Touch_GetX() >= CONTENT_X && Touch_GetY() >= LYRICS_TOP && Touch_GetY() < geo.hit_top;
 		lyrics_drag_y = Touch_GetY();
 		return;
 	}
@@ -615,22 +702,6 @@ static void Menu_LyricsHandleDrag(void) {
 		lyrics_dragging = SCE_FALSE;
 		lyrics_release_time = sceKernelGetProcessTimeWide();
 	}
-}
-
-// The bar spans the view, but Audio_Seek still takes a pixel on the old
-// 450 px bar, so the touch is scaled to that.
-static void Menu_LyricsHandleSeek(void) {
-	if (!Touch_Position(LYRICS_X, LYRICS_SEEK_Y - 12, LYRICS_X + LYRICS_W, LYRICS_SEEK_Y + 12))
-		return;
-
-	SceBool was_paused = Audio_IsPaused();
-	if (!was_paused)
-		Audio_Pause();
-
-	Audio_Seek((SceUInt64)((Touch_GetX() - LYRICS_X) * 450 / LYRICS_W));
-
-	if (was_paused != Audio_IsPaused())
-		Audio_Pause();
 }
 
 static void Menu_DrawLyricsHeader(void) {
@@ -718,12 +789,8 @@ static void Menu_DrawLyricsView(void) {
 			UI_COLOR_TEXT_TERTIARY, none);
 	}
 
-	SceUInt64 length = Audio_GetLength();
-	double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
-	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, LYRICS_W, SEEK_H, UI_COLOR_SURFACE);
-	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, (float)(LYRICS_W * ratio), SEEK_H, ui_color_accent);
-
-	Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
+	float shown = Menu_DrawSeekBar(&lyrics_seek_state, LYRICS_X, LYRICS_SEEK_Y, LYRICS_W);
+	Menu_SeekElapsed(&lyrics_seek_state, shown);
 	float time_y = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, LYRICS_SEEK_Y + 8, 22);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X, time_y, UI_COLOR_TEXT_TERTIARY, position_time);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X + LYRICS_W - length_time_width, time_y, UI_COLOR_TEXT_TERTIARY, length_time);
@@ -764,14 +831,8 @@ static void Menu_DrawPlayerView(void) {
 	if (UI_GetFormatBadge(FS_GetFileExt(filename), &badge_label, &badge_color, &badge_wash))
 		UI_DrawBadge(LEFT_PANEL_X, info_y + 8, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 
-	// Seek bar
-	SceUInt64 length = Audio_GetLength();
-	double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
-	float seek_w = RIGHT_PANEL_R - RIGHT_PANEL_X;
-	UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, seek_w, SEEK_H, UI_COLOR_SURFACE);
-	UI_DrawPill(RIGHT_PANEL_X, SEEK_Y, (float)(seek_w * ratio), SEEK_H, ui_color_accent);
-
-	Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
+	float shown = Menu_DrawSeekBar(&seek_state, RIGHT_PANEL_X, SEEK_Y, RIGHT_PANEL_R - RIGHT_PANEL_X);
+	Menu_SeekElapsed(&seek_state, shown);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_X, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, position_time);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, RIGHT_PANEL_R - length_time_width, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, SEEK_Y + 12, 24), UI_COLOR_TEXT_TERTIARY, length_time);
 
@@ -781,6 +842,7 @@ static void Menu_DrawPlayerView(void) {
 
 static UI_Screen Menu_RunNowPlayingLoop(void) {
 	track_failed = SCE_FALSE;
+	Menu_ResetSeekBars();
 
 	while (SCE_TRUE) {
 		// Antes de dibujar: sin track, las cadenas de esta pantalla estan
@@ -836,6 +898,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 
 		if (pressed & SCE_CTRL_UP) {
 			lyrics_view = !lyrics_view;
+			Menu_ResetSeekBars();
 
 			// Synced lyrics open on the line playing, not scrolling there from
 			// wherever they were left.
@@ -845,19 +908,20 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 
 		// The lyrics view has no on-screen transport: touches there scroll the
 		// lyrics or seek with its own bar.
+		// While its bar is held the lyrics keep following the real position,
+		// which does not move until the release; then they jump to the new line.
 		if (lyrics_view) {
+			SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+
 			Menu_LyricsHandleDrag();
-			Menu_LyricsHandleSeek();
+			if (Menu_HandleSeekTouch(&lyrics_seek_state, &geo))
+				Menu_LyricsSnap();
 		}
-		else if (!Menu_HandleTransportTouch() && Touch_CheckHeld() && Touch_Position(RIGHT_PANEL_X, SEEK_Y - 12, RIGHT_PANEL_R, SEEK_Y + 12)) {
-			SceBool was_paused = Audio_IsPaused();
-			if (!was_paused)
-				Audio_Pause();
-
-			Audio_Seek((SceUInt64)(Touch_GetX() - RIGHT_PANEL_X));
-
-			if (was_paused != Audio_IsPaused())
-				Audio_Pause();
+		// The transport is tested first: a press it takes never reaches the bar,
+		// and once the bar is held the buttons see no press to fire on.
+		else if (!Menu_HandleTransportTouch()) {
+			SeekBar_Geometry geo = Menu_PlayerSeekGeometry();
+			Menu_HandleSeekTouch(&seek_state, &geo);
 		}
 
 		if (pressed & SCE_CTRL_TRIANGLE)

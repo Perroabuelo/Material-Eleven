@@ -9,7 +9,7 @@ SceUInt8 XM_GetChannels(void);
 void XM_Decode(void *buf, unsigned int length, void *userdata);
 SceUInt64 XM_GetPosition(void);
 SceUInt64 XM_GetLength(void);
-SceUInt64 XM_Seek(SceUInt64 index);
+SceUInt64 XM_Seek(double fraction);
 void XM_Term(void);
 
 #endif

@@ -74,4 +74,5 @@ templates/
 /tests/test_track_advance
 /tests/test_seek_bar
 /tests/test_key_repeat
+/tests/test_text_fold
 /tests/.cflags

@@ -20,7 +20,7 @@
 - [ ] 2.2 Usar las dos conversiones en `search_dialog.c` para el título, el término inicial y el resultado, y quitar la copia byte a byte y el `(char)input[j]`. Listo cuando:
   - `scripts/build.sh` compile;
   - y en la consola se cumpla el escenario "Un término con tildes no se desfigura" de `ui/folder-browser`: escribir "acción", confirmar, ver "acción" en la caja y volver a abrir el diálogo con "acción" cargado.
-- [ ] 2.3 Crear `source/text_fold.c` e `include/text_fold.h` con `TextFold_Fold` y `TextFold_Contains` (Decisión 2), sin SCE ni vita2d. Crear `tests/test_text_fold.c` con los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile.
+- [x] 2.3 Crear `source/text_fold.c` e `include/text_fold.h` con `TextFold_Fold` y `TextFold_Contains` (Decisión 2), sin SCE ni vita2d. Crear `tests/test_text_fold.c` con los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile.
 - [ ] 2.4 `Dirbrowse_NameContains` pasa a usar `TextFold_Contains`. El término se pliega una vez en `Dirbrowse_SetFilter`, guardando el original para mostrarlo. Listo cuando `scripts/build.sh` compile y en la consola, con `ux0:/pruebas-eleven/` y un archivo "Canción.flac", se cumplan:
   - "Filtrar sin tildes encuentra nombres con tildes";
   - y "Filtering narrows the current listing", sin regresiones.

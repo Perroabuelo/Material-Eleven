@@ -69,6 +69,7 @@ add_executable(${PROJECT_NAME}
   source/status_bar.c
   source/tags.c
   source/text_encoding.c
+  source/text_fold.c
   source/touch.c
   source/track_advance.c
   source/track_meta.c

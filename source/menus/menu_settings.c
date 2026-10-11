@@ -329,12 +329,7 @@ UI_Screen Menu_DisplaySettings(void) {
 		Utils_SetMax(&category_index, 0, (int)CATEGORY_COUNT - 1);
 		Utils_SetMin(&category_index, (int)CATEGORY_COUNT - 1, 0);
 
-		if (pressed & SCE_CTRL_UP)
-			item_index--;
-		else if (pressed & SCE_CTRL_DOWN)
-			item_index++;
-		Utils_SetMax(&item_index, 0, cat->item_count - 1);
-		Utils_SetMin(&item_index, cat->item_count - 1, 0);
+		Utils_ListStep(&item_index, cat->item_count, cat->item_count);
 
 		if (pressed & SCE_CTRL_ENTER)
 			cat->item_activate(item_index);

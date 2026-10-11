@@ -280,13 +280,7 @@ static void Menu_HandleControls(void) {
 	int visible_count = Dirbrowse_GetVisibleCount();
 
 	if (visible_count > 0) {
-		if (pressed & SCE_CTRL_UP)
-			position--;
-		else if (pressed & SCE_CTRL_DOWN)
-			position++;
-
-		Utils_SetMax(&position, 0, visible_count - 1);
-		Utils_SetMin(&position, visible_count - 1, 0);
+		Utils_ListStep(&position, visible_count, FILES_PER_PAGE);
 
 		if (pressed & SCE_CTRL_LEFT)
 			position = 0;
@@ -359,15 +353,8 @@ SceBool Menu_PickFolder(char *out, int cap) {
 
 		int visible_count = Dirbrowse_GetVisibleCount();
 
-		if (visible_count > 0) {
-			if (pressed & SCE_CTRL_UP)
-				position--;
-			else if (pressed & SCE_CTRL_DOWN)
-				position++;
-
-			Utils_SetMax(&position, 0, visible_count - 1);
-			Utils_SetMin(&position, visible_count - 1, 0);
-		}
+		if (visible_count > 0)
+			Utils_ListStep(&position, visible_count, FILES_PER_PAGE);
 
 		if (pressed & SCE_CTRL_ENTER) {
 			File *file = Dirbrowse_GetFileIndex(position);

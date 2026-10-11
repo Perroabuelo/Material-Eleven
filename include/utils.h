@@ -8,6 +8,10 @@ int Utils_ReadControls(void);
 // `pressed` carries. A hold is what an escape combo has to be made of: an
 // edge cannot be distinguished from a stray tap.
 SceUInt32 Utils_HeldButtons(void);
+// Moves a list selection with this frame's Up/Down: a new press steps one row
+// and wraps around; holding repeats the step, one row and later `page` rows at
+// a time, and stops at either end. Only lists call it; `pressed` never repeats.
+void Utils_ListStep(int *sel, int count, int page);
 // START apaga la pantalla en cada Utils_ReadControls y se quita de `pressed`;
 // la consola la vuelve a encender con el boton PS. Se deshabilita mientras un
 // dialogo del sistema tiene la entrada, donde START significa otra cosa.

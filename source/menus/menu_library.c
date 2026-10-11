@@ -558,13 +558,7 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	}
 
 	if (state == LIBRARY_STATE_READY && count > 0) {
-		if (pressed & SCE_CTRL_UP)
-			selection--;
-		else if (pressed & SCE_CTRL_DOWN)
-			selection++;
-
-		Utils_SetMax(&selection, 0, count - 1);
-		Utils_SetMin(&selection, count - 1, 0);
+		Utils_ListStep(&selection, count, ROWS_PER_PAGE);
 
 		if (pressed & SCE_CTRL_LEFT)
 			selection = 0;

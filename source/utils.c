@@ -9,6 +9,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "key_repeat.h"
 #include "menu_audioplayer.h"
 #include "screen_off.h"
 
@@ -16,6 +17,11 @@ static SceCtrlData pad, old_pad;
 // START apaga la pantalla desde cualquier pantalla, porque todas leen el pad
 // por aqui. La regla vive en screen_off.c, que se prueba en PC.
 static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, 1 };
+// Holding Up or Down repeats the step, but only for lists, through
+// Utils_ListStep: `pressed` stays an edge for everything else. The rule lives
+// in key_repeat.c, which is tested on a PC.
+static KeyRepeat_State key_repeat = { SCE_CTRL_UP, SCE_CTRL_DOWN, 0, 0, 0 };
+static KeyRepeat_Step list_step;
 
 void Utils_SetMax(int *set, int value, int max) {
 	if (*set > max)
@@ -43,8 +49,14 @@ int Utils_ReadControls(void) {
 	if (action == SCREEN_OFF_TURN_OFF)
 		scePowerRequestDisplayOff();
 
+	list_step = KeyRepeat_Update(&key_repeat, pad.buttons & ~SCE_CTRL_START, pressed, sceKernelGetProcessTimeWide());
+
 	old_pad = pad;
 	return 0;
+}
+
+void Utils_ListStep(int *sel, int count, int page) {
+	*sel = KeyRepeat_Move(*sel, count, list_step, page);
 }
 
 void Utils_SetScreenOffEnabled(SceBool enabled) {

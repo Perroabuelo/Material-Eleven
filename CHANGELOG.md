@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-10-11
+
 ### Added
 
 - Holding Up or Down in a list now keeps moving the selection, so you no longer have to press once per row.

@@ -34,7 +34,7 @@
 
 ## 4. Lista filtrada en la Biblioteca
 
-- [ ] 4.1 Crear `source/list_filter.c` e `include/list_filter.h` con `ListFilter_Build`, `ListFilter_Count`, `ListFilter_ToFull` y `ListFilter_ToVisible`, sobre un arreglo estático de `LIBRARY_MAX_TRACKS` (Decisión 4). Crear `tests/test_list_filter.c` con los casos de design.md y agregarlo a `tests/Makefile`. Agregar el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile.
+- [x] 4.1 Crear `source/list_filter.c` e `include/list_filter.h` con `ListFilter_Build`, `ListFilter_Count`, `ListFilter_ToFull` y `ListFilter_ToVisible`, sobre un arreglo estático de `LIBRARY_MAX_TRACKS` (Decisión 4). Crear `tests/test_list_filter.c` con los casos de design.md y agregarlo a `tests/Makefile`. Agregar el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile.
 - [ ] 4.2 En `menu_library.c`, hacer que toda la pantalla trabaje en índices visibles a través de dos `ListFilter` (exterior y de grupo), todavía sin término, como identidad: dibujado, contador, ↑↓←→, entrar y reproducir. Reproducir traduce con `ListFilter_ToFull` (Decisión 6). Listo cuando `scripts/build.sh` compile y en la consola la Biblioteca se comporte exactamente como antes en las cuatro vistas:
   - entrar y salir de un artista y de un álbum;
   - reproducir;

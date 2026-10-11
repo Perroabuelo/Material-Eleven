@@ -55,6 +55,7 @@ add_executable(${PROJECT_NAME}
   source/lang.c
   source/library.c
   source/library_row.c
+  source/list_filter.c
   source/lyrics.c
   source/lyrics_layout.c
   source/lyrics_load.c

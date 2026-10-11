@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat
 
 .PHONY: all clean FORCE
 
@@ -70,6 +70,9 @@ test_track_advance: test_track_advance.c ../source/track_advance.c ../include/tr
 
 test_seek_bar: test_seek_bar.c ../source/seek_bar.c ../include/seek_bar.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_seek_bar.c ../source/seek_bar.c
+
+test_key_repeat: test_key_repeat.c ../source/key_repeat.c ../include/key_repeat.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_key_repeat.c ../source/key_repeat.c
 
 clean:
 	rm -f $(BIN) .cflags

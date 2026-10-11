@@ -1,6 +1,6 @@
 ## 1. Lógica pura de repetición
 
-- [ ] 1.1 Crear `include/key_repeat.h` y `source/key_repeat.c` con `KeyRepeat_State`, `KeyRepeat_Step`, `KeyRepeat_Update` y `KeyRepeat_Move`, y las constantes de retardo (400 ms), intervalo (66 ms) y paso a páginas (2000 ms) (Decisiones 2 y 3), sin vita2d ni SCE. Crear `tests/test_key_repeat.c` con todos los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar `source/key_repeat.c` a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
+- [x] 1.1 Crear `include/key_repeat.h` y `source/key_repeat.c` con `KeyRepeat_State`, `KeyRepeat_Step`, `KeyRepeat_Update` y `KeyRepeat_Move`, y las constantes de retardo (400 ms), intervalo (66 ms) y paso a páginas (2000 ms) (Decisiones 2 y 3), sin vita2d ni SCE. Crear `tests/test_key_repeat.c` con todos los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar `source/key_repeat.c` a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
 
 ## 2. Lectura del pad
 

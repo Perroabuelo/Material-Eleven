@@ -9,6 +9,7 @@
 #include "fs.h"
 #include "lang.h"
 #include "library.h"
+#include "list_filter.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_library.h"
@@ -77,6 +78,16 @@ static int outer_selection = 0;
 // la invalida - cambiar de pestaña, entrar, salir, reescanear - y no en cada
 // fotograma, que es lo que costaria dibujarla y leer el pad.
 static SceBool view_dirty = SCE_TRUE;
+
+// La lista que se ve es una capa de indices sobre la vista construida: una para
+// la lista de la pestaña y otra para la de dentro de un grupo, porque volver de
+// un grupo devuelve la de fuera tal como estaba. Toda la pantalla trabaja en
+// posiciones visibles - `selection`, `outer_selection`, el dibujado y el
+// contador - y traduce a la vista completa solo para llegar a una entrada.
+_Static_assert(LIST_FILTER_MAX >= LIBRARY_MAX_TRACKS, "a ListFilter must hold the longest library view");
+
+static ListFilter outer_filter;
+static ListFilter group_filter;
 
 // Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
 // las otras dos que mueven la vista.
@@ -173,16 +184,17 @@ static const Library_Track *Menu_LibraryArtistCover(int i, int *budget) {
 	return (artist_cover[i] >= 0) ? Library_NameCandidate(i, artist_cover[i]) : NULL;
 }
 
-static int Menu_LibraryBuilt(void) {
-	return Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount();
+// La lista visible vigente: la del grupo dentro de uno, la de la pestaña fuera.
+static ListFilter *Menu_LibraryFilter(void) {
+	return inside ? &group_filter : &outer_filter;
 }
 
-static int Menu_LibraryBuild(void) {
-	if (!view_dirty)
-		return Menu_LibraryBuilt();
+// La posicion en la vista completa de la fila visible `visible`, o -1.
+static int Menu_LibraryFull(int visible) {
+	return ListFilter_ToFull(Menu_LibraryFilter(), visible);
+}
 
-	view_dirty = SCE_FALSE;
-
+static int Menu_LibraryBuildFull(void) {
 	if (Menu_LibraryShowsNames()) {
 		int names = Library_BuildFieldNames(Menu_LibraryField());
 		Menu_LibraryResetArtistCovers((view == VIEW_ARTISTS) ? names : 0);
@@ -196,6 +208,17 @@ static int Menu_LibraryBuild(void) {
 		return Library_BuildRecent();
 
 	return Library_BuildSongs();
+}
+
+// Construye la vista si hace falta, y con ella la lista visible, y devuelve
+// cuantas filas se ven.
+static int Menu_LibraryBuild(void) {
+	if (view_dirty) {
+		view_dirty = SCE_FALSE;
+		ListFilter_Build(Menu_LibraryFilter(), Menu_LibraryBuildFull(), NULL, NULL);
+	}
+
+	return ListFilter_Count(Menu_LibraryFilter());
 }
 
 static void Menu_LibraryNotice(LangString text) {
@@ -332,10 +355,14 @@ static void Menu_DrawLibraryList(void) {
 	float y = LIST_TOP;
 	int budget = COVER_BUDGET_PER_FRAME;
 
+	// `i` es la fila visible, que es la que se marca; `full`, la entrada que
+	// muestra.
 	for (int i = first; i < first + ROWS_PER_PAGE && i < count; i++) {
+		int full = Menu_LibraryFull(i);
+
 		if (Menu_LibraryShowsNames()) {
 			char sub[48];
-			int n = Library_NameTrackCount(i);
+			int n = Library_NameTrackCount(full);
 
 			snprintf(sub, sizeof(sub), Lang_Get((n == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), n);
 
@@ -344,11 +371,11 @@ static void Menu_DrawLibraryList(void) {
 			// tenga una, y el cubo "Desconocido" se queda con el marcador.
 			const char *art_album = NULL, *art_path = NULL;
 
-			if (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) {
-				art_album = Library_NameAt(i);
+			if (view == VIEW_ALBUMS && !Library_NameIsUnknown(full)) {
+				art_album = Library_NameAt(full);
 			}
 			else if (view == VIEW_ARTISTS) {
-				const Library_Track *rep = Menu_LibraryArtistCover(i, &budget);
+				const Library_Track *rep = Menu_LibraryArtistCover(full, &budget);
 
 				if (rep != NULL) {
 					art_album = rep->album;
@@ -356,11 +383,11 @@ static void Menu_DrawLibraryList(void) {
 				}
 			}
 
-			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(i), sub,
+			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(full) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(full), sub,
 				art_album, art_path, NULL, &budget);
 		}
 		else {
-			const Library_Track *track = Library_ViewTrack(i);
+			const Library_Track *track = Library_ViewTrack(full);
 
 			if (track == NULL)
 				break;
@@ -460,7 +487,10 @@ static void Menu_LibraryPlaySelected(void) {
 	// la carpeta en la que este cada archivo.
 	Menu_LibraryBuild();
 
-	const Library_Track *track = Library_ViewTrack(selection);
+	// La fila elegida se traduce a la vista completa, y la cola es esa vista
+	// completa: una busqueda decide que pista se elige, no que suena despues.
+
+	const Library_Track *track = Library_ViewTrack(Menu_LibraryFull(selection));
 
 	if (track == NULL)
 		return;
@@ -506,12 +536,13 @@ static void Menu_LibraryPlaySelected(void) {
 // ---------------------------------------------------------------------------
 
 static void Menu_LibraryEnter(void) {
-	const char *name = Library_NameAt(selection);
+	int full = Menu_LibraryFull(selection);
+	const char *name = Library_NameAt(full);
 
 	if (name == NULL)
 		return;
 
-	inside_unknown = Library_NameIsUnknown(selection);
+	inside_unknown = Library_NameIsUnknown(full);
 	snprintf(inside_name, sizeof(inside_name), "%s", name);
 	outer_selection = selection;
 	inside = SCE_TRUE;

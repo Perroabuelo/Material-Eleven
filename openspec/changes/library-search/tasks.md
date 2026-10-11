@@ -16,7 +16,7 @@
 
 ## 2. Texto: conversión y comparación
 
-- [ ] 2.1 Mover `Menu_Utf8ToUtf16` a `text_encoding.c` como función pública sobre `uint16_t` y agregar su inversa `Utf16ToUtf8`, con pares sustitutos, sustituto suelto como U+FFFD y sin cortar secuencias (Decisión 3). Ampliar `tests/test_text_encoding.c` con: ida y vuelta de "acción", pares sustitutos, sustituto suelto, buffer justo y buffer que cortaría una secuencia. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 2.1 Mover `Menu_Utf8ToUtf16` a `text_encoding.c` como función pública sobre `uint16_t` y agregar su inversa `Utf16ToUtf8`, con pares sustitutos, sustituto suelto como U+FFFD y sin cortar secuencias (Decisión 3). Ampliar `tests/test_text_encoding.c` con: ida y vuelta de "acción", pares sustitutos, sustituto suelto, buffer justo y buffer que cortaría una secuencia. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 2.2 Usar las dos conversiones en `search_dialog.c` para el título, el término inicial y el resultado, y quitar la copia byte a byte y el `(char)input[j]`. Listo cuando:
   - `scripts/build.sh` compile;
   - y en la consola se cumpla el escenario "Un término con tildes no se desfigura" de `ui/folder-browser`: escribir "acción", confirmar, ver "acción" en la caja y volver a abrir el diálogo con "acción" cargado.

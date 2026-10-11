@@ -229,3 +229,83 @@ int TextEncoding_ToUtf8(const unsigned char *in, size_t len, char **out, size_t 
 
 	return TextEncoding_FromCp1252(in, len, out, out_len);
 }
+
+// Decodes the valid sequence of `n` bytes at `s`, as checked by
+// TextEncoding_Utf8SeqLen.
+static uint32_t TextEncoding_DecodeSeq(const unsigned char *s, size_t n) {
+	if (n == 1)
+		return s[0];
+
+	uint32_t cp = s[0] & (0x7F >> n);
+
+	for (size_t i = 1; i < n; i++)
+		cp = (cp << 6) | (s[i] & 0x3F);
+
+	return cp;
+}
+
+size_t TextEncoding_Utf8ToUtf16(const char *src, uint16_t *dst, size_t cap) {
+	if (cap == 0)
+		return 0;
+
+	const unsigned char *p = (const unsigned char *)src;
+	size_t avail = strlen(src), used = 0;
+
+	while (avail > 0) {
+		size_t n = TextEncoding_Utf8SeqLen(p, avail);
+
+		if (n == 0) {
+			p++;
+			avail--;
+			continue;
+		}
+
+		uint32_t cp = TextEncoding_DecodeSeq(p, n);
+		size_t units = (cp >= 0x10000) ? 2 : 1;
+
+		if (used + units > cap - 1)
+			break;
+
+		if (units == 2) {
+			cp -= 0x10000;
+			dst[used++] = (uint16_t)(0xD800 + (cp >> 10));
+			dst[used++] = (uint16_t)(0xDC00 + (cp & 0x3FF));
+		}
+		else
+			dst[used++] = (uint16_t)cp;
+
+		p += n;
+		avail -= n;
+	}
+
+	dst[used] = 0;
+	return used;
+}
+
+size_t TextEncoding_Utf16ToUtf8(const uint16_t *src, char *dst, size_t cap) {
+	if (cap == 0)
+		return 0;
+
+	size_t used = 0;
+
+	for (size_t i = 0; src[i] != 0; i++) {
+		uint32_t u = src[i];
+
+		if (u >= 0xD800 && u <= 0xDBFF && src[i + 1] >= 0xDC00 && src[i + 1] <= 0xDFFF) {
+			u = 0x10000 + ((u - 0xD800) << 10) + (src[i + 1] - 0xDC00);
+			i++;
+		}
+		else if (u >= 0xD800 && u <= 0xDFFF)
+			u = REPLACEMENT;
+
+		size_t n = (u < 0x80) ? 1 : (u < 0x800) ? 2 : (u < 0x10000) ? 3 : 4;
+
+		if (used + n > cap - 1)
+			break;
+
+		used += TextEncoding_PutCodePoint(dst + used, u);
+	}
+
+	dst[used] = '\0';
+	return used;
+}

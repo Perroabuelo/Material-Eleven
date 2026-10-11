@@ -6,6 +6,7 @@
 // Sale con codigo 0 si todo pasa y distinto de 0 si algo falla, con una linea
 // por cada falla.
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -241,6 +242,57 @@ static void test_random(void) {
 	}
 }
 
+// La ida y vuelta del dialogo de texto (UTF-8 <-> UTF-16).
+static void test_utf16_roundtrip(void) {
+	uint16_t wide[64];
+	char back[64];
+
+	// "acción": la ó es una sola unidad, U+00F3, y vuelve como C3 B3.
+	CHECK(TextEncoding_Utf8ToUtf16("acción", wide, 64) == 6, "acción no da 6 unidades");
+	CHECK(wide[4] == 0x00F3 && wide[6] == 0, "la ó no es U+00F3");
+	CHECK(TextEncoding_Utf16ToUtf8(wide, back, sizeof(back)) == 7 && strcmp(back, "acción") == 0, "acción no vuelve igual");
+
+	// Fuera del BMP: U+1F3B5 va como par sustituto y vuelve en cuatro bytes.
+	CHECK(TextEncoding_Utf8ToUtf16("a\xF0\x9F\x8E\xB5" "b", wide, 64) == 4, "el emoji no da un par");
+	CHECK(wide[1] == 0xD83C && wide[2] == 0xDFB5, "el par sustituto esta mal");
+	CHECK(TextEncoding_Utf16ToUtf8(wide, back, sizeof(back)) == 6 && strcmp(back, "a\xF0\x9F\x8E\xB5" "b") == 0, "el emoji no vuelve igual");
+
+	// Lo invalido en UTF-8 se salta.
+	CHECK(TextEncoding_Utf8ToUtf16("a\xC3" "b\x80" "c", wide, 64) == 3 && wide[0] == 'a' && wide[1] == 'b' && wide[2] == 'c',
+		"no salto lo invalido");
+
+	// Sustitutos sueltos: un bajo solo, un alto seguido de otra cosa y un alto al final.
+	static const uint16_t lone[] = { 0xDC00, 'x', 0xD800, 'y', 0xD801, 0 };
+	CHECK(TextEncoding_Utf16ToUtf8(lone, back, sizeof(back)) == 11
+		&& strcmp(back, "\xEF\xBF\xBD" "x\xEF\xBF\xBD" "y\xEF\xBF\xBD") == 0, "los sustitutos sueltos no son U+FFFD");
+}
+
+static void test_utf16_buffers(void) {
+	uint16_t wide[8];
+	char back[16];
+
+	// Buffer justo: "acción" son 7 bytes mas el NUL.
+	TextEncoding_Utf8ToUtf16("acción", wide, 8);
+	CHECK(TextEncoding_Utf16ToUtf8(wide, back, 8) == 7 && strcmp(back, "acción") == 0, "no cabe en el buffer justo");
+
+	// Con 5 bytes libres la ó no cabe entera, y la salida se detiene antes de ella.
+	CHECK(TextEncoding_Utf16ToUtf8(wide, back, 6) == 4 && strcmp(back, "acci") == 0,
+		"corto la ó a la mitad");
+
+	// El emoji necesita 4 bytes: con 3 libres no se escribe nada de el.
+	static const uint16_t emoji[] = { 'a', 0xD83C, 0xDFB5, 0 };
+	CHECK(TextEncoding_Utf16ToUtf8(emoji, back, 4) == 1 && strcmp(back, "a") == 0, "corto el emoji a la mitad");
+
+	// Hacia UTF-16 tampoco se parte un par: con 2 unidades libres solo cabe la "a".
+	CHECK(TextEncoding_Utf8ToUtf16("a\xF0\x9F\x8E\xB5", wide, 3) == 1 && wide[0] == 'a' && wide[1] == 0, "partio el par");
+	CHECK(TextEncoding_Utf8ToUtf16("abc", wide, 3) == 2 && wide[2] == 0, "no recorto al tope");
+
+	// Con capacidad 0 no se escribe nada.
+	back[0] = 'z';
+	CHECK(TextEncoding_Utf16ToUtf8(emoji, back, 0) == 0 && back[0] == 'z', "escribio con capacidad 0");
+	CHECK(TextEncoding_Utf8ToUtf16("", wide, 8) == 0 && wide[0] == 0, "vacio no da vacio");
+}
+
 int main(void) {
 	test_paths();
 	test_invalid();
@@ -248,6 +300,8 @@ int main(void) {
 	test_sanitize();
 	test_fixtures();
 	test_random();
+	test_utf16_roundtrip();
+	test_utf16_buffers();
 
 	if (failures == 0)
 		printf("test_text_encoding: todo bien\n");

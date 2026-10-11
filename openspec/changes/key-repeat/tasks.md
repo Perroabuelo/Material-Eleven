@@ -23,4 +23,4 @@
 ## 4. Versión y cierre
 
 - [x] 4.1 Agregar los bullets de Notas de versión de `proposal.md` a `CHANGELOG.md` bajo `[Unreleased]` (en `### Added`) y subir `VITA_VERSION` a `03.70` en `CMakeLists.txt`. Listo cuando `scripts/build.sh --clean` compile sin warnings y el `.vpk` instalado encima de v3.6.0 muestre `03.70` y conserve la configuración y el índice.
-- [ ] 4.2 Push de `change/key-repeat` y PR a `main`. Listo cuando el CI del PR esté en verde (build del `.vpk` y tests en PC, incluido `test_key_repeat`).
+- [x] 4.2 Push de `change/key-repeat` y PR a `main`. Listo cuando el CI del PR esté en verde (build del `.vpk` y tests en PC, incluido `test_key_repeat`).

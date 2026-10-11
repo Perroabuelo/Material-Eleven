@@ -5,6 +5,7 @@
 #include "lang.h"
 #include "nav_rail.h"
 #include "search_dialog.h"
+#include "text_encoding.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -35,6 +36,9 @@
 // Abortar es una petición, no un cierre: hay que dejar que el diálogo salga de
 // RUNNING antes de terminarlo, y esa espera también va acotada.
 #define FILTER_DRAIN_FRAMES 60
+
+// Lo que el teclado deja escribir, en unidades UTF-16.
+#define SEARCH_DIALOG_MAX_UNITS 63
 
 // El teclado del sistema tapa la pantalla que hay debajo, y no se consiguió
 // que dejara de hacerlo. Lo comprobado en consola, por si alguien lo reintenta:
@@ -110,44 +114,17 @@ static void SearchDialog_Abandon(void) {
 	}
 }
 
-// The IME takes its title in UTF-16 and the string table is UTF-8. Every text
-// in the table sits in the BMP, so a code point is always one UTF-16 unit; a
-// four-byte or malformed sequence is skipped rather than guessed at.
-static void SearchDialog_Utf8ToUtf16(const char *src, SceWChar16 *dst, int cap) {
-	const unsigned char *p = (const unsigned char *)src;
-	int n = 0;
-
-	while (*p && n < cap - 1) {
-		if (p[0] < 0x80) {
-			dst[n++] = p[0];
-			p += 1;
-		}
-		else if ((p[0] & 0xE0) == 0xC0 && (p[1] & 0xC0) == 0x80) {
-			dst[n++] = (SceWChar16)(((p[0] & 0x1F) << 6) | (p[1] & 0x3F));
-			p += 2;
-		}
-		else if ((p[0] & 0xF0) == 0xE0 && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80) {
-			dst[n++] = (SceWChar16)(((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F));
-			p += 3;
-		}
-		else
-			p++;
-	}
-
-	dst[n] = 0;
-}
-
 SearchDialog_Result SearchDialog_Prompt(const char *title_utf8, const char *current_utf8,
 	char *out, size_t out_cap, void (*draw_background)(void), UI_Screen rail_screen) {
+	// The IME takes and returns UTF-16 and the application keeps UTF-8, so
+	// every text crosses whole: an accented letter is one code point each way,
+	// never a byte cast to a unit or a unit cut down to a byte.
 	SceWChar16 title[SCE_IME_DIALOG_MAX_TITLE_LENGTH];
-	SearchDialog_Utf8ToUtf16(title_utf8, title, SCE_IME_DIALOG_MAX_TITLE_LENGTH);
+	TextEncoding_Utf8ToUtf16(title_utf8, title, SCE_IME_DIALOG_MAX_TITLE_LENGTH);
 	SceWChar16 initial[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
 	SceWChar16 input[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
 
-	int i = 0;
-	for (; current_utf8[i] != '\0' && i < SCE_IME_DIALOG_MAX_TEXT_LENGTH - 1; i++)
-		initial[i] = (SceWChar16)(unsigned char)current_utf8[i];
-	initial[i] = 0;
+	TextEncoding_Utf8ToUtf16(current_utf8, initial, SEARCH_DIALOG_MAX_UNITS + 1);
 	memcpy(input, initial, sizeof(initial));
 
 	SceImeDialogParam param;
@@ -155,7 +132,7 @@ SearchDialog_Result SearchDialog_Prompt(const char *title_utf8, const char *curr
 	param.dialogMode = SCE_IME_DIALOG_DIALOG_MODE_WITH_CANCEL;
 	param.textBoxMode = SCE_IME_DIALOG_TEXTBOX_MODE_WITH_CLEAR;
 	param.title = title;
-	param.maxTextLength = 63;
+	param.maxTextLength = SEARCH_DIALOG_MAX_UNITS;
 	param.initialText = initial;
 	param.inputTextBuffer = input;
 	if (SearchDialog_Open(&param) < 0)
@@ -221,11 +198,7 @@ SearchDialog_Result SearchDialog_Prompt(const char *title_utf8, const char *curr
 		sceImeDialogGetResult(&result);
 
 		if (result.button == SCE_IME_DIALOG_BUTTON_ENTER) {
-			size_t j = 0;
-			for (; input[j] != 0 && j + 1 < out_cap; j++)
-				out[j] = (char)input[j];
-			out[j] = '\0';
-
+			TextEncoding_Utf16ToUtf8(input, out, out_cap);
 			outcome = SEARCH_DIALOG_CONFIRMED;
 		}
 	}

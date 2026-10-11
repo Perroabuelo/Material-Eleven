@@ -28,5 +28,8 @@ const char *Music_GetDisplayArtist(void);
 void Music_TogglePlayPause(void);
 void Music_Previous(void);
 void Music_Next(void);
+// Atiende el fin de la pista en curso: la repite o avanza la cola. Una vez por
+// fotograma, entre fotogramas; la llama Utils_ReadControls.
+void Music_Update(void);
 
 #endif

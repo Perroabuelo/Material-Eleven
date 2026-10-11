@@ -67,6 +67,7 @@ add_executable(${PROJECT_NAME}
   source/tags.c
   source/text_encoding.c
   source/touch.c
+  source/track_advance.c
   source/track_meta.c
   source/ui_gpu.c
   source/ui_theme.c

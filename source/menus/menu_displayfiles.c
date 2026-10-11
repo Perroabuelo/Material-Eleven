@@ -220,10 +220,11 @@ UI_Screen Menu_DisplayFiles(void) {
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, open_hint },
 			{ { HINT_BTN_CANCEL }, 0, back_hint },
+			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SEARCH) },
 			{ { HINT_BTN_SELECT }, 0, Lang_Get(STR_HINT_SETTINGS) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
-		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 4);
+		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 5);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_FOLDERS);
 		UI_Debug_Draw();
@@ -244,7 +245,8 @@ UI_Screen Menu_DisplayFiles(void) {
 		if (MiniPlayer_HandleTouch())
 			continue;
 
-		if (Touch_Position(Menu_FilterBoxX(), Menu_FilterBoxY(), Menu_FilterBoxX() + FILTER_W, Menu_FilterBoxY() + FILTER_H)) {
+		// Triángulo y la caja abren el mismo filtro.
+		if ((pressed & SCE_CTRL_TRIANGLE) || Touch_Position(Menu_FilterBoxX(), Menu_FilterBoxY(), Menu_FilterBoxX() + FILTER_W, Menu_FilterBoxY() + FILTER_H)) {
 			Menu_PromptFilter();
 			continue;
 		}

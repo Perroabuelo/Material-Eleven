@@ -63,6 +63,7 @@ add_executable(${PROJECT_NAME}
   source/nav_request.c
   source/queue.c
   source/screen_off.c
+  source/seek_bar.c
   source/status_bar.c
   source/tags.c
   source/text_encoding.c

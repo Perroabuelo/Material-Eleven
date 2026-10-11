@@ -72,4 +72,5 @@ templates/
 /tests/test_lyrics
 /tests/test_lyrics_layout
 /tests/test_track_advance
+/tests/test_seek_bar
 /tests/.cflags

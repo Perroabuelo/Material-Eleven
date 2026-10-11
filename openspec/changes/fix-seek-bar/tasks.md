@@ -4,7 +4,7 @@
 
 ## 2. Lógica pura de la barra
 
-- [ ] 2.1 Crear `include/seek_bar.h` y `source/seek_bar.c` con `SeekBar_Geometry`, `SeekBar_State`, `SeekBar_Input`, `SeekBar_Update`, `SeekBar_FractionAt` y `SeekBar_DisplayFraction` (Decisión 2), sin vita2d ni SCE. Crear `tests/test_seek_bar.c` con todos los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar `source/seek_bar.c` a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
+- [x] 2.1 Crear `include/seek_bar.h` y `source/seek_bar.c` con `SeekBar_Geometry`, `SeekBar_State`, `SeekBar_Input`, `SeekBar_Update`, `SeekBar_FractionAt` y `SeekBar_DisplayFraction` (Decisión 2), sin vita2d ni SCE. Crear `tests/test_seek_bar.c` con todos los casos de "Estrategia de pruebas" de design.md y agregarlo a `BIN` y a las reglas de `tests/Makefile`. Agregar `source/seek_bar.c` a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
 
 ## 3. Barras con arrastre
 

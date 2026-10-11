@@ -110,8 +110,9 @@ X(STR_HINT_OPEN,             "Open",                     "Abrir")
 X(STR_HINT_PLAY,             "Play",                     "Reproducir")
 X(STR_HINT_RETURN,           "Back",                     "Volver")
 X(STR_HINT_VIEWS,            "Views",                    "Vistas")
-X(STR_HINT_RESCAN,           "Rescan",                   "Reescanear")
-X(STR_HINT_FOLDER,           "Folder",                   "Carpeta")
+X(STR_HINT_OPTIONS,          "Options",                  "Opciones")
+X(STR_MENU_RESCAN,           "Rescan",                   "Reescanear")
+X(STR_MENU_CHOOSE_FOLDER,    "Choose folder",            "Elegir carpeta")
 
 // ---- Escaneo de la biblioteca ----
 X(STR_SCAN_TITLE,            "Scanning the library",     "Escaneando la biblioteca")

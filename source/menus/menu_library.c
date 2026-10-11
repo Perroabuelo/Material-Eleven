@@ -50,6 +50,12 @@
 #define SEARCH_H       36
 #define SEARCH_TAB_GAP 18.0f
 
+// El menu de Cuadrado, anclado abajo a la derecha por encima del mini
+// reproductor.
+#define OPTIONS_W      280
+#define OPTIONS_ITEM_H 56
+#define OPTIONS_PAD    8
+
 // Cuantos fotogramas se queda un aviso delante. A 60 fps son unos cuatro
 // segundos: suficiente para leerlo, y se va solo sin pedir confirmacion.
 #define NOTICE_FRAMES 240
@@ -110,6 +116,20 @@ typedef struct {
 
 static Menu_LibrarySearch outer_search;
 static Menu_LibrarySearch group_search;
+
+// Reescanear y elegir carpeta, reunidas en el menu de Cuadrado. Es un estado
+// del mismo lazo, no un lazo propio: mientras esta abierto, la pantalla solo
+// atiende al menu.
+typedef enum {
+	OPTION_RESCAN = 0,
+	OPTION_CHOOSE_FOLDER,
+	OPTION_COUNT
+} Menu_LibraryOption;
+
+static const LangString option_label[OPTION_COUNT] = { STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER };
+
+static SceBool options_open = SCE_FALSE;
+static int options_index = 0;
 
 // Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
 // las otras dos que mueven la vista.
@@ -559,6 +579,31 @@ static void Menu_DrawLibraryNotice(void) {
 		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, Lang_Get(notice));
 }
 
+static float Menu_LibraryOptionsH(void) { return OPTION_COUNT * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
+static float Menu_LibraryOptionsX(void) { return 960 - 16 - OPTIONS_W; }
+static float Menu_LibraryOptionsY(void) { return MiniPlayer_Top() - 8 - Menu_LibraryOptionsH(); }
+
+static float Menu_LibraryOptionY(int i) { return Menu_LibraryOptionsY() + OPTIONS_PAD + i * OPTIONS_ITEM_H; }
+
+static void Menu_DrawLibraryOptions(void) {
+	if (!options_open)
+		return;
+
+	float x = Menu_LibraryOptionsX();
+
+	UI_DrawRoundedRect(x, Menu_LibraryOptionsY(), OPTIONS_W, Menu_LibraryOptionsH(), 14, UI_COLOR_SURFACE_2);
+
+	for (int i = 0; i < OPTION_COUNT; i++) {
+		float y = Menu_LibraryOptionY(i);
+
+		if (i == options_index)
+			UI_DrawRowHighlight(x + OPTIONS_PAD, y, OPTIONS_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
+
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, OPTIONS_ITEM_H),
+			OPTIONS_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(option_label[i]));
+	}
+}
+
 // El cuerpo de la pantalla, sin leyenda ni riel: lo comparten el lazo normal y
 // el fondo del dialogo de busqueda, que deben mostrar lo mismo.
 static void Menu_DrawLibraryContent(void) {
@@ -595,6 +640,7 @@ static void Menu_DrawLibraryContent(void) {
 
 	MiniPlayer_Draw();
 	Menu_DrawLibraryNotice();
+	Menu_DrawLibraryOptions();
 }
 
 // El termino cambia solo con uno confirmado: descartar, abandonar o no poder
@@ -812,14 +858,47 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_CANCEL))
 		Menu_LibraryBack();
 
-	if (pressed & SCE_CTRL_TRIANGLE) {
-		if (state == LIBRARY_STATE_READY)
-			Menu_LibraryPromptSearch();
-		else
-			Menu_LibraryRescan();
+	// Triangulo busca, y solo donde hay en que buscar.
+	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_TRIANGLE))
+		Menu_LibraryPromptSearch();
+	else if (pressed & SCE_CTRL_SQUARE) {
+		options_open = SCE_TRUE;
+		options_index = 0;
 	}
-	else if (pressed & SCE_CTRL_SQUARE)
+}
+
+// Las dos acciones ya quitan la busqueda y salen del grupo: elegir carpeta
+// vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
+static void Menu_LibraryRunOption(int option) {
+	options_open = SCE_FALSE;
+
+	if (option == OPTION_RESCAN)
+		Menu_LibraryRescan();
+	else if (option == OPTION_CHOOSE_FOLDER)
 		Menu_LibraryPickRoot();
+}
+
+// Con el menu abierto la lista no recibe nada: arriba y abajo lo recorren,
+// confirmar o tocar una opcion la ejecuta, y volver o tocar fuera lo cierra.
+static void Menu_HandleLibraryOptions(void) {
+	if (Touch_CheckPressed()) {
+		for (int i = 0; i < OPTION_COUNT; i++) {
+			if (UI_TouchTarget(Menu_LibraryOptionsX(), Menu_LibraryOptionY(i), OPTIONS_W, OPTIONS_ITEM_H)) {
+				Menu_LibraryRunOption(i);
+				return;
+			}
+		}
+
+		options_open = SCE_FALSE;
+		return;
+	}
+
+	Utils_ListStep(&options_index, OPTION_COUNT, OPTION_COUNT);
+
+	if (pressed & SCE_CTRL_ENTER)
+		Menu_LibraryRunOption(options_index);
+	else if (pressed & SCE_CTRL_CANCEL)
+		options_open = SCE_FALSE;
 }
 
 UI_Screen Menu_DisplayLibrary(void) {
@@ -842,15 +921,26 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// la lista que se ve, volver lo quita; sin el, sale del grupo.
 		const char *back_hint = (state == LIBRARY_STATE_READY && Menu_LibraryHasTerm()) ? Lang_Get(STR_HINT_CLEAR_FILTER)
 			: (inside ? Lang_Get(STR_HINT_RETURN) : NULL);
+		const char *search_hint = (state == LIBRARY_STATE_READY) ? Lang_Get(STR_HINT_SEARCH) : NULL;
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, play_hint },
 			{ { HINT_BTN_CANCEL }, 0, back_hint },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_VIEWS) },
-			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get((state == LIBRARY_STATE_READY) ? STR_HINT_SEARCH : STR_HINT_RESCAN) },
-			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_FOLDER) },
+			{ { HINT_BTN_TRIANGLE }, 0, search_hint },
+			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_OPTIONS) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
-		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
+		// Con el menu delante, la leyenda es la del menu.
+		const NavRail_Hint option_hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_SELECT) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_CANCEL) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+
+		if (options_open)
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
+		else
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);
 		UI_Debug_Draw();
@@ -865,6 +955,13 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (notice_frames > 0)
 			notice_frames--;
+
+		// El menu se lleva todo, tambien el toque sobre el riel: tocar fuera
+		// de el lo cierra y nada mas.
+		if (options_open) {
+			Menu_HandleLibraryOptions();
+			continue;
+		}
 
 		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_SETTINGS)
 			return tapped;

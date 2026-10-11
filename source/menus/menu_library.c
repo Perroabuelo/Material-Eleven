@@ -43,6 +43,13 @@
 #define ROWS_PER_PAGE 5
 #define LIST_TOP    (TOPBAR_H + 8)
 
+// La caja de busqueda de la barra superior, una pildora como la de carpetas
+// pero mas estrecha: comparte la barra con el titulo y las cuatro pestañas,
+// que en español son las mas anchas.
+#define SEARCH_W       200
+#define SEARCH_H       36
+#define SEARCH_TAB_GAP 18.0f
+
 // Cuantos fotogramas se queda un aviso delante. A 60 fps son unos cuatro
 // segundos: suficiente para leerlo, y se va solo sin pedir confirmacion.
 #define NOTICE_FRAMES 240
@@ -331,18 +338,42 @@ static Menu_LibraryState Menu_LibraryGetState(void) {
 // ---------------------------------------------------------------------------
 // dibujado
 
+// Donde empieza la primera de las cuatro pestañas, que se alinean a la derecha.
+// Depende del idioma, asi que se mide en vez de fijarse.
+static float Menu_LibraryTabsLeft(void) {
+	float tab_x = 960 - 22;
+
+	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
+		tab_x -= (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, Lang_Get(view_label[i]));
+
+		if (i > 0)
+			tab_x -= SEARCH_TAB_GAP;
+	}
+
+	return tab_x;
+}
+
+// La caja de busqueda, a la izquierda de las pestañas. La comparten el
+// dibujado y el toque.
+static float Menu_LibrarySearchBoxX(void) { return Menu_LibraryTabsLeft() - SEARCH_TAB_GAP - SEARCH_W; }
+static float Menu_LibrarySearchBoxY(void) { return (TOPBAR_H - SEARCH_H) / 2.0f; }
+
 static void Menu_DrawLibraryTopBar(void) {
 	vita2d_draw_rectangle(CONTENT_X, 0, 960 - CONTENT_X, TOPBAR_H, UI_COLOR_BG_ELEVATED);
 	vita2d_draw_rectangle(CONTENT_X, TOPBAR_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 
 	float x = CONTENT_X + 22;
+	float sx = Menu_LibrarySearchBoxX(), sy = Menu_LibrarySearchBoxY();
+	// El titulo y la ruta se recortan antes de la caja en vez de pasarle por
+	// debajo: dentro de un album el titulo es su nombre, y puede ser largo.
+	float text_w = sx - 16 - x;
 
 	// Dentro de un artista o un album manda su nombre, porque es lo que el usuario
 	// acaba de elegir; la pestaña sigue marcada al lado.
 	const char *heading = inside ? (inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name) : Lang_Get(STR_LIBRARY_TITLE);
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
-		UI_COLOR_TEXT_PRIMARY, heading);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
+		text_w, UI_COLOR_TEXT_PRIMARY, heading);
 
 	// Las cuatro pestañas, con la vigente marcada. Se dibujan tambien dentro de un
 	// grupo, para que se vea de donde se entro.
@@ -356,13 +387,24 @@ static void Menu_DrawLibraryTopBar(void) {
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
 			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, label);
 
-		tab_x -= 18.0f;
+		tab_x -= SEARCH_TAB_GAP;
 	}
 
 	if (Library_HasRoot()) {
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x,
-			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), 960 - x - 240,
+			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), text_w,
 			UI_COLOR_TEXT_TERTIARY, Library_GetRoot());
+	}
+
+	// La caja solo se ofrece cuando hay algo en que buscar. Muestra el termino
+	// de la lista que se ve, o la invitacion a buscar.
+	if (Menu_LibraryGetState() == LIBRARY_STATE_READY) {
+		SceBool has_term = Menu_LibraryHasTerm();
+
+		UI_DrawPill(sx, sy, SEARCH_W, SEARCH_H, UI_COLOR_SURFACE);
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, sx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, sy, SEARCH_H),
+			SEARCH_W - 28, has_term ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED,
+			has_term ? Menu_LibrarySearchNow()->term : Lang_Get(STR_SEARCH_LIBRARY));
 	}
 }
 
@@ -831,6 +873,13 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (MiniPlayer_HandleTouch())
 			continue;
+
+		// Tocar la caja abre la misma busqueda que Triangulo.
+		if (state == LIBRARY_STATE_READY && Touch_Position(Menu_LibrarySearchBoxX(), Menu_LibrarySearchBoxY(),
+			Menu_LibrarySearchBoxX() + SEARCH_W, Menu_LibrarySearchBoxY() + SEARCH_H)) {
+			Menu_LibraryPromptSearch();
+			continue;
+		}
 
 		Menu_HandleLibraryControls(state);
 

@@ -50,10 +50,11 @@ static void Music_FreeLyrics(void);
 
 // The progress bar, while the user holds it. A grab never outlives the track,
 // the view or the visit to this screen: it would seek in something else.
-static SeekBar_State seek_state = { 0 };
+static SeekBar_State seek_state = { 0 }, lyrics_seek_state = { 0 };
 
 static void Menu_ResetSeekBars(void) {
 	SeekBar_Reset(&seek_state);
+	SeekBar_Reset(&lyrics_seek_state);
 }
 
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
@@ -656,6 +657,12 @@ static void Menu_LyricsFollow(int current) {
 	lyrics_scroll = (d > -0.5f && d < 0.5f) ? target : lyrics_scroll + d * LYRICS_EASE;
 }
 
+// Clipped at the hint bar, which takes no touches, so a little under
+// UI_TOUCH_MIN tall.
+static SeekBar_Geometry Menu_LyricsSeekGeometry(void) {
+	return Menu_SeekGeometry(LYRICS_X, LYRICS_SEEK_Y, LYRICS_W, 544 - UI_HINT_BAR_HEIGHT);
+}
+
 static void Menu_LyricsHandleDrag(void) {
 	if (lyrics_layout.count == 0) {
 		lyrics_dragging = SCE_FALSE;
@@ -665,7 +672,8 @@ static void Menu_LyricsHandleDrag(void) {
 	if (Touch_CheckPressed()) {
 		// Only a touch that starts on the lyrics drags them; the rail and the
 		// seek bar keep theirs.
-		lyrics_dragging = Touch_GetX() >= CONTENT_X && Touch_GetY() >= LYRICS_TOP && Touch_GetY() < LYRICS_SEEK_Y - 12;
+		SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+		lyrics_dragging = Touch_GetX() >= CONTENT_X && Touch_GetY() >= LYRICS_TOP && Touch_GetY() < geo.hit_top;
 		lyrics_drag_y = Touch_GetY();
 		return;
 	}
@@ -694,20 +702,6 @@ static void Menu_LyricsHandleDrag(void) {
 		lyrics_dragging = SCE_FALSE;
 		lyrics_release_time = sceKernelGetProcessTimeWide();
 	}
-}
-
-static void Menu_LyricsHandleSeek(void) {
-	if (!Touch_Position(LYRICS_X, LYRICS_SEEK_Y - 12, LYRICS_X + LYRICS_W, LYRICS_SEEK_Y + 12))
-		return;
-
-	SceBool was_paused = Audio_IsPaused();
-	if (!was_paused)
-		Audio_Pause();
-
-	Audio_Seek((double)(Touch_GetX() - LYRICS_X) / LYRICS_W);
-
-	if (was_paused != Audio_IsPaused())
-		Audio_Pause();
 }
 
 static void Menu_DrawLyricsHeader(void) {
@@ -795,12 +789,8 @@ static void Menu_DrawLyricsView(void) {
 			UI_COLOR_TEXT_TERTIARY, none);
 	}
 
-	SceUInt64 length = Audio_GetLength();
-	double ratio = length ? ((double)Audio_GetPosition() / (double)length) : 0.0;
-	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, LYRICS_W, SEEK_H, UI_COLOR_SURFACE);
-	UI_DrawPill(LYRICS_X, LYRICS_SEEK_Y, (float)(LYRICS_W * ratio), SEEK_H, ui_color_accent);
-
-	Menu_ConvertSecondsToString(position_time, Audio_GetPositionSeconds());
+	float shown = Menu_DrawSeekBar(&lyrics_seek_state, LYRICS_X, LYRICS_SEEK_Y, LYRICS_W);
+	Menu_SeekElapsed(&lyrics_seek_state, shown);
 	float time_y = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, LYRICS_SEEK_Y + 8, 22);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X, time_y, UI_COLOR_TEXT_TERTIARY, position_time);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X + LYRICS_W - length_time_width, time_y, UI_COLOR_TEXT_TERTIARY, length_time);
@@ -918,9 +908,14 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 
 		// The lyrics view has no on-screen transport: touches there scroll the
 		// lyrics or seek with its own bar.
+		// While its bar is held the lyrics keep following the real position,
+		// which does not move until the release; then they jump to the new line.
 		if (lyrics_view) {
+			SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+
 			Menu_LyricsHandleDrag();
-			Menu_LyricsHandleSeek();
+			if (Menu_HandleSeekTouch(&lyrics_seek_state, &geo))
+				Menu_LyricsSnap();
 		}
 		// The transport is tested first: a press it takes never reaches the bar,
 		// and once the bar is held the buttons see no press to fire on.

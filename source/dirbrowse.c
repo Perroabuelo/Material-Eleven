@@ -12,11 +12,15 @@
 #include "fs.h"
 #include "lang.h"
 #include "menu_audioplayer.h"
+#include "text_fold.h"
 #include "ui_theme.h"
 #include "utils.h"
 
 File *files = NULL;
+// The term as typed, to show it and reload the dialog, and folded once here for
+// the comparison (text_fold.h) rather than once per entry.
 static char filter_query[64] = "";
+static char filter_folded[64] = "";
 
 // One node at a time: a recursive free took a stack frame per entry, up to the
 // whole listing on top of whatever screen was running.
@@ -158,35 +162,22 @@ int Dirbrowse_PopulateFiles(SceBool refresh) {
 
 // ---- In-folder filename filter ----
 
-static SceBool Dirbrowse_NameContains(const char *name, const char *query) {
-	size_t name_len = strlen(name), query_len = strlen(query);
-	if (query_len == 0)
-		return SCE_TRUE;
-	if (query_len > name_len)
-		return SCE_FALSE;
-
-	for (size_t i = 0; i + query_len <= name_len; i++) {
-		if (!strncasecmp(name + i, query, query_len))
-			return SCE_TRUE;
-	}
-
-	return SCE_FALSE;
-}
-
 static SceBool Dirbrowse_EntryVisible(File *file) {
 	if (!strcmp(file->name, ".."))
 		return SCE_TRUE;
 
-	return Dirbrowse_NameContains(file->name, filter_query);
+	return TextFold_Contains(file->name, filter_folded);
 }
 
 void Dirbrowse_SetFilter(const char *query) {
 	snprintf(filter_query, sizeof(filter_query), "%s", query);
+	TextFold_Fold(filter_query, filter_folded, sizeof(filter_folded));
 	position = 0;
 }
 
 void Dirbrowse_ClearFilter(void) {
 	filter_query[0] = '\0';
+	filter_folded[0] = '\0';
 	position = 0;
 }
 

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-10-11
+
 ### Added
 
 - Drag the progress bar to choose where to jump. The bar grows and shows a handle while you hold it, the elapsed time follows your finger, and the song jumps there when you let go.

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-10-11
+
 ### Added
 
 - Search your library: press Triangle or tap the search box to filter the current list by title, artist or album.

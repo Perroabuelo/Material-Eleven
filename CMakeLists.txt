@@ -74,6 +74,7 @@ add_executable(${PROJECT_NAME}
   source/text_encoding.c
   source/text_fold.c
   source/touch.c
+  source/touch_list.c
   source/track_advance.c
   source/track_meta.c
   source/ui_gpu.c

@@ -51,11 +51,18 @@ void UI_TextDimensions(UI_Face face, UI_TextSize ts, const char *text, int *out_
 // Draws `text` from `x`, never spilling past `x + max_w`. Text that does not
 // fit is cut off at a rectangular clip and followed by a continuation
 // indicator, so a long file name stops short of the badge beside it instead of
-// running through it. Clipping is enabled and disabled inside this one call:
+// running through it. Its clip is pushed and popped inside this one call:
 // nothing can leave it switched on by returning early, which would make
-// whatever drew next disappear.
+// whatever drew next disappear, and an outer clip set by the caller stays.
 void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y, float max_w,
 	unsigned int color, const char *text);
+
+// Nestable clip to the rectangle from (x0, y0) to (x1, y1), intersected with
+// the clip already in force. Every Push needs its Pop; popping the last one
+// switches clipping off. A scrolling list pushes its area so its rows stop at
+// the top bar and the mini player.
+void UI_PushClip(float x0, float y0, float x1, float y1);
+void UI_PopClip(void);
 
 // ---- Non-Latin coverage ----
 //

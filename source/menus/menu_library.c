@@ -352,6 +352,10 @@ typedef enum {
 	LIBRARY_STATE_READY         // hay pistas
 } Menu_LibraryState;
 
+// Lo que dice cada estado vacio y la accion que ofrece, que es la de Confirmar.
+static const LangString empty_line[LIBRARY_STATE_READY] = { STR_EMPTY_NO_ROOT, STR_EMPTY_UNBUILT, STR_EMPTY_NO_TRACKS };
+static const LangString empty_action[LIBRARY_STATE_READY] = { STR_ACTION_CHOOSE_FOLDER, STR_ACTION_SCAN, STR_ACTION_CHOOSE_OTHER };
+
 static Menu_LibraryState Menu_LibraryGetState(void) {
 	if (!Library_HasRoot())
 		return LIBRARY_STATE_NO_ROOT;
@@ -383,6 +387,29 @@ static float Menu_LibraryTabsLeft(void) {
 	return tab_x;
 }
 
+// Donde empieza la pestaña `i` y cuanto mide. La comparten el dibujado y el
+// toque.
+static float Menu_LibraryTabX(int i, float *out_w) {
+	float tab_x = 960 - 22;
+
+	for (int j = VIEW_COUNT - 1; j >= i; j--) {
+		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, Lang_Get(view_label[j]));
+		tab_x -= w;
+
+		if (j == i) {
+			*out_w = w;
+			break;
+		}
+
+		tab_x -= SEARCH_TAB_GAP;
+	}
+
+	return tab_x;
+}
+
+// La franja de la barra en que se escriben el titulo y las pestañas.
+#define TABS_BOX_H (TOPBAR_H - 18)
+
 // La caja de busqueda, a la izquierda de las pestañas. La comparten el
 // dibujado y el toque.
 static float Menu_LibrarySearchBoxX(void) { return Menu_LibraryTabsLeft() - SEARCH_TAB_GAP - SEARCH_W; }
@@ -407,17 +434,12 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	// Las cuatro pestañas, con la vigente marcada. Se dibujan tambien dentro de un
 	// grupo, para que se vea de donde se entro.
-	float tab_x = 960 - 22;
+	for (int i = 0; i < VIEW_COUNT; i++) {
+		float w = 0;
+		float tab_x = Menu_LibraryTabX(i, &w);
 
-	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
-		const char *label = Lang_Get(view_label[i]);
-		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, label);
-		tab_x -= w;
-
-		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
-			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, label);
-
-		tab_x -= SEARCH_TAB_GAP;
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TABS_BOX_H),
+			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, Lang_Get(view_label[i]));
 	}
 
 	if (Library_HasRoot()) {
@@ -439,15 +461,20 @@ static void Menu_DrawLibraryTopBar(void) {
 }
 
 // Un estado vacio que dice cual de los cuatro es y que hacer, en vez de una
-// lista vacia sin explicacion.
+// lista vacia sin explicacion. La accion se puede tocar.
+#define PLACEHOLDER_X (CONTENT_X + 22)
+#define PLACEHOLDER_Y 180.0f
+#define PLACEHOLDER_ACTION_Y (PLACEHOLDER_Y + 34)
+#define PLACEHOLDER_ACTION_H 24
+
 static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
-	float x = CONTENT_X + 22, y = 180.0f;
+	float x = PLACEHOLDER_X, y = PLACEHOLDER_Y;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26),
 		960 - x - 22, UI_COLOR_TEXT_SECONDARY, line);
 
 	if (action != NULL) {
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y + 34, 24),
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, PLACEHOLDER_ACTION_Y, PLACEHOLDER_ACTION_H),
 			UI_COLOR_TEXT_TERTIARY, action);
 	}
 }
@@ -649,20 +676,12 @@ static void Menu_DrawLibraryContent(void) {
 			UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_ROOT_MISSING));
 	}
 
-	switch (Menu_LibraryGetState()) {
-		case LIBRARY_STATE_NO_ROOT:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_ROOT), Lang_Get(STR_ACTION_CHOOSE_FOLDER));
-			break;
-		case LIBRARY_STATE_UNBUILT:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_UNBUILT), Lang_Get(STR_ACTION_SCAN));
-			break;
-		case LIBRARY_STATE_EMPTY:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_TRACKS), Lang_Get(STR_ACTION_CHOOSE_OTHER));
-			break;
-		case LIBRARY_STATE_READY:
-			Menu_DrawLibraryList();
-			break;
-	}
+	Menu_LibraryState state = Menu_LibraryGetState();
+
+	if (state == LIBRARY_STATE_READY)
+		Menu_DrawLibraryList();
+	else
+		Menu_DrawLibraryPlaceholder(Lang_Get(empty_line[state]), Lang_Get(empty_action[state]));
 
 	MiniPlayer_Draw();
 	Menu_DrawLibraryNotice();
@@ -860,6 +879,48 @@ static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
 	return SCE_TRUE;
 }
 
+// Sin nada que reproducir, confirmar - o tocar la accion - hace lo unico que
+// procede en cada uno de los otros tres estados.
+static void Menu_LibraryEmptyAction(Menu_LibraryState state) {
+	if (state == LIBRARY_STATE_NO_ROOT)
+		Menu_LibraryPickRoot();
+	else
+		Menu_LibraryRescan();
+}
+
+// Las pestañas y la accion de un estado vacio se tocan como los botones que
+// las accionan: al apoyar el dedo, como el riel y la caja de busqueda.
+static SceBool Menu_HandleLibraryTouchControls(Menu_LibraryState state) {
+	if (!Touch_CheckPressed())
+		return SCE_FALSE;
+
+	if (state == LIBRARY_STATE_READY) {
+		for (int i = 0; i < VIEW_COUNT; i++) {
+			float w = 0;
+			float x = Menu_LibraryTabX(i, &w);
+
+			if (UI_TouchTarget(x, 0, w, TABS_BOX_H)) {
+				if (i != (int)view)
+					Menu_LibrarySetView((Menu_LibraryTab)i);
+
+				return SCE_TRUE;
+			}
+		}
+
+		return SCE_FALSE;
+	}
+
+	const char *action = Lang_Get(empty_action[state]);
+	float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, action);
+
+	if (UI_TouchTarget(PLACEHOLDER_X, PLACEHOLDER_ACTION_Y, w, PLACEHOLDER_ACTION_H)) {
+		Menu_LibraryEmptyAction(state);
+		return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
+}
+
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	int count = Menu_LibraryBuild();
 
@@ -896,14 +957,8 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 				Menu_LibraryPlaySelected();
 		}
 	}
-	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER)) {
-		// Sin nada que reproducir, confirmar hace lo unico que procede en cada
-		// uno de los otros tres estados.
-		if (state == LIBRARY_STATE_NO_ROOT)
-			Menu_LibraryPickRoot();
-		else
-			Menu_LibraryRescan();
-	}
+	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER))
+		Menu_LibraryEmptyAction(state);
 
 	// Fuera del bloque de la lista: una busqueda sin resultados deja la lista
 	// vacia, y volver tiene que seguir quitandola.
@@ -1039,6 +1094,9 @@ UI_Screen Menu_DisplayLibrary(void) {
 			Menu_LibraryPromptSearch();
 			continue;
 		}
+
+		if (Menu_HandleLibraryTouchControls(state))
+			continue;
 
 		if (!Menu_HandleLibraryTap(state, tapped_row))
 			Menu_HandleLibraryControls(state);

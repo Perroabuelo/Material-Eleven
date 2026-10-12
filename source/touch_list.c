@@ -35,11 +35,26 @@ void TouchList_Layout(TouchList *list, float left, float top, float right, float
 	}
 }
 
+void TouchList_LayoutContent(TouchList *list, float left, float top, float right, float bottom,
+	float content_h, float show_top, float show_bottom) {
+	list->left = left;
+	list->top = top;
+	list->right = right;
+	list->bottom = bottom;
+
+	ListScroll_SetContent(&list->scroll, content_h, bottom - top);
+
+	if (list->follow) {
+		list->follow = SCE_FALSE;
+		ListScroll_ShowRange(&list->scroll, show_top, show_bottom);
+	}
+}
+
 static SceBool TouchList_Contains(const TouchList *list, float x, float y) {
 	return x >= list->left && x < list->right && y >= list->top && y < list->bottom;
 }
 
-int TouchList_Update(TouchList *list, SceBool may_own) {
+int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y) {
 	SceUInt64 now = sceKernelGetProcessTimeWide();
 	float dt = (list->last_us != 0) ? (float)(now - list->last_us) / 1000.0f : TOUCH_LIST_FRAME_MS;
 	list->last_us = now;
@@ -55,6 +70,9 @@ int TouchList_Update(TouchList *list, SceBool may_own) {
 	Gesture_Input in = { list->owned && Touch_CheckHeld(), x, y, dt };
 	Gesture_Result res = Gesture_Update(&list->gesture, &in);
 	int tapped = -1;
+
+	if (out_tap_y != NULL)
+		*out_tap_y = -1.0f;
 
 	switch (res.type) {
 		case GESTURE_PRESS:
@@ -75,8 +93,12 @@ int TouchList_Update(TouchList *list, SceBool may_own) {
 
 		case GESTURE_TAP:
 			// Lifted outside the list: nothing.
-			if (TouchList_Contains(list, res.end_x, res.end_y))
+			if (TouchList_Contains(list, res.end_x, res.end_y)) {
 				tapped = ListScroll_RowAt(&list->scroll, res.start_y - list->top);
+
+				if (out_tap_y != NULL)
+					*out_tap_y = res.start_y - list->top + list->scroll.offset;
+			}
 			break;
 
 		case GESTURE_NONE:
@@ -96,6 +118,17 @@ int TouchList_PressedRow(const TouchList *list) {
 		return -1;
 
 	return ListScroll_RowAt(&list->scroll, list->gesture.start_y - list->top);
+}
+
+float TouchList_PressedY(const TouchList *list) {
+	if (!Gesture_Pressing(&list->gesture))
+		return -1.0f;
+
+	return list->gesture.start_y - list->top + list->scroll.offset;
+}
+
+float TouchList_ContentTop(const TouchList *list) {
+	return list->top - list->scroll.offset;
 }
 
 int TouchList_FirstRow(const TouchList *list) {

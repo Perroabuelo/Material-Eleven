@@ -233,6 +233,35 @@ static void test_row_at(void) {
 	CHECK(NEAR(empty.offset, 0.0f), "EnsureVisible en una lista vacia no deberia moverla");
 }
 
+static void test_content_and_range(void) {
+	// Contenido de alto libre: 8 opciones de 58 px y un divisor de 22.
+	ListScroll s;
+	memset(&s, 0, sizeof(s));
+	ListScroll_SetContent(&s, 8 * 58.0f + 22.0f, 300.0f);
+	CHECK(NEAR(ListScroll_MaxOffset(&s), 486.0f - 300.0f), "el maximo deberia ser 186, dio %f", ListScroll_MaxOffset(&s));
+
+	ListScroll_ShowRange(&s, 428.0f, 486.0f);
+	CHECK(NEAR(s.offset, 186.0f), "la ultima opcion deberia quedar abajo, dio %f", s.offset);
+
+	ListScroll_ShowRange(&s, 58.0f, 116.0f);
+	CHECK(NEAR(s.offset, 58.0f), "la segunda opcion deberia quedar arriba, dio %f", s.offset);
+
+	ListScroll_ShowRange(&s, 100.0f, 150.0f);
+	CHECK(NEAR(s.offset, 58.0f), "un tramo visible no deberia mover la vista");
+
+	ListScroll_Fling(&s, -2.0f);
+	ListScroll_ShowRange(&s, 0.0f, 58.0f);
+	CHECK(!ListScroll_Moving(&s) && NEAR(s.offset, 0.0f), "ShowRange deberia detener la inercia y subir");
+
+	// Lo que cabe no se mueve.
+	ListScroll_SetContent(&s, 200.0f, 300.0f);
+	ListScroll_Drag(&s, -100.0f);
+	CHECK(NEAR(s.offset, 0.0f), "un contenido que cabe no deberia desplazarse");
+
+	ListScroll_SetContent(&s, -5.0f, 300.0f);
+	CHECK(NEAR(s.content_h, 0.0f), "un alto negativo deberia quedar en 0");
+}
+
 int main(void) {
 	test_drag_and_ends();
 	test_short_list();
@@ -245,6 +274,7 @@ int main(void) {
 	test_stop_and_drag_stop_inertia();
 	test_ensure_visible();
 	test_row_at();
+	test_content_and_range();
 
 	if (failures == 0)
 		printf("test_list_scroll: todo bien\n");

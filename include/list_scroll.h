@@ -22,6 +22,11 @@ typedef struct {
 // before drawing; a list that fits stays at 0.
 void ListScroll_SetSize(ListScroll *scroll, int rows, float row_h, float viewport_h);
 
+// The same for content whose rows are not all one height (a divider between
+// them, say): only its total height. Rows are then the screen's business, and
+// ListScroll_RowAt, _EnsureVisible and _FirstRow keep the last row height set.
+void ListScroll_SetContent(ListScroll *scroll, float content_h, float viewport_h);
+
 float ListScroll_MaxOffset(const ListScroll *scroll);
 
 // Follows a finger that moved `dy` pixels (+ is down) this frame. Stops any
@@ -43,6 +48,9 @@ int ListScroll_Moving(const ListScroll *scroll);
 // area. A half-shown row is aligned to the edge it comes in by. Stops any
 // inertia. Out-of-range indexes are ignored.
 void ListScroll_EnsureVisible(ListScroll *scroll, int index);
+
+// The same for the content from `top` to `bottom`, in pixels from its start.
+void ListScroll_ShowRange(ListScroll *scroll, float top, float bottom);
 
 // Index of the row under `y`, measured from the top of the area, or -1 when
 // `y` is outside the area or past the last row.

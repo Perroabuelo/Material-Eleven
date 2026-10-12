@@ -41,12 +41,26 @@ void TouchList_Follow(TouchList *list);
 void TouchList_Layout(TouchList *list, float left, float top, float right, float bottom,
 	int rows, float row_h, int selection);
 
+// The same for content whose rows are not all one height: its total height,
+// and the stretch of it to show on a pending TouchList_Follow (the selected
+// row). The screen maps positions to its rows itself, through the content y
+// that TouchList_Update and TouchList_PressedY report.
+void TouchList_LayoutContent(TouchList *list, float left, float top, float right, float bottom,
+	float content_h, float show_top, float show_bottom);
+
 // Feeds this frame's touch. `may_own` is SCE_FALSE while something else has
-// the screen (an open menu). Returns the row tapped this frame, or -1.
-int TouchList_Update(TouchList *list, SceBool may_own);
+// the screen (an open menu). Returns the row tapped this frame, or -1; if
+// `out_tap_y` is not NULL it gets the tap's y in the content, or -1.
+int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y);
 
 // The row under a finger that is resting on it, or -1. Drawn pressed.
 int TouchList_PressedRow(const TouchList *list);
+
+// The same as a y in the content, or -1.
+float TouchList_PressedY(const TouchList *list);
+
+// Where the start of the content is drawn on screen.
+float TouchList_ContentTop(const TouchList *list);
 
 int TouchList_FirstRow(const TouchList *list);
 float TouchList_RowY(const TouchList *list, int index);

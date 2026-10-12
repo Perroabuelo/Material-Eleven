@@ -1068,7 +1068,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// La lista toma solo los toques que empiezan en ella: no con el menu
 		// delante ni sobre el aviso, que la tapa en parte.
 		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
-		int tapped_row = TouchList_Update(&library_list, !options_open && !on_notice && state == LIBRARY_STATE_READY);
+		int tapped_row = TouchList_Update(&library_list, !options_open && !on_notice && state == LIBRARY_STATE_READY, NULL);
 
 		if (notice_frames > 0)
 			notice_frames--;

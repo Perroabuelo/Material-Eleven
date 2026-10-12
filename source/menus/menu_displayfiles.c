@@ -186,7 +186,7 @@ SceBool Menu_PickFolder(char *out, int cap) {
 		UI_Theme_RenewFallbackIfNeeded();
 
 		int visible_count = Dirbrowse_GetVisibleCount();
-		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE);
+		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE, NULL);
 
 		if (visible_count > 0) {
 			int before = position;
@@ -291,7 +291,7 @@ UI_Screen Menu_DisplayFiles(void) {
 
 		// La lista toma solo los toques que empiezan en ella: el riel, la
 		// barra superior y el mini reproductor quedan fuera de su area.
-		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE);
+		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE, NULL);
 
 		if (tapped == UI_SCREEN_SETTINGS || tapped == UI_SCREEN_LIBRARY)
 			return tapped;

@@ -31,16 +31,20 @@ static int ListScroll_Clamp(ListScroll *scroll) {
 	return 0;
 }
 
+void ListScroll_SetContent(ListScroll *scroll, float content_h, float viewport_h) {
+	scroll->content_h = content_h > 0.0f ? content_h : 0.0f;
+	scroll->viewport_h = viewport_h > 0.0f ? viewport_h : 0.0f;
+
+	if (ListScroll_Clamp(scroll))
+		scroll->velocity = 0.0f;
+}
+
 void ListScroll_SetSize(ListScroll *scroll, int rows, float row_h, float viewport_h) {
 	if (rows < 0)
 		rows = 0;
 
 	scroll->row_h = row_h > 0.0f ? row_h : 0.0f;
-	scroll->content_h = rows * scroll->row_h;
-	scroll->viewport_h = viewport_h > 0.0f ? viewport_h : 0.0f;
-
-	if (ListScroll_Clamp(scroll))
-		scroll->velocity = 0.0f;
+	ListScroll_SetContent(scroll, rows * scroll->row_h, viewport_h);
 }
 
 void ListScroll_Drag(ListScroll *scroll, float dy) {
@@ -81,14 +85,8 @@ int ListScroll_Moving(const ListScroll *scroll) {
 	return scroll->velocity != 0.0f;
 }
 
-void ListScroll_EnsureVisible(ListScroll *scroll, int index) {
+void ListScroll_ShowRange(ListScroll *scroll, float top, float bottom) {
 	scroll->velocity = 0.0f;
-
-	if (index < 0 || scroll->row_h <= 0.0f || index * scroll->row_h >= scroll->content_h)
-		return;
-
-	float top = index * scroll->row_h;
-	float bottom = top + scroll->row_h;
 
 	if (top < scroll->offset)
 		scroll->offset = top;
@@ -96,6 +94,15 @@ void ListScroll_EnsureVisible(ListScroll *scroll, int index) {
 		scroll->offset = bottom - scroll->viewport_h;
 
 	ListScroll_Clamp(scroll);
+}
+
+void ListScroll_EnsureVisible(ListScroll *scroll, int index) {
+	if (index < 0 || scroll->row_h <= 0.0f || index * scroll->row_h >= scroll->content_h) {
+		scroll->velocity = 0.0f;
+		return;
+	}
+
+	ListScroll_ShowRange(scroll, index * scroll->row_h, (index + 1) * scroll->row_h);
 }
 
 int ListScroll_RowAt(const ListScroll *scroll, float y) {

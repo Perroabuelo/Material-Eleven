@@ -33,4 +33,4 @@
 - [x] 7.1 Verificar en consola todos los escenarios de los requisitos que este cambio agrega en `specs/ui/list-navigation/spec.md` paso a paso y, con el overlay de debug, anotar pila y HEAP en Carpetas antes y después de recorrer veinte veces Biblioteca (arrastre con inercia, tocar un álbum, volver) → Carpetas (arrastre) → Ajustes; listo cuando todo pasa y pila y HEAP no crecen, con las constantes de gesto e inercia ya afinadas
 
   Memoria verificada en consola el 2026-10-12: HEAP 1668 y pila 288 B en Carpetas, iguales antes y después de las veinte vueltas. Las constantes de gesto e inercia quedan como están (16 px, 0.95, 0.3 y 0.02 px/ms): el toque se siente bien en consola. Todos los escenarios pasan, también los de 4.3 y 5.1. Carpetas mantiene la lista hasta la leyenda cuando no suena nada.
-- [ ] 7.2 Agregar las notas de v3.9.0 a `CHANGELOG.md` desde la proposal y abrir el PR a `main`; listo cuando el CI está en verde
+- [x] 7.2 Agregar las notas de v3.9.0 a `CHANGELOG.md` desde la proposal y abrir el PR a `main`; listo cuando el CI está en verde

@@ -6,7 +6,7 @@
 
 - [x] 2.1 Agregar `gesture.c`/`gesture.h` (apoyo, toque, arrastre con umbral, salida con velocidad promediada, gesto "atrapado") con `tests/test_gesture.c` en `tests/Makefile`; listo cuando `make -C tests` pasa con ASan/UBSan y cubre toque, arrastre, levantar fuera del área y ruido de un fotograma
 - [x] 2.2 Agregar `list_scroll.c`/`list_scroll.h` (arrastre acotado, inercia por `dt_ms`, detener, `EnsureVisible`, `RowAt`) con `tests/test_list_scroll.c`; listo cuando `make -C tests` pasa y cubre extremos, lista corta, inercia monótona y finita, `dt_ms` grande, fila a medias y lista vacía
-- [ ] 2.3 Sumar los dos fuentes a `CMakeLists.txt` sin usarlos todavía; listo cuando el `.vpk` compila con `-Werror`
+- [x] 2.3 Sumar los dos fuentes a `CMakeLists.txt` sin usarlos todavía; listo cuando el `.vpk` compila con `-Werror`
 
 ## 3. Base de dibujo y entrada
 

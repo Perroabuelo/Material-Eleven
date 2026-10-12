@@ -51,11 +51,13 @@ add_executable(${PROJECT_NAME}
   source/cover.c
   source/dirbrowse.c
   source/fs.c
+  source/gesture.c
   source/key_repeat.c
   source/lang.c
   source/library.c
   source/library_row.c
   source/list_filter.c
+  source/list_scroll.c
   source/lyrics.c
   source/lyrics_layout.c
   source/lyrics_load.c

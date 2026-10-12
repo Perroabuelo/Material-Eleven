@@ -51,7 +51,7 @@
   Anotar el HEAP antes y después de buscar y quitar el término 10 veces.
 
   Verificado en consola el 2026-10-11: todos los escenarios pasan; el HEAP se mantuvo en 2567,6 KB tras buscar y quitar el término 10 veces.
-- [ ] 5.2 Dibujar la caja de búsqueda en la barra superior de la Biblioteca, que muestra el término o "Buscar en la biblioteca", y abrir el diálogo al tocarla (Decisión 8). Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
+- [x] 5.2 Dibujar la caja de búsqueda en la barra superior de la Biblioteca, que muestra el término o "Buscar en la biblioteca", y abrir el diálogo al tocarla (Decisión 8). Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
   - el escenario "Abrir la búsqueda tocando la caja";
   - y que, en English y en Español, la caja, el título, las cuatro pestañas y la ruta de la carpeta se vean sin solaparse, también dentro de un álbum con nombre largo.
 - [x] 5.3 Comprobar la cola y el regreso con un término aplicado. Listo cuando en la consola se cumplan:

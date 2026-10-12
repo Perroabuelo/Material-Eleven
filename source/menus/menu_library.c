@@ -460,6 +460,8 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 		const char *album, const char *path, const char *ext, int *budget) {
 	if (i == selection)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
+	else if (i == TouchList_PressedRow(&library_list))
+		UI_DrawRowPressHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
 	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
 	vita2d_texture *art = (album != NULL || path != NULL) ? Cover_Get(album, path, budget) : NULL;
@@ -584,11 +586,19 @@ static void Menu_DrawLibraryList(void) {
 		UI_COLOR_TEXT_MUTED, counter);
 }
 
+#define NOTICE_H 44.0f
+
+static float Menu_LibraryNoticeY(void) { return MiniPlayer_Top() - NOTICE_H - 8; }
+
+static SceBool Menu_LibraryNoticeShown(void) {
+	return notice_frames > 0 && notice < STR_COUNT;
+}
+
 static void Menu_DrawLibraryNotice(void) {
-	if (notice_frames <= 0 || notice >= STR_COUNT)
+	if (!Menu_LibraryNoticeShown())
 		return;
 
-	float h = 44.0f, y = MiniPlayer_Top() - h - 8;
+	float h = NOTICE_H, y = Menu_LibraryNoticeY();
 
 	UI_DrawRoundedRect(CONTENT_X + 16, y, 960 - CONTENT_X - 32, h, 12, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 32, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, h),
@@ -834,6 +844,22 @@ static void Menu_LibraryBack(void) {
 		Menu_LibraryLeave();
 }
 
+// Tocar una fila es seleccionarla y confirmar: entra en un nombre o reproduce
+// una pista. `row` es la fila tocada este fotograma, o -1.
+static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
+	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
+		return SCE_FALSE;
+
+	selection = row;
+
+	if (Menu_LibraryShowsNames())
+		Menu_LibraryEnter();
+	else
+		Menu_LibraryPlaySelected();
+
+	return SCE_TRUE;
+}
+
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	int count = Menu_LibraryBuild();
 
@@ -984,6 +1010,11 @@ UI_Screen Menu_DisplayLibrary(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
+		// La lista toma solo los toques que empiezan en ella: no con el menu
+		// delante ni sobre el aviso, que la tapa en parte.
+		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
+		int tapped_row = TouchList_Update(&library_list, !options_open && !on_notice && state == LIBRARY_STATE_READY);
+
 		if (notice_frames > 0)
 			notice_frames--;
 
@@ -1009,7 +1040,8 @@ UI_Screen Menu_DisplayLibrary(void) {
 			continue;
 		}
 
-		Menu_HandleLibraryControls(state);
+		if (!Menu_HandleLibraryTap(state, tapped_row))
+			Menu_HandleLibraryControls(state);
 
 		// Reproducir una pista no entra a Reproduciendo: lo pide.
 		UI_Screen requested = NavRequest_Take();

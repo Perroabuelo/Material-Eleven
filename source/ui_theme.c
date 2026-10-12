@@ -707,6 +707,11 @@ void UI_DrawRowHighlight(float x, float y, float w, float h) {
 	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, ui_color_accent_wash);
 }
 
+void UI_DrawRowPressHighlight(float x, float y, float w, float h) {
+	unsigned int alpha = (ui_color_accent_wash >> 24) / 2;
+	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, (ui_color_accent_wash & 0x00FFFFFF) | (alpha << 24));
+}
+
 // ---- Dynamic accent derived from cover art ----
 
 // vita2d decodes cover art straight into a GPU texture, always in linear layout

@@ -200,6 +200,8 @@ void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned 
 float UI_BadgeWidth(UI_TextSize ts, const char *label);
 // Accent-wash rounded-rect highlight behind an active list row.
 void UI_DrawRowHighlight(float x, float y, float w, float h);
+// The same wash, fainter, behind a row a finger is resting on.
+void UI_DrawRowPressHighlight(float x, float y, float w, float h);
 
 // ---- Vector primitives (vita2d_draw_array; no texture involved) ----
 // Every UI control and chrome shape is composed from these, so icons stay

@@ -17,11 +17,11 @@
 
 - [x] 4.1 Pasar el dibujo de la lista de la Biblioteca a `list_scroll` con recorte al área y `EnsureVisible` tras botones, cambio de vista, entrar/salir de un grupo y volver a la pantalla; listo cuando en consola los botones (incluida la repetición) y volver de Reproduciendo a la misma fila funcionan como antes
 - [x] 4.2 Conectar `gesture` a la lista de la Biblioteca según el orden de dueños del toque: arrastre, inercia, resaltado al apoyar y activación al soltar; listo cuando en consola pasan los escenarios de desplazamiento, inercia, toque y "cada toque lo recibe un solo elemento" sobre la Biblioteca
-- [ ] 4.3 Hacer tocables las pestañas, las acciones de los estados vacíos, la caja de búsqueda y las entradas del menú de □; listo cuando en consola cada uno hace lo mismo que su botón
+- [x] 4.3 Hacer tocables las pestañas, las acciones de los estados vacíos, la caja de búsqueda y las entradas del menú de □; listo cuando en consola cada uno hace lo mismo que su botón
 
 ## 5. Carpetas
 
-- [ ] 5.1 Pasar `Dirbrowse_DisplayFiles` y la lista de elegir carpeta a `list_scroll` con recorte y `EnsureVisible` tras botones, entrar/salir de carpeta y aplicar o quitar el filtro; listo cuando en consola la navegación por botones y el filtro se comportan como antes
+- [x] 5.1 Pasar `Dirbrowse_DisplayFiles` y la lista de elegir carpeta a `list_scroll` con recorte y `EnsureVisible` tras botones, entrar/salir de carpeta y aplicar o quitar el filtro; listo cuando en consola la navegación por botones y el filtro se comportan como antes
 - [x] 5.2 Conectar `gesture` a la lista de Carpetas y a la de elegir carpeta de la biblioteca (arrastre, inercia, resaltado, abrir carpeta o archivo al soltar, también `..`); listo cuando en consola pasan los escenarios de spec sobre Carpetas, incluido el mini reproductor con una fila detrás
 
 ## 6. Ajustes
@@ -30,7 +30,7 @@
 
 ## 7. Verificación y cierre
 
-- [ ] 7.1 Verificar en consola todos los escenarios de los requisitos que este cambio agrega en `specs/ui/list-navigation/spec.md` paso a paso y, con el overlay de debug, anotar pila y HEAP en Carpetas antes y después de recorrer veinte veces Biblioteca (arrastre con inercia, tocar un álbum, volver) → Carpetas (arrastre) → Ajustes; listo cuando todo pasa y pila y HEAP no crecen, con las constantes de gesto e inercia ya afinadas
+- [x] 7.1 Verificar en consola todos los escenarios de los requisitos que este cambio agrega en `specs/ui/list-navigation/spec.md` paso a paso y, con el overlay de debug, anotar pila y HEAP en Carpetas antes y después de recorrer veinte veces Biblioteca (arrastre con inercia, tocar un álbum, volver) → Carpetas (arrastre) → Ajustes; listo cuando todo pasa y pila y HEAP no crecen, con las constantes de gesto e inercia ya afinadas
 
-  Memoria verificada en consola el 2026-10-12: HEAP 1668 y pila 288 B en Carpetas, iguales antes y después de las veinte vueltas. Las constantes de gesto e inercia quedan como están (16 px, 0.95, 0.3 y 0.02 px/ms): el toque se siente bien en consola. Falta confirmar los escenarios de 4.3 y 5.1.
+  Memoria verificada en consola el 2026-10-12: HEAP 1668 y pila 288 B en Carpetas, iguales antes y después de las veinte vueltas. Las constantes de gesto e inercia quedan como están (16 px, 0.95, 0.3 y 0.02 px/ms): el toque se siente bien en consola. Todos los escenarios pasan, también los de 4.3 y 5.1. Carpetas mantiene la lista hasta la leyenda cuando no suena nada.
 - [ ] 7.2 Agregar las notas de v3.9.0 a `CHANGELOG.md` desde la proposal y abrir el PR a `main`; listo cuando el CI está en verde

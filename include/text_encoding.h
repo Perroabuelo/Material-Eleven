@@ -2,6 +2,7 @@
 #define _ELEVENMPV_TEXT_ENCODING_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 // Turns the bytes of a text file of unknown encoding into valid UTF-8, for the
 // .lrc lyrics files (source/lyrics_load.c). Pure logic: no vita2d and no SCE
@@ -30,5 +31,19 @@ int TextEncoding_SanitizeUtf8(const unsigned char *in, size_t len, char **out, s
 // than `avail` bytes, or 0 when it is not valid (overlong forms, surrogates,
 // values above U+10FFFF, stray continuation bytes, truncated sequences).
 size_t TextEncoding_Utf8SeqLen(const unsigned char *s, size_t avail);
+
+// UTF-8 to UTF-16 and back, for the system text-entry dialog
+// (source/search_dialog.c), which takes and returns UTF-16. Both read a
+// NUL-terminated string, write at most `cap` units or bytes counting the NUL,
+// always terminate when `cap` > 0, and return what they wrote without the NUL.
+// Neither splits a character: one that does not fit whole ends the output.
+
+// A code point above U+FFFF becomes a surrogate pair; an invalid UTF-8
+// sequence is skipped.
+size_t TextEncoding_Utf8ToUtf16(const char *src, uint16_t *dst, size_t cap);
+
+// A surrogate pair becomes one four-byte sequence; a lone surrogate becomes
+// U+FFFD.
+size_t TextEncoding_Utf16ToUtf8(const uint16_t *src, char *dst, size_t cap);
 
 #endif

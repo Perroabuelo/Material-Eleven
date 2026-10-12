@@ -8,6 +8,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Search your library: press Triangle or tap the search box to filter the current list by title, artist or album.
+- Triangle now opens the filter in Folders too.
+
+### Changed
+
+- Playing a song from search results keeps the whole list as the queue, starting at that song.
+- Square in the Library now opens a menu with Rescan and Choose folder.
+- Search ignores case and accents: "cancion" finds "Canción", in Folders and Library.
+
+### Fixed
+
+- Fixed accented letters typed into the folder filter being garbled.
+
 ## [3.7.0] - 2026-10-11
 
 ### Added

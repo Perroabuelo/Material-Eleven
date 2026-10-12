@@ -9,6 +9,7 @@
 #include "fs.h"
 #include "lang.h"
 #include "library.h"
+#include "list_filter.h"
 #include "menu_audioplayer.h"
 #include "menu_displayfiles.h"
 #include "menu_library.h"
@@ -17,7 +18,9 @@
 #include "nav_rail.h"
 #include "nav_request.h"
 #include "queue.h"
+#include "search_dialog.h"
 #include "status_bar.h"
+#include "text_fold.h"
 #include "touch.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
@@ -39,6 +42,19 @@
 #define COVER_BUDGET_PER_FRAME 2
 #define ROWS_PER_PAGE 5
 #define LIST_TOP    (TOPBAR_H + 8)
+
+// La caja de busqueda de la barra superior, una pildora como la de carpetas
+// pero mas estrecha: comparte la barra con el titulo y las cuatro pestañas,
+// que en español son las mas anchas.
+#define SEARCH_W       200
+#define SEARCH_H       36
+#define SEARCH_TAB_GAP 18.0f
+
+// El menu de Cuadrado, anclado abajo a la derecha por encima del mini
+// reproductor.
+#define OPTIONS_W      280
+#define OPTIONS_ITEM_H 56
+#define OPTIONS_PAD    8
 
 // Cuantos fotogramas se queda un aviso delante. A 60 fps son unos cuatro
 // segundos: suficiente para leerlo, y se va solo sin pedir confirmacion.
@@ -77,6 +93,43 @@ static int outer_selection = 0;
 // la invalida - cambiar de pestaña, entrar, salir, reescanear - y no en cada
 // fotograma, que es lo que costaria dibujarla y leer el pad.
 static SceBool view_dirty = SCE_TRUE;
+
+// La lista que se ve es una capa de indices sobre la vista construida: una para
+// la lista de la pestaña y otra para la de dentro de un grupo, porque volver de
+// un grupo devuelve la de fuera tal como estaba. Toda la pantalla trabaja en
+// posiciones visibles - `selection`, `outer_selection`, el dibujado y el
+// contador - y traduce a la vista completa solo para llegar a una entrada.
+_Static_assert(LIST_FILTER_MAX >= LIBRARY_MAX_TRACKS, "a ListFilter must hold the longest library view");
+
+static ListFilter outer_filter;
+static ListFilter group_filter;
+
+// El termino de busqueda de cada lista, como se escribio - para mostrarlo y
+// recargar el dialogo - y plegado una vez al aplicarlo, para comparar. Vacio
+// es sin busqueda. Pertenece a la lista en que se escribio: cambiar de pestaña
+// borra los dos, entrar en un grupo empieza el suyo vacio, y salir de la
+// pantalla por el riel o por Reproduciendo no toca ninguno.
+typedef struct {
+	char term[64];
+	char folded[64];
+} Menu_LibrarySearch;
+
+static Menu_LibrarySearch outer_search;
+static Menu_LibrarySearch group_search;
+
+// Reescanear y elegir carpeta, reunidas en el menu de Cuadrado. Es un estado
+// del mismo lazo, no un lazo propio: mientras esta abierto, la pantalla solo
+// atiende al menu.
+typedef enum {
+	OPTION_RESCAN = 0,
+	OPTION_CHOOSE_FOLDER,
+	OPTION_COUNT
+} Menu_LibraryOption;
+
+static const LangString option_label[OPTION_COUNT] = { STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER };
+
+static SceBool options_open = SCE_FALSE;
+static int options_index = 0;
 
 // Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
 // las otras dos que mueven la vista.
@@ -173,16 +226,17 @@ static const Library_Track *Menu_LibraryArtistCover(int i, int *budget) {
 	return (artist_cover[i] >= 0) ? Library_NameCandidate(i, artist_cover[i]) : NULL;
 }
 
-static int Menu_LibraryBuilt(void) {
-	return Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount();
+// La lista visible vigente: la del grupo dentro de uno, la de la pestaña fuera.
+static ListFilter *Menu_LibraryFilter(void) {
+	return inside ? &group_filter : &outer_filter;
 }
 
-static int Menu_LibraryBuild(void) {
-	if (!view_dirty)
-		return Menu_LibraryBuilt();
+// La posicion en la vista completa de la fila visible `visible`, o -1.
+static int Menu_LibraryFull(int visible) {
+	return ListFilter_ToFull(Menu_LibraryFilter(), visible);
+}
 
-	view_dirty = SCE_FALSE;
-
+static int Menu_LibraryBuildFull(void) {
 	if (Menu_LibraryShowsNames()) {
 		int names = Library_BuildFieldNames(Menu_LibraryField());
 		Menu_LibraryResetArtistCovers((view == VIEW_ARTISTS) ? names : 0);
@@ -196,6 +250,81 @@ static int Menu_LibraryBuild(void) {
 		return Library_BuildRecent();
 
 	return Library_BuildSongs();
+}
+
+static Menu_LibrarySearch *Menu_LibrarySearchNow(void) {
+	return inside ? &group_search : &outer_search;
+}
+
+static SceBool Menu_LibraryHasTerm(void) {
+	return Menu_LibrarySearchNow()->term[0] != '\0';
+}
+
+// Que compara cada lista. El titulo es el que muestra la fila, con el nombre
+// del archivo de respaldo, y el cubo se compara por la etiqueta que se ve.
+static int Menu_LibraryMatchTrack(int index, void *folded) {
+	const Library_Track *t = Library_ViewTrack(index);
+
+	return t != NULL && (TextFold_Contains(Menu_LibraryTrackTitle(t), folded)
+		|| TextFold_Contains(t->artist, folded) || TextFold_Contains(t->album, folded));
+}
+
+static int Menu_LibraryMatchName(int index, void *folded) {
+	const char *name = Library_NameIsUnknown(index) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(index);
+
+	return name != NULL && TextFold_Contains(name, folded);
+}
+
+static int Menu_LibraryMatchTitle(int index, void *folded) {
+	const Library_Track *t = Library_ViewTrack(index);
+
+	return t != NULL && TextFold_Contains(Menu_LibraryTrackTitle(t), folded);
+}
+
+// Rehace la lista visible sobre la vista ya construida, con el termino vigente.
+static void Menu_LibraryRefilter(int full_count) {
+	Menu_LibrarySearch *search = Menu_LibrarySearchNow();
+	ListFilter_Match match = NULL;
+
+	if (search->folded[0] != '\0')
+		match = Menu_LibraryShowsNames() ? Menu_LibraryMatchName : (inside ? Menu_LibraryMatchTitle : Menu_LibraryMatchTrack);
+
+	ListFilter_Build(Menu_LibraryFilter(), full_count, match, search->folded);
+}
+
+// Construye la vista si hace falta, y con ella la lista visible, y devuelve
+// cuantas filas se ven. Reconstruir la vista - tambien despues de una cola
+// continua - rehace la lista con el mismo termino, asi que vuelve igual.
+static int Menu_LibraryBuild(void) {
+	if (view_dirty) {
+		view_dirty = SCE_FALSE;
+		Menu_LibraryRefilter(Menu_LibraryBuildFull());
+	}
+
+	return ListFilter_Count(Menu_LibraryFilter());
+}
+
+// Pone el termino de la lista vigente, o lo quita con "", y rehace la lista
+// visible sin reconstruir la vista. Con un termino nuevo la seleccion va al
+// primer resultado; al quitarlo se queda en la misma entrada, que sigue ahi.
+static void Menu_LibrarySetTerm(const char *term) {
+	Menu_LibrarySearch *search = Menu_LibrarySearchNow();
+
+	Menu_LibraryBuild();
+	int full = Menu_LibraryFull(selection);
+
+	snprintf(search->term, sizeof(search->term), "%s", term);
+	TextFold_Fold(search->term, search->folded, sizeof(search->folded));
+
+	Menu_LibraryRefilter(Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount());
+
+	int kept = (term[0] == '\0' && full >= 0) ? ListFilter_ToVisible(Menu_LibraryFilter(), full) : -1;
+	selection = (kept >= 0) ? kept : 0;
+}
+
+static void Menu_LibraryClearSearches(void) {
+	outer_search.term[0] = outer_search.folded[0] = '\0';
+	group_search.term[0] = group_search.folded[0] = '\0';
 }
 
 static void Menu_LibraryNotice(LangString text) {
@@ -229,18 +358,42 @@ static Menu_LibraryState Menu_LibraryGetState(void) {
 // ---------------------------------------------------------------------------
 // dibujado
 
+// Donde empieza la primera de las cuatro pestañas, que se alinean a la derecha.
+// Depende del idioma, asi que se mide en vez de fijarse.
+static float Menu_LibraryTabsLeft(void) {
+	float tab_x = 960 - 22;
+
+	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
+		tab_x -= (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, Lang_Get(view_label[i]));
+
+		if (i > 0)
+			tab_x -= SEARCH_TAB_GAP;
+	}
+
+	return tab_x;
+}
+
+// La caja de busqueda, a la izquierda de las pestañas. La comparten el
+// dibujado y el toque.
+static float Menu_LibrarySearchBoxX(void) { return Menu_LibraryTabsLeft() - SEARCH_TAB_GAP - SEARCH_W; }
+static float Menu_LibrarySearchBoxY(void) { return (TOPBAR_H - SEARCH_H) / 2.0f; }
+
 static void Menu_DrawLibraryTopBar(void) {
 	vita2d_draw_rectangle(CONTENT_X, 0, 960 - CONTENT_X, TOPBAR_H, UI_COLOR_BG_ELEVATED);
 	vita2d_draw_rectangle(CONTENT_X, TOPBAR_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 
 	float x = CONTENT_X + 22;
+	float sx = Menu_LibrarySearchBoxX(), sy = Menu_LibrarySearchBoxY();
+	// El titulo y la ruta se recortan antes de la caja en vez de pasarle por
+	// debajo: dentro de un album el titulo es su nombre, y puede ser largo.
+	float text_w = sx - 16 - x;
 
 	// Dentro de un artista o un album manda su nombre, porque es lo que el usuario
 	// acaba de elegir; la pestaña sigue marcada al lado.
 	const char *heading = inside ? (inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name) : Lang_Get(STR_LIBRARY_TITLE);
 
-	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
-		UI_COLOR_TEXT_PRIMARY, heading);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
+		text_w, UI_COLOR_TEXT_PRIMARY, heading);
 
 	// Las cuatro pestañas, con la vigente marcada. Se dibujan tambien dentro de un
 	// grupo, para que se vea de donde se entro.
@@ -254,13 +407,24 @@ static void Menu_DrawLibraryTopBar(void) {
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
 			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, label);
 
-		tab_x -= 18.0f;
+		tab_x -= SEARCH_TAB_GAP;
 	}
 
 	if (Library_HasRoot()) {
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x,
-			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), 960 - x - 240,
+			UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, TOPBAR_H - 26, 20), text_w,
 			UI_COLOR_TEXT_TERTIARY, Library_GetRoot());
+	}
+
+	// La caja solo se ofrece cuando hay algo en que buscar. Muestra el termino
+	// de la lista que se ve, o la invitacion a buscar.
+	if (Menu_LibraryGetState() == LIBRARY_STATE_READY) {
+		SceBool has_term = Menu_LibraryHasTerm();
+
+		UI_DrawPill(sx, sy, SEARCH_W, SEARCH_H, UI_COLOR_SURFACE);
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, sx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, sy, SEARCH_H),
+			SEARCH_W - 28, has_term ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED,
+			has_term ? Menu_LibrarySearchNow()->term : Lang_Get(STR_SEARCH_LIBRARY));
 	}
 }
 
@@ -328,14 +492,27 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 
 static void Menu_DrawLibraryList(void) {
 	int count = Menu_LibraryBuild();
+
+	// Una busqueda que no deja nada lo dice, en vez de una lista vacia.
+	if (count == 0 && Menu_LibraryHasTerm()) {
+		char line[160];
+		snprintf(line, sizeof(line), Lang_Get(STR_NO_RESULTS), Menu_LibrarySearchNow()->term);
+		Menu_DrawLibraryPlaceholder(line, NULL);
+		return;
+	}
+
 	int first = selection - (selection % ROWS_PER_PAGE);
 	float y = LIST_TOP;
 	int budget = COVER_BUDGET_PER_FRAME;
 
+	// `i` es la fila visible, que es la que se marca; `full`, la entrada que
+	// muestra.
 	for (int i = first; i < first + ROWS_PER_PAGE && i < count; i++) {
+		int full = Menu_LibraryFull(i);
+
 		if (Menu_LibraryShowsNames()) {
 			char sub[48];
-			int n = Library_NameTrackCount(i);
+			int n = Library_NameTrackCount(full);
 
 			snprintf(sub, sizeof(sub), Lang_Get((n == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), n);
 
@@ -344,11 +521,11 @@ static void Menu_DrawLibraryList(void) {
 			// tenga una, y el cubo "Desconocido" se queda con el marcador.
 			const char *art_album = NULL, *art_path = NULL;
 
-			if (view == VIEW_ALBUMS && !Library_NameIsUnknown(i)) {
-				art_album = Library_NameAt(i);
+			if (view == VIEW_ALBUMS && !Library_NameIsUnknown(full)) {
+				art_album = Library_NameAt(full);
 			}
 			else if (view == VIEW_ARTISTS) {
-				const Library_Track *rep = Menu_LibraryArtistCover(i, &budget);
+				const Library_Track *rep = Menu_LibraryArtistCover(full, &budget);
 
 				if (rep != NULL) {
 					art_album = rep->album;
@@ -356,11 +533,11 @@ static void Menu_DrawLibraryList(void) {
 				}
 			}
 
-			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(i) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(i), sub,
+			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(full) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(full), sub,
 				art_album, art_path, NULL, &budget);
 		}
 		else {
-			const Library_Track *track = Library_ViewTrack(i);
+			const Library_Track *track = Library_ViewTrack(full);
 
 			if (track == NULL)
 				break;
@@ -402,6 +579,82 @@ static void Menu_DrawLibraryNotice(void) {
 		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, Lang_Get(notice));
 }
 
+static float Menu_LibraryOptionsH(void) { return OPTION_COUNT * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
+static float Menu_LibraryOptionsX(void) { return 960 - 16 - OPTIONS_W; }
+static float Menu_LibraryOptionsY(void) { return MiniPlayer_Top() - 8 - Menu_LibraryOptionsH(); }
+
+static float Menu_LibraryOptionY(int i) { return Menu_LibraryOptionsY() + OPTIONS_PAD + i * OPTIONS_ITEM_H; }
+
+static void Menu_DrawLibraryOptions(void) {
+	if (!options_open)
+		return;
+
+	float x = Menu_LibraryOptionsX();
+
+	UI_DrawRoundedRect(x, Menu_LibraryOptionsY(), OPTIONS_W, Menu_LibraryOptionsH(), 14, UI_COLOR_SURFACE_2);
+
+	for (int i = 0; i < OPTION_COUNT; i++) {
+		float y = Menu_LibraryOptionY(i);
+
+		if (i == options_index)
+			UI_DrawRowHighlight(x + OPTIONS_PAD, y, OPTIONS_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
+
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, OPTIONS_ITEM_H),
+			OPTIONS_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(option_label[i]));
+	}
+}
+
+// El cuerpo de la pantalla, sin leyenda ni riel: lo comparten el lazo normal y
+// el fondo del dialogo de busqueda, que deben mostrar lo mismo.
+static void Menu_DrawLibraryContent(void) {
+	StatusBar_Display();
+	Menu_DrawLibraryTopBar();
+
+	// La comprobacion es una llamada al sistema de archivos, asi que se hace
+	// cada tantos fotogramas y no en todos.
+	if ((root_check_frames--) <= 0) {
+		root_check_frames = ROOT_CHECK_PERIOD;
+		root_missing = Library_HasRoot() && !Library_RootAvailable();
+	}
+
+	if (root_missing) {
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 22,
+			UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, TOPBAR_H + 10, 24), 960 - CONTENT_X - 44,
+			UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_ROOT_MISSING));
+	}
+
+	switch (Menu_LibraryGetState()) {
+		case LIBRARY_STATE_NO_ROOT:
+			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_ROOT), Lang_Get(STR_ACTION_CHOOSE_FOLDER));
+			break;
+		case LIBRARY_STATE_UNBUILT:
+			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_UNBUILT), Lang_Get(STR_ACTION_SCAN));
+			break;
+		case LIBRARY_STATE_EMPTY:
+			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_TRACKS), Lang_Get(STR_ACTION_CHOOSE_OTHER));
+			break;
+		case LIBRARY_STATE_READY:
+			Menu_DrawLibraryList();
+			break;
+	}
+
+	MiniPlayer_Draw();
+	Menu_DrawLibraryNotice();
+	Menu_DrawLibraryOptions();
+}
+
+// El termino cambia solo con uno confirmado: descartar, abandonar o no poder
+// abrir el dialogo dejan la lista con el que tenia. Confirmar vacio lo quita.
+static void Menu_LibraryPromptSearch(void) {
+	char term[64];
+
+	if (SearchDialog_Prompt(Lang_Get(STR_SEARCH_LIBRARY), Menu_LibrarySearchNow()->term, term, sizeof(term),
+		Menu_DrawLibraryContent, UI_SCREEN_LIBRARY) != SEARCH_DIALOG_CONFIRMED)
+		return;
+
+	Menu_LibrarySetTerm(term);
+}
+
 // ---------------------------------------------------------------------------
 // acciones
 
@@ -436,7 +689,9 @@ static void Menu_LibraryRescan(void) {
 		return;
 	}
 
-	selection = 0;
+	// Lo escaneado puede no tener ya el grupo ni los resultados que se veian:
+	// la misma pestaña, desde arriba, sin busqueda.
+	Menu_LibrarySetView(view);
 
 	if (Library_RunScan() && Library_RunTagPass())
 		Library_RunCoverPass();
@@ -460,7 +715,9 @@ static void Menu_LibraryPlaySelected(void) {
 	// la carpeta en la que este cada archivo.
 	Menu_LibraryBuild();
 
-	const Library_Track *track = Library_ViewTrack(selection);
+	// La fila elegida se traduce a la vista completa, y la cola es esa vista
+	// completa: una busqueda decide que pista se elige, no que suena despues.
+	const Library_Track *track = Library_ViewTrack(Menu_LibraryFull(selection));
 
 	if (track == NULL)
 		return;
@@ -506,26 +763,29 @@ static void Menu_LibraryPlaySelected(void) {
 // ---------------------------------------------------------------------------
 
 static void Menu_LibraryEnter(void) {
-	const char *name = Library_NameAt(selection);
+	int full = Menu_LibraryFull(selection);
+	const char *name = Library_NameAt(full);
 
 	if (name == NULL)
 		return;
 
-	inside_unknown = Library_NameIsUnknown(selection);
+	inside_unknown = Library_NameIsUnknown(full);
 	snprintf(inside_name, sizeof(inside_name), "%s", name);
 	outer_selection = selection;
 	inside = SCE_TRUE;
+	group_search.term[0] = group_search.folded[0] = '\0';
 	selection = 0;
 	view_dirty = SCE_TRUE;
 }
 
-// SCE_TRUE si habia de donde salir. Cancelar deshace lo mas reciente primero,
-// igual que hace el filtro en el navegador de carpetas.
+// SCE_TRUE si habia de donde salir. La lista de fuera vuelve con su termino, y
+// `outer_selection` sigue valiendo porque ese termino no cambio.
 static SceBool Menu_LibraryLeave(void) {
 	if (!inside)
 		return SCE_FALSE;
 
 	inside = SCE_FALSE;
+	group_search.term[0] = group_search.folded[0] = '\0';
 	inside_unknown = SCE_FALSE;
 	inside_name[0] = '\0';
 	selection = outer_selection;
@@ -540,7 +800,18 @@ static void Menu_LibrarySetView(Menu_LibraryTab next) {
 	inside_name[0] = '\0';
 	selection = 0;
 	outer_selection = 0;
+	Menu_LibraryClearSearches();
 	view_dirty = SCE_TRUE;
+}
+
+// Cancelar deshace lo mas reciente primero, igual que el filtro del navegador
+// de carpetas: con un termino en la lista que se ve lo quita y se queda en el
+// mismo nivel, y sin termino sale del grupo.
+static void Menu_LibraryBack(void) {
+	if (Menu_LibraryHasTerm())
+		Menu_LibrarySetTerm("");
+	else
+		Menu_LibraryLeave();
 }
 
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
@@ -572,11 +843,8 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 			else
 				Menu_LibraryPlaySelected();
 		}
-
-		if (pressed & SCE_CTRL_CANCEL)
-			Menu_LibraryLeave();
 	}
-	else if (pressed & SCE_CTRL_ENTER) {
+	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER)) {
 		// Sin nada que reproducir, confirmar hace lo unico que procede en cada
 		// uno de los otros tres estados.
 		if (state == LIBRARY_STATE_NO_ROOT)
@@ -585,10 +853,52 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 			Menu_LibraryRescan();
 	}
 
-	if (pressed & SCE_CTRL_TRIANGLE)
+	// Fuera del bloque de la lista: una busqueda sin resultados deja la lista
+	// vacia, y volver tiene que seguir quitandola.
+	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_CANCEL))
+		Menu_LibraryBack();
+
+	// Triangulo busca, y solo donde hay en que buscar.
+	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_TRIANGLE))
+		Menu_LibraryPromptSearch();
+	else if (pressed & SCE_CTRL_SQUARE) {
+		options_open = SCE_TRUE;
+		options_index = 0;
+	}
+}
+
+// Las dos acciones ya quitan la busqueda y salen del grupo: elegir carpeta
+// vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
+static void Menu_LibraryRunOption(int option) {
+	options_open = SCE_FALSE;
+
+	if (option == OPTION_RESCAN)
 		Menu_LibraryRescan();
-	else if (pressed & SCE_CTRL_SQUARE)
+	else if (option == OPTION_CHOOSE_FOLDER)
 		Menu_LibraryPickRoot();
+}
+
+// Con el menu abierto la lista no recibe nada: arriba y abajo lo recorren,
+// confirmar o tocar una opcion la ejecuta, y volver o tocar fuera lo cierra.
+static void Menu_HandleLibraryOptions(void) {
+	if (Touch_CheckPressed()) {
+		for (int i = 0; i < OPTION_COUNT; i++) {
+			if (UI_TouchTarget(Menu_LibraryOptionsX(), Menu_LibraryOptionY(i), OPTIONS_W, OPTIONS_ITEM_H)) {
+				Menu_LibraryRunOption(i);
+				return;
+			}
+		}
+
+		options_open = SCE_FALSE;
+		return;
+	}
+
+	Utils_ListStep(&options_index, OPTION_COUNT, OPTION_COUNT);
+
+	if (pressed & SCE_CTRL_ENTER)
+		Menu_LibraryRunOption(options_index);
+	else if (pressed & SCE_CTRL_CANCEL)
+		options_open = SCE_FALSE;
 }
 
 UI_Screen Menu_DisplayLibrary(void) {
@@ -600,54 +910,37 @@ UI_Screen Menu_DisplayLibrary(void) {
 		UI_GpuBeginFrame();
 		vita2d_clear_screen();
 
-		StatusBar_Display();
-		Menu_DrawLibraryTopBar();
-
-		// La comprobacion es una llamada al sistema de archivos, asi que se
-		// hace cada tantos fotogramas y no en todos.
-		if ((root_check_frames--) <= 0) {
-			root_check_frames = ROOT_CHECK_PERIOD;
-			root_missing = Library_HasRoot() && !Library_RootAvailable();
-		}
-
-		if (root_missing) {
-			UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 22,
-				UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, TOPBAR_H + 10, 24), 960 - CONTENT_X - 44,
-				UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_ROOT_MISSING));
-		}
-
-		switch (state) {
-			case LIBRARY_STATE_NO_ROOT:
-				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_ROOT), Lang_Get(STR_ACTION_CHOOSE_FOLDER));
-				break;
-			case LIBRARY_STATE_UNBUILT:
-				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_UNBUILT), Lang_Get(STR_ACTION_SCAN));
-				break;
-			case LIBRARY_STATE_EMPTY:
-				Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_TRACKS), Lang_Get(STR_ACTION_CHOOSE_OTHER));
-				break;
-			case LIBRARY_STATE_READY:
-				Menu_DrawLibraryList();
-				break;
-		}
-
-		MiniPlayer_Draw();
-		Menu_DrawLibraryNotice();
+		Menu_DrawLibraryContent();
 
 		const char *play_hint = Lang_Get((state != LIBRARY_STATE_READY) ? STR_HINT_START
 			: (Menu_LibraryShowsNames() ? STR_HINT_OPEN : STR_HINT_PLAY));
-		// La leyenda anuncia lo que el boton hace ahora mismo: retomar etiquetas
-		// solo aparece cuando queda alguna por leer.
-		const char *back_hint = inside ? Lang_Get(STR_HINT_RETURN) : NULL;
+		// Abrir no se anuncia cuando una busqueda no dejo nada sobre que actuar.
+		if (state == LIBRARY_STATE_READY && Menu_LibraryBuild() == 0)
+			play_hint = NULL;
+		// La leyenda anuncia lo que el boton hace ahora mismo: con un termino en
+		// la lista que se ve, volver lo quita; sin el, sale del grupo.
+		const char *back_hint = (state == LIBRARY_STATE_READY && Menu_LibraryHasTerm()) ? Lang_Get(STR_HINT_CLEAR_FILTER)
+			: (inside ? Lang_Get(STR_HINT_RETURN) : NULL);
+		const char *search_hint = (state == LIBRARY_STATE_READY) ? Lang_Get(STR_HINT_SEARCH) : NULL;
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, play_hint },
 			{ { HINT_BTN_CANCEL }, 0, back_hint },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_VIEWS) },
-			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_RESCAN) },
-			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_FOLDER) },
+			{ { HINT_BTN_TRIANGLE }, 0, search_hint },
+			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_OPTIONS) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
-		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
+		// Con el menu delante, la leyenda es la del menu.
+		const NavRail_Hint option_hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_SELECT) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_CANCEL) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+
+		if (options_open)
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
+		else
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_LIBRARY);
 		UI_Debug_Draw();
@@ -663,6 +956,13 @@ UI_Screen Menu_DisplayLibrary(void) {
 		if (notice_frames > 0)
 			notice_frames--;
 
+		// El menu se lleva todo, tambien el toque sobre el riel: tocar fuera
+		// de el lo cierra y nada mas.
+		if (options_open) {
+			Menu_HandleLibraryOptions();
+			continue;
+		}
+
 		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_SETTINGS)
 			return tapped;
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
@@ -670,6 +970,13 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (MiniPlayer_HandleTouch())
 			continue;
+
+		// Tocar la caja abre la misma busqueda que Triangulo.
+		if (state == LIBRARY_STATE_READY && Touch_Position(Menu_LibrarySearchBoxX(), Menu_LibrarySearchBoxY(),
+			Menu_LibrarySearchBoxX() + SEARCH_W, Menu_LibrarySearchBoxY() + SEARCH_H)) {
+			Menu_LibraryPromptSearch();
+			continue;
+		}
 
 		Menu_HandleLibraryControls(state);
 

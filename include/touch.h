@@ -11,6 +11,10 @@
 
 #define Touch_Position(x1, y1, x2, y2)  ((Touch_CheckPressed()) && (Touch_GetX() >= (x1) && Touch_GetX() <= (x2) && Touch_GetY() >= (y1) && Touch_GetY() <= (y2)))
 
+// Front panel, first finger only. Touch_CheckPressed is true on the frame the
+// finger lands and Touch_CheckReleased on the one it lifts; Touch_GetX/Y keep
+// the last held position on the release frame. gesture.c is fed from these.
+
 void Touch_Reset(void);
 int Touch_Init(void);
 void Touch_Shutdown(void);

@@ -7,7 +7,7 @@
 		
 */
 #include <psp2/touch.h>
-#include <malloc.h>
+#include <string.h>
 
 #include "touch.h"
 
@@ -25,29 +25,24 @@ typedef struct {
 	int releasedPrev;
 } touchStateData;
 
-touchStateData *touchState;
+// Static so the touch layer neither holds nor leaves any allocation.
+static touchStateData touchStateStorage;
+static touchStateData *const touchState = &touchStateStorage;
 
 void Touch_Reset(void) {
-	touchState->posX = 0;
-	touchState->posY = 0;
-	touchState->held = 0;
-	touchState->pressed = 0;
-	touchState->pressedPrev = 0;
-	touchState->released = 0;
-	touchState->releasedPrev = 0;
+	memset(touchState, 0, sizeof(*touchState));
 }
 
 int Touch_Init(void) {
 	sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, 1);
-	
-	touchState = malloc(sizeof(touchStateData));
 	Touch_Reset();
 	
 	return 1;
 }
 
+// Nothing to release since the state is static; kept so main.c stays
+// symmetrical with Touch_Init.
 void Touch_Shutdown(void) {
-	free(touchState);
 }
 
 int Touch_GetX(void) {

@@ -12,6 +12,8 @@
 
 float MiniPlayer_Top(void) { return 544 - UI_HINT_BAR_HEIGHT - MINI_PLAYER_H; }
 
+float MiniPlayer_ListBottom(void) { return Audio_HasTrack() ? MiniPlayer_Top() : 544 - UI_HINT_BAR_HEIGHT; }
+
 // One source for the mini-player transport, used by both the drawing and the
 // hit testing so the active areas cannot drift away from the drawn controls.
 // Centres, not left edges: the three controls sit on a UI_TOUCH_MIN pitch, so

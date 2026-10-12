@@ -14,6 +14,7 @@
 #include "search_dialog.h"
 #include "status_bar.h"
 #include "touch.h"
+#include "touch_list.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -25,6 +26,34 @@
 
 static float Menu_FilterBoxX(void) { return 960 - 22 - FILTER_W; }
 static float Menu_FilterBoxY(void) { return (TOPBAR_H - FILTER_H) / 2.0f; }
+
+// El desplazamiento de la lista, compartido por la pantalla y por la eleccion
+// de carpeta, que dibujan lo mismo.
+static TouchList folders_list;
+
+// El listado que se dibujo la ultima vez. Entrar o salir de una carpeta y
+// poner o quitar el filtro lo cambian, se haga desde donde se haga: la lista
+// vuelve arriba, sin dedo ni deslizamiento, mostrando la seleccion.
+static char shown_cwd[sizeof(cwd)] = "";
+static char shown_filter[64] = "";
+
+static void Menu_FoldersFollowListing(void) {
+	if (strcmp(shown_cwd, cwd) == 0 && strcmp(shown_filter, Dirbrowse_GetFilter()) == 0)
+		return;
+
+	snprintf(shown_cwd, sizeof(shown_cwd), "%s", cwd);
+	snprintf(shown_filter, sizeof(shown_filter), "%s", Dirbrowse_GetFilter());
+	TouchList_Reset(&folders_list);
+	TouchList_Follow(&folders_list);
+}
+
+// Un boton de direccion detiene el deslizamiento y la vista vuelve a la
+// seleccion, aunque el dedo la hubiera dejado fuera. `before` es la seleccion
+// antes de leer los botones.
+static void Menu_FoldersFollowButtons(int before) {
+	if (position != before || (pressed & (SCE_CTRL_UP | SCE_CTRL_DOWN | SCE_CTRL_LEFT | SCE_CTRL_RIGHT)))
+		TouchList_Follow(&folders_list);
+}
 
 // El cuerpo de la pantalla de carpetas, sin barra de botones ni riel: lo
 // comparten el lazo normal y el fondo del diálogo, que deben mostrar lo mismo.
@@ -69,9 +98,10 @@ static void Menu_DrawTopBar(void) {
 }
 
 static void Menu_DrawFoldersContent(void) {
+	Menu_FoldersFollowListing();
 	StatusBar_Display();
 	Menu_DrawTopBar();
-	Dirbrowse_DisplayFiles();
+	Dirbrowse_DisplayFiles(&folders_list);
 	MiniPlayer_Draw();
 }
 
@@ -79,12 +109,15 @@ static void Menu_HandleControls(void) {
 	int visible_count = Dirbrowse_GetVisibleCount();
 
 	if (visible_count > 0) {
+		int before = position;
 		Utils_ListStep(&position, visible_count, FILES_PER_PAGE);
 
 		if (pressed & SCE_CTRL_LEFT)
 			position = 0;
 		else if (pressed & SCE_CTRL_RIGHT)
 			position = visible_count - 1;
+
+		Menu_FoldersFollowButtons(before);
 
 		if (pressed & SCE_CTRL_ENTER)
 			Dirbrowse_OpenFile();
@@ -121,6 +154,8 @@ SceBool Menu_PickFolder(char *out, int cap) {
 	Dirbrowse_ClearFilter();
 	Dirbrowse_PopulateFiles(SCE_TRUE);
 	Touch_Reset();
+	TouchList_Reset(&folders_list);
+	TouchList_Follow(&folders_list);
 
 	while (SCE_TRUE) {
 		UI_GpuBeginFrame();
@@ -152,8 +187,11 @@ SceBool Menu_PickFolder(char *out, int cap) {
 
 		int visible_count = Dirbrowse_GetVisibleCount();
 
-		if (visible_count > 0)
+		if (visible_count > 0) {
+			int before = position;
 			Utils_ListStep(&position, visible_count, FILES_PER_PAGE);
+			Menu_FoldersFollowButtons(before);
+		}
 
 		if (pressed & SCE_CTRL_ENTER) {
 			File *file = Dirbrowse_GetFileIndex(position);
@@ -195,6 +233,8 @@ SceBool Menu_PickFolder(char *out, int cap) {
 	Dirbrowse_SetFilter(saved_filter);
 	position = saved_position;
 	Touch_Reset();
+	TouchList_Reset(&folders_list);
+	TouchList_Follow(&folders_list);
 
 	return picked;
 }
@@ -202,6 +242,11 @@ SceBool Menu_PickFolder(char *out, int cap) {
 UI_Screen Menu_DisplayFiles(void) {
 	Dirbrowse_PopulateFiles(SCE_FALSE);
 	vita2d_set_clear_color(UI_COLOR_BG);
+
+	// Al volver, la entrada elegida se ve, y no sigue ningun dedo ni
+	// deslizamiento de la vez anterior.
+	TouchList_Reset(&folders_list);
+	TouchList_Follow(&folders_list);
 
 	while (SCE_TRUE) {
 		UI_GpuBeginFrame();

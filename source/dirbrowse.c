@@ -12,6 +12,7 @@
 #include "fs.h"
 #include "lang.h"
 #include "menu_audioplayer.h"
+#include "mini_player.h"
 #include "text_fold.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -284,9 +285,11 @@ static void Dirbrowse_DrawRowIcon(Dirbrowse_RowIcon icon, float cx, float cy, un
 	}
 }
 
-static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
+static void Dirbrowse_DrawRow(File *file, float y, SceBool selected, SceBool touched) {
 	if (selected)
 		UI_DrawRowHighlight(LIST_X + 10, y, 960 - LIST_X - 20, ROW_H);
+	else if (touched)
+		UI_DrawRowPressHighlight(LIST_X + 10, y, 960 - LIST_X - 20, ROW_H);
 
 	float icon_x = LIST_X + 22, icon_y = y + (ROW_H - ROW_ICON_SIZE) / 2;
 	UI_DrawRoundedRect(icon_x, icon_y, ROW_ICON_SIZE, ROW_ICON_SIZE, 10, UI_COLOR_SURFACE_2);
@@ -323,7 +326,7 @@ static void Dirbrowse_DrawRow(File *file, float y, SceBool selected) {
 		UI_DrawBadge(badge_x, y + (ROW_H - 30) / 2, UI_TS_BADGE, badge_label, badge_wash, badge_color);
 }
 
-void Dirbrowse_DisplayFiles(void) {
+void Dirbrowse_DisplayFiles(TouchList *list) {
 	int visible_count = Dirbrowse_GetVisibleCount();
 
 	char caption[64];
@@ -342,18 +345,29 @@ void Dirbrowse_DisplayFiles(void) {
 	snprintf(caption, sizeof(caption), "%s . %s", folders, tracks);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, LIST_X + 22, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 66, 26), UI_COLOR_TEXT_MUTED, caption);
 
-	int printed = 0;
+	// The rows scroll between the caption and the mini player (or the hint
+	// bar), clipped there, from wherever the finger or the selection left them.
+	float bottom = MiniPlayer_ListBottom();
+	TouchList_Layout(list, LIST_X, ROW_LIST_TOP, 960, bottom, visible_count, ROW_H, position);
 
-	for (int idx = 0; idx < visible_count; idx++) {
-		if (printed == FILES_PER_PAGE)
+	int touched = TouchList_PressedRow(list);
+	TouchList_BeginClip(list);
+
+	for (int idx = TouchList_FirstRow(list); idx < visible_count; idx++) {
+		float y = TouchList_RowY(list, idx);
+
+		if (y >= bottom)
 			break;
 
-		if (position < FILES_PER_PAGE || idx > (position - FILES_PER_PAGE)) {
-			File *file = Dirbrowse_GetFileIndex(idx);
-			Dirbrowse_DrawRow(file, ROW_LIST_TOP + (ROW_H * printed), idx == position);
-			printed++;
-		}
+		File *file = Dirbrowse_GetFileIndex(idx);
+
+		if (file == NULL)
+			break;
+
+		Dirbrowse_DrawRow(file, y, idx == position, idx == touched);
 	}
+
+	TouchList_EndClip();
 }
 
 void Dirbrowse_OpenFile(void) {

@@ -3,6 +3,8 @@
 
 #include <psp2/types.h>
 
+#include "touch_list.h"
+
 typedef struct File {
 	struct File *next; // Next item
 	SceBool is_dir;        // Folder flag
@@ -14,7 +16,8 @@ typedef struct File {
 extern File *files;
 
 int Dirbrowse_PopulateFiles(SceBool clear);
-void Dirbrowse_DisplayFiles(void);
+// Draws the visible entries from the scroll of `list`, clipped to its area.
+void Dirbrowse_DisplayFiles(TouchList *list);
 // Index into the filter-visible sequence (see Dirbrowse_SetFilter).
 File *Dirbrowse_GetFileIndex(int index);
 void Dirbrowse_OpenFile(void);

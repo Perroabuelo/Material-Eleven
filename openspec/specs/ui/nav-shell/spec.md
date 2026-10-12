@@ -36,7 +36,7 @@ The system SHALL visually distinguish the entry for the currently active screen 
 - **THEN** the Folders entry in the rail is visually marked as active and the other entries are not
 
 ### Requirement: Existing physical-button navigation still works
-The system SHALL preserve the physical-button navigation behavior that existed before the navigation rail (for example, SELECT opening Settings from the folder browser), alongside the new rail-based navigation. En Reproduciendo, el botón de volver de la consola SHALL llevar a la pantalla donde el usuario eligió la canción que suena (Carpetas o Biblioteca), y SHALL hacerlo aunque el usuario haya llegado a Reproduciendo desde otra pantalla con el nav rail. Al volver a la Biblioteca, la pantalla SHALL mostrar la misma pestaña, el mismo artista o álbum abierto y la misma fila seleccionada que tenía cuando se eligió la canción. Pasar a la pista siguiente o a la anterior SHALL NOT cambiar adónde lleva el botón de volver. START SHALL NOT exit the app on any screen; its behavior is defined by `playback/screen-off`. The app SHALL be closed the same way as any other console application, from the PS button and its LiveArea.
+The system SHALL preserve the physical-button navigation behavior that existed before the navigation rail (for example, SELECT opening Settings from the folder browser), alongside the new rail-based navigation. En Reproduciendo, el botón de volver de la consola SHALL llevar a la pantalla donde el usuario eligió la canción que suena (Carpetas o Biblioteca), y SHALL hacerlo aunque el usuario haya llegado a Reproduciendo desde otra pantalla con el nav rail. Al volver a la Biblioteca, la pantalla SHALL mostrar la misma pestaña, el mismo artista o álbum abierto, la misma búsqueda aplicada y la misma fila seleccionada que tenía cuando se eligió la canción. Pasar a la pista siguiente o a la anterior SHALL NOT cambiar adónde lleva el botón de volver. START SHALL NOT exit the app on any screen; its behavior is defined by `playback/screen-off`. The app SHALL be closed the same way as any other console application, from the PS button and its LiveArea.
 
 #### Scenario: SELECT still opens Settings
 - **WHEN** the user presses SELECT while viewing Folders
@@ -53,6 +53,10 @@ The system SHALL preserve the physical-button navigation behavior that existed b
 #### Scenario: Volver a la Biblioteca cuando la canción se eligió ahí
 - **WHEN** el usuario abre un álbum en la vista Álbumes de la Biblioteca, reproduce su tercera pista y, en Reproduciendo, pulsa el botón de volver de la consola
 - **THEN** la aplicación vuelve a la Biblioteca, en la vista Álbumes, dentro de ese mismo álbum y con la tercera pista seleccionada
+
+#### Scenario: Volver a la Biblioteca con una búsqueda aplicada
+- **WHEN** el usuario filtra la vista Canciones con un término, reproduce el segundo resultado y, en Reproduciendo, pulsa el botón de volver de la consola
+- **THEN** la aplicación vuelve a la Biblioteca, en la vista Canciones, con el mismo término aplicado y con el segundo resultado seleccionado
 
 #### Scenario: El origen se mantiene al entrar por el nav rail
 - **WHEN** el usuario reproduce una canción desde la Biblioteca, va a Ajustes con el nav rail, vuelve a Reproduciendo con el nav rail y pulsa el botón de volver de la consola
@@ -71,11 +75,15 @@ The system SHALL display, on every screen, a legend of the physical-button actio
 
 #### Scenario: Legend reflects the current screen
 - **WHEN** the user is viewing the Folders screen
-- **THEN** the legend lists the actions available there (such as open/play and go to parent folder) and not actions that only apply to a different screen
+- **THEN** the legend lists the actions available there (such as open/play, go to parent folder and search) and not actions that only apply to a different screen
 
 #### Scenario: Cada acción muestra su botón
 - **WHEN** el usuario está en Biblioteca con una lista de canciones a la vista
-- **THEN** la leyenda muestra el símbolo del botón de confirmar junto a la acción de reproducir, el Triángulo verde junto a "Reescanear", el Cuadrado rosa junto a "Carpeta", y chips neutros con L y R junto a "Vistas", sin que ningún texto nombre el botón con palabras
+- **THEN** la leyenda muestra el símbolo del botón de confirmar junto a la acción de reproducir, el Triángulo verde junto a "Buscar", el Cuadrado rosa junto a "Opciones", y chips neutros con L y R junto a "Vistas", sin que ningún texto nombre el botón con palabras
+
+#### Scenario: Buscar aparece en Carpetas
+- **WHEN** el usuario está en Carpetas
+- **THEN** la leyenda muestra el Triángulo verde junto a "Buscar"
 
 #### Scenario: Consola que confirma con Cruz
 - **WHEN** la consola tiene asignada la Cruz para confirmar y el usuario está en Carpetas

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-10-12
+
 ### Added
 
 - Library, Folders and Settings lists now scroll with your finger, and keep gliding after a flick.

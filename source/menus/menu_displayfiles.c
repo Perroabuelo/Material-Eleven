@@ -186,6 +186,7 @@ SceBool Menu_PickFolder(char *out, int cap) {
 		UI_Theme_RenewFallbackIfNeeded();
 
 		int visible_count = Dirbrowse_GetVisibleCount();
+		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE);
 
 		if (visible_count > 0) {
 			int before = position;
@@ -193,7 +194,13 @@ SceBool Menu_PickFolder(char *out, int cap) {
 			Menu_FoldersFollowButtons(before);
 		}
 
-		if (pressed & SCE_CTRL_ENTER) {
+		// Tocar una entrada es seleccionarla y confirmar.
+		SceBool tapped = tapped_row >= 0 && tapped_row < visible_count;
+
+		if (tapped)
+			position = tapped_row;
+
+		if (tapped || (pressed & SCE_CTRL_ENTER)) {
 			File *file = Dirbrowse_GetFileIndex(position);
 
 			// Sobre una carpeta, confirmar entra; sobre cualquier otra cosa elige
@@ -282,6 +289,10 @@ UI_Screen Menu_DisplayFiles(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
+		// La lista toma solo los toques que empiezan en ella: el riel, la
+		// barra superior y el mini reproductor quedan fuera de su area.
+		int tapped_row = TouchList_Update(&folders_list, SCE_TRUE);
+
 		if (tapped == UI_SCREEN_SETTINGS || tapped == UI_SCREEN_LIBRARY)
 			return tapped;
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
@@ -296,7 +307,14 @@ UI_Screen Menu_DisplayFiles(void) {
 			continue;
 		}
 
-		Menu_HandleControls();
+		// Tocar una entrada es seleccionarla y confirmar: entra en la carpeta
+		// (tambien en ..) o abre el archivo.
+		if (tapped_row >= 0 && tapped_row < Dirbrowse_GetVisibleCount()) {
+			position = tapped_row;
+			Dirbrowse_OpenFile();
+		}
+		else
+			Menu_HandleControls();
 
 		// Abrir un archivo de audio no entra a Reproduciendo: lo pide.
 		UI_Screen requested = NavRequest_Take();

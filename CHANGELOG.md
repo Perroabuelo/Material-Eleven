@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Library, Folders and Settings lists now scroll with your finger, and keep gliding after a flick.
+- Tap a row to play it or open it; tap the Library tabs, empty-screen actions and Settings entries too.
+
+### Changed
+
+- Scrolling with touch never plays anything by accident: only a tap does.
+
 ## [3.8.0] - 2026-10-11
 
 ### Added

@@ -22,6 +22,7 @@
 #include "status_bar.h"
 #include "text_fold.h"
 #include "touch.h"
+#include "touch_list.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -42,6 +43,9 @@
 #define COVER_BUDGET_PER_FRAME 2
 #define ROWS_PER_PAGE 5
 #define LIST_TOP    (TOPBAR_H + 8)
+// La lista se desplaza dentro de esta franja y se recorta en ella: no pisa la
+// barra superior ni el contador de debajo. Caben cinco filas enteras.
+#define LIST_BOTTOM (LIST_TOP + ROWS_PER_PAGE * ROW_H)
 
 // La caja de busqueda de la barra superior, una pildora como la de carpetas
 // pero mas estrecha: comparte la barra con el titulo y las cuatro pestañas,
@@ -81,6 +85,10 @@ static const LangString view_label[VIEW_COUNT] = { STR_VIEW_SONGS, STR_VIEW_ARTI
 
 static Menu_LibraryTab view = VIEW_SONGS;
 static int selection = 0;
+
+// El desplazamiento de la lista que se ve, en pixeles. Lo mueven el dedo y,
+// para mostrar la seleccion, los botones.
+static TouchList library_list;
 
 // Dentro de un artista o de un album. El nombre vacio con `inside_unknown`
 // puesto es el cubo.
@@ -320,6 +328,8 @@ static void Menu_LibrarySetTerm(const char *term) {
 
 	int kept = (term[0] == '\0' && full >= 0) ? ListFilter_ToVisible(Menu_LibraryFilter(), full) : -1;
 	selection = (kept >= 0) ? kept : 0;
+	TouchList_Reset(&library_list);
+	TouchList_Follow(&library_list);
 }
 
 static void Menu_LibraryClearSearches(void) {
@@ -341,6 +351,10 @@ typedef enum {
 	LIBRARY_STATE_EMPTY,        // escaneo hecho, carpeta sin musica
 	LIBRARY_STATE_READY         // hay pistas
 } Menu_LibraryState;
+
+// Lo que dice cada estado vacio y la accion que ofrece, que es la de Confirmar.
+static const LangString empty_line[LIBRARY_STATE_READY] = { STR_EMPTY_NO_ROOT, STR_EMPTY_UNBUILT, STR_EMPTY_NO_TRACKS };
+static const LangString empty_action[LIBRARY_STATE_READY] = { STR_ACTION_CHOOSE_FOLDER, STR_ACTION_SCAN, STR_ACTION_CHOOSE_OTHER };
 
 static Menu_LibraryState Menu_LibraryGetState(void) {
 	if (!Library_HasRoot())
@@ -373,6 +387,29 @@ static float Menu_LibraryTabsLeft(void) {
 	return tab_x;
 }
 
+// Donde empieza la pestaña `i` y cuanto mide. La comparten el dibujado y el
+// toque.
+static float Menu_LibraryTabX(int i, float *out_w) {
+	float tab_x = 960 - 22;
+
+	for (int j = VIEW_COUNT - 1; j >= i; j--) {
+		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, Lang_Get(view_label[j]));
+		tab_x -= w;
+
+		if (j == i) {
+			*out_w = w;
+			break;
+		}
+
+		tab_x -= SEARCH_TAB_GAP;
+	}
+
+	return tab_x;
+}
+
+// La franja de la barra en que se escriben el titulo y las pestañas.
+#define TABS_BOX_H (TOPBAR_H - 18)
+
 // La caja de busqueda, a la izquierda de las pestañas. La comparten el
 // dibujado y el toque.
 static float Menu_LibrarySearchBoxX(void) { return Menu_LibraryTabsLeft() - SEARCH_TAB_GAP - SEARCH_W; }
@@ -397,17 +434,12 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	// Las cuatro pestañas, con la vigente marcada. Se dibujan tambien dentro de un
 	// grupo, para que se vea de donde se entro.
-	float tab_x = 960 - 22;
+	for (int i = 0; i < VIEW_COUNT; i++) {
+		float w = 0;
+		float tab_x = Menu_LibraryTabX(i, &w);
 
-	for (int i = VIEW_COUNT - 1; i >= 0; i--) {
-		const char *label = Lang_Get(view_label[i]);
-		float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, label);
-		tab_x -= w;
-
-		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TOPBAR_H - 18),
-			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, label);
-
-		tab_x -= SEARCH_TAB_GAP;
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, tab_x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, TABS_BOX_H),
+			(i == view) ? ui_color_accent : UI_COLOR_TEXT_MUTED, Lang_Get(view_label[i]));
 	}
 
 	if (Library_HasRoot()) {
@@ -429,15 +461,20 @@ static void Menu_DrawLibraryTopBar(void) {
 }
 
 // Un estado vacio que dice cual de los cuatro es y que hacer, en vez de una
-// lista vacia sin explicacion.
+// lista vacia sin explicacion. La accion se puede tocar.
+#define PLACEHOLDER_X (CONTENT_X + 22)
+#define PLACEHOLDER_Y 180.0f
+#define PLACEHOLDER_ACTION_Y (PLACEHOLDER_Y + 34)
+#define PLACEHOLDER_ACTION_H 24
+
 static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
-	float x = CONTENT_X + 22, y = 180.0f;
+	float x = PLACEHOLDER_X, y = PLACEHOLDER_Y;
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, 26),
 		960 - x - 22, UI_COLOR_TEXT_SECONDARY, line);
 
 	if (action != NULL) {
-		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y + 34, 24),
+		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, PLACEHOLDER_ACTION_Y, PLACEHOLDER_ACTION_H),
 			UI_COLOR_TEXT_TERTIARY, action);
 	}
 }
@@ -450,6 +487,8 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 		const char *album, const char *path, const char *ext, int *budget) {
 	if (i == selection)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
+	else if (i == TouchList_PressedRow(&library_list))
+		UI_DrawRowPressHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
 	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
 	vita2d_texture *art = (album != NULL || path != NULL) ? Cover_Get(album, path, budget) : NULL;
@@ -501,13 +540,19 @@ static void Menu_DrawLibraryList(void) {
 		return;
 	}
 
-	int first = selection - (selection % ROWS_PER_PAGE);
-	float y = LIST_TOP;
+	TouchList_Layout(&library_list, CONTENT_X, LIST_TOP, 960, LIST_BOTTOM, count, ROW_H, selection);
+	TouchList_BeginClip(&library_list);
+
 	int budget = COVER_BUDGET_PER_FRAME;
 
 	// `i` es la fila visible, que es la que se marca; `full`, la entrada que
-	// muestra.
-	for (int i = first; i < first + ROWS_PER_PAGE && i < count; i++) {
+	// muestra. Se dibujan las que asoman, aunque sea en parte.
+	for (int i = TouchList_FirstRow(&library_list); i < count; i++) {
+		float y = TouchList_RowY(&library_list, i);
+
+		if (y >= LIST_BOTTOM)
+			break;
+
 		int full = Menu_LibraryFull(i);
 
 		if (Menu_LibraryShowsNames()) {
@@ -545,9 +590,9 @@ static void Menu_DrawLibraryList(void) {
 			const char *artist = (track->artist[0] != '\0') ? track->artist : Lang_Get(STR_UNKNOWN);
 			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, track->ext, &budget);
 		}
-
-		y += ROW_H;
 	}
+
+	TouchList_EndClip();
 
 	char counter[96];
 
@@ -564,15 +609,23 @@ static void Menu_DrawLibraryList(void) {
 	// empieza en MiniPlayer_Top(): asi el contador no queda tapado cuando hay
 	// algo sonando ni suelto en medio cuando no.
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, CONTENT_X + 22,
-		UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, LIST_TOP + ROWS_PER_PAGE * ROW_H + 4, 22),
+		UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, LIST_BOTTOM + 4, 22),
 		UI_COLOR_TEXT_MUTED, counter);
 }
 
+#define NOTICE_H 44.0f
+
+static float Menu_LibraryNoticeY(void) { return MiniPlayer_Top() - NOTICE_H - 8; }
+
+static SceBool Menu_LibraryNoticeShown(void) {
+	return notice_frames > 0 && notice < STR_COUNT;
+}
+
 static void Menu_DrawLibraryNotice(void) {
-	if (notice_frames <= 0 || notice >= STR_COUNT)
+	if (!Menu_LibraryNoticeShown())
 		return;
 
-	float h = 44.0f, y = MiniPlayer_Top() - h - 8;
+	float h = NOTICE_H, y = Menu_LibraryNoticeY();
 
 	UI_DrawRoundedRect(CONTENT_X + 16, y, 960 - CONTENT_X - 32, h, 12, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 32, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, h),
@@ -623,20 +676,12 @@ static void Menu_DrawLibraryContent(void) {
 			UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_ROOT_MISSING));
 	}
 
-	switch (Menu_LibraryGetState()) {
-		case LIBRARY_STATE_NO_ROOT:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_ROOT), Lang_Get(STR_ACTION_CHOOSE_FOLDER));
-			break;
-		case LIBRARY_STATE_UNBUILT:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_UNBUILT), Lang_Get(STR_ACTION_SCAN));
-			break;
-		case LIBRARY_STATE_EMPTY:
-			Menu_DrawLibraryPlaceholder(Lang_Get(STR_EMPTY_NO_TRACKS), Lang_Get(STR_ACTION_CHOOSE_OTHER));
-			break;
-		case LIBRARY_STATE_READY:
-			Menu_DrawLibraryList();
-			break;
-	}
+	Menu_LibraryState state = Menu_LibraryGetState();
+
+	if (state == LIBRARY_STATE_READY)
+		Menu_DrawLibraryList();
+	else
+		Menu_DrawLibraryPlaceholder(Lang_Get(empty_line[state]), Lang_Get(empty_action[state]));
 
 	MiniPlayer_Draw();
 	Menu_DrawLibraryNotice();
@@ -776,6 +821,7 @@ static void Menu_LibraryEnter(void) {
 	group_search.term[0] = group_search.folded[0] = '\0';
 	selection = 0;
 	view_dirty = SCE_TRUE;
+	TouchList_Reset(&library_list);
 }
 
 // SCE_TRUE si habia de donde salir. La lista de fuera vuelve con su termino, y
@@ -790,6 +836,8 @@ static SceBool Menu_LibraryLeave(void) {
 	inside_name[0] = '\0';
 	selection = outer_selection;
 	view_dirty = SCE_TRUE;
+	TouchList_Reset(&library_list);
+	TouchList_Follow(&library_list);
 	return SCE_TRUE;
 }
 
@@ -802,6 +850,7 @@ static void Menu_LibrarySetView(Menu_LibraryTab next) {
 	outer_selection = 0;
 	Menu_LibraryClearSearches();
 	view_dirty = SCE_TRUE;
+	TouchList_Reset(&library_list);
 }
 
 // Cancelar deshace lo mas reciente primero, igual que el filtro del navegador
@@ -812,6 +861,64 @@ static void Menu_LibraryBack(void) {
 		Menu_LibrarySetTerm("");
 	else
 		Menu_LibraryLeave();
+}
+
+// Tocar una fila es seleccionarla y confirmar: entra en un nombre o reproduce
+// una pista. `row` es la fila tocada este fotograma, o -1.
+static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
+	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
+		return SCE_FALSE;
+
+	selection = row;
+
+	if (Menu_LibraryShowsNames())
+		Menu_LibraryEnter();
+	else
+		Menu_LibraryPlaySelected();
+
+	return SCE_TRUE;
+}
+
+// Sin nada que reproducir, confirmar - o tocar la accion - hace lo unico que
+// procede en cada uno de los otros tres estados.
+static void Menu_LibraryEmptyAction(Menu_LibraryState state) {
+	if (state == LIBRARY_STATE_NO_ROOT)
+		Menu_LibraryPickRoot();
+	else
+		Menu_LibraryRescan();
+}
+
+// Las pestañas y la accion de un estado vacio se tocan como los botones que
+// las accionan: al apoyar el dedo, como el riel y la caja de busqueda.
+static SceBool Menu_HandleLibraryTouchControls(Menu_LibraryState state) {
+	if (!Touch_CheckPressed())
+		return SCE_FALSE;
+
+	if (state == LIBRARY_STATE_READY) {
+		for (int i = 0; i < VIEW_COUNT; i++) {
+			float w = 0;
+			float x = Menu_LibraryTabX(i, &w);
+
+			if (UI_TouchTarget(x, 0, w, TABS_BOX_H)) {
+				if (i != (int)view)
+					Menu_LibrarySetView((Menu_LibraryTab)i);
+
+				return SCE_TRUE;
+			}
+		}
+
+		return SCE_FALSE;
+	}
+
+	const char *action = Lang_Get(empty_action[state]);
+	float w = (float)UI_TextWidth(UI_FACE_MONO, UI_TS_LABEL, action);
+
+	if (UI_TouchTarget(PLACEHOLDER_X, PLACEHOLDER_ACTION_Y, w, PLACEHOLDER_ACTION_H)) {
+		Menu_LibraryEmptyAction(state);
+		return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
 }
 
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
@@ -829,12 +936,18 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	}
 
 	if (state == LIBRARY_STATE_READY && count > 0) {
+		int before = selection;
 		Utils_ListStep(&selection, count, ROWS_PER_PAGE);
 
 		if (pressed & SCE_CTRL_LEFT)
 			selection = 0;
 		else if (pressed & SCE_CTRL_RIGHT)
 			selection = count - 1;
+
+		// Un boton de direccion detiene el deslizamiento y la vista vuelve a la
+		// seleccion, aunque el dedo la hubiera dejado fuera.
+		if (selection != before || (pressed & (SCE_CTRL_UP | SCE_CTRL_DOWN | SCE_CTRL_LEFT | SCE_CTRL_RIGHT)))
+			TouchList_Follow(&library_list);
 
 		if (pressed & SCE_CTRL_ENTER) {
 			// Sobre un nombre, confirmar entra; sobre una pista, reproduce.
@@ -844,14 +957,8 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 				Menu_LibraryPlaySelected();
 		}
 	}
-	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER)) {
-		// Sin nada que reproducir, confirmar hace lo unico que procede en cada
-		// uno de los otros tres estados.
-		if (state == LIBRARY_STATE_NO_ROOT)
-			Menu_LibraryPickRoot();
-		else
-			Menu_LibraryRescan();
-	}
+	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER))
+		Menu_LibraryEmptyAction(state);
 
 	// Fuera del bloque de la lista: una busqueda sin resultados deja la lista
 	// vacia, y volver tiene que seguir quitandola.
@@ -904,6 +1011,11 @@ static void Menu_HandleLibraryOptions(void) {
 UI_Screen Menu_DisplayLibrary(void) {
 	vita2d_set_clear_color(UI_COLOR_BG);
 
+	// Al volver - de Reproduciendo o por el riel - la fila elegida se ve, y no
+	// sigue ningun dedo ni deslizamiento de la vez anterior.
+	TouchList_Reset(&library_list);
+	TouchList_Follow(&library_list);
+
 	while (SCE_TRUE) {
 		Menu_LibraryState state = Menu_LibraryGetState();
 
@@ -953,6 +1065,11 @@ UI_Screen Menu_DisplayLibrary(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
+		// La lista toma solo los toques que empiezan en ella: no con el menu
+		// delante ni sobre el aviso, que la tapa en parte.
+		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
+		int tapped_row = TouchList_Update(&library_list, !options_open && !on_notice && state == LIBRARY_STATE_READY, NULL);
+
 		if (notice_frames > 0)
 			notice_frames--;
 
@@ -978,7 +1095,11 @@ UI_Screen Menu_DisplayLibrary(void) {
 			continue;
 		}
 
-		Menu_HandleLibraryControls(state);
+		if (Menu_HandleLibraryTouchControls(state))
+			continue;
+
+		if (!Menu_HandleLibraryTap(state, tapped_row))
+			Menu_HandleLibraryControls(state);
 
 		// Reproducir una pista no entra a Reproduciendo: lo pide.
 		UI_Screen requested = NavRequest_Take();

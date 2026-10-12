@@ -406,7 +406,64 @@ int UI_TextBaselineY(UI_Face face, UI_TextSize ts, float box_top, float box_h) {
 	return (int)(box_top + ((box_h - extent) / 2) + extent);
 }
 
-// Drawn after the clipped run, outside the clip, so it is always fully visible.
+// ---- Clip stack ----
+
+#define UI_CLIP_DEPTH 4
+
+typedef struct {
+	int x0, y0, x1, y1;
+} UI_ClipRect;
+
+static UI_ClipRect ui_clip_stack[UI_CLIP_DEPTH];
+static int ui_clip_depth = 0;
+
+static void UI_ApplyClip(void) {
+	if (ui_clip_depth == 0) {
+		vita2d_disable_clipping();
+		return;
+	}
+
+	int top = ui_clip_depth < UI_CLIP_DEPTH ? ui_clip_depth : UI_CLIP_DEPTH;
+	const UI_ClipRect *r = &ui_clip_stack[top - 1];
+	vita2d_set_clip_rectangle(r->x0, r->y0, r->x1, r->y1);
+	vita2d_enable_clipping();
+}
+
+void UI_PushClip(float x0, float y0, float x1, float y1) {
+	UI_ClipRect r = { (int)x0, (int)y0, (int)x1, (int)y1 };
+
+	if (ui_clip_depth > 0) {
+		int top = ui_clip_depth < UI_CLIP_DEPTH ? ui_clip_depth : UI_CLIP_DEPTH;
+		const UI_ClipRect *outer = &ui_clip_stack[top - 1];
+
+		if (r.x0 < outer->x0) r.x0 = outer->x0;
+		if (r.y0 < outer->y0) r.y0 = outer->y0;
+		if (r.x1 > outer->x1) r.x1 = outer->x1;
+		if (r.y1 > outer->y1) r.y1 = outer->y1;
+	}
+
+	// An empty intersection still clips everything away.
+	if (r.x1 < r.x0) r.x1 = r.x0;
+	if (r.y1 < r.y0) r.y1 = r.y0;
+
+	// Nesting never goes past two today. Deeper pushes are counted but keep
+	// the innermost rectangle that fits, so every Pop still matches its Push.
+	if (ui_clip_depth < UI_CLIP_DEPTH)
+		ui_clip_stack[ui_clip_depth] = r;
+
+	ui_clip_depth++;
+	UI_ApplyClip();
+}
+
+void UI_PopClip(void) {
+	if (ui_clip_depth > 0)
+		ui_clip_depth--;
+
+	UI_ApplyClip();
+}
+
+// Drawn after the clipped run, outside its own clip, so it is fully visible
+// unless an outer clip cuts it.
 #define UI_ELLIPSIS "..."
 
 void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y, float max_w,
@@ -435,10 +492,9 @@ void UI_DrawTextClipped(UI_Face face, UI_TextSize ts, float x, float baseline_y,
 
 	// The band is the face's extent either side of the baseline, which covers
 	// ascenders and descenders at this size with room to spare.
-	vita2d_set_clip_rectangle((int)x, (int)(baseline_y - extent), (int)(x + run_w), (int)(baseline_y + extent));
-	vita2d_enable_clipping();
+	UI_PushClip(x, baseline_y - extent, x + run_w, baseline_y + extent);
 	UI_DrawText(face, ts, x, baseline_y, color, text);
-	vita2d_disable_clipping();
+	UI_PopClip();
 
 	UI_DrawText(face, ts, x + run_w, baseline_y, color, UI_ELLIPSIS);
 }
@@ -649,6 +705,11 @@ void UI_DrawBadge(float x, float y, UI_TextSize ts, const char *label, unsigned 
 
 void UI_DrawRowHighlight(float x, float y, float w, float h) {
 	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, ui_color_accent_wash);
+}
+
+void UI_DrawRowPressHighlight(float x, float y, float w, float h) {
+	unsigned int alpha = (ui_color_accent_wash >> 24) / 2;
+	UI_DrawRoundedRect(x, y, w, h, UI_RADIUS_SM + 2, (ui_color_accent_wash & 0x00FFFFFF) | (alpha << 24));
 }
 
 // ---- Dynamic accent derived from cover art ----

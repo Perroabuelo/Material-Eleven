@@ -21,6 +21,7 @@
 #include "nav_rail.h"
 #include "status_bar.h"
 #include "touch.h"
+#include "touch_list.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
@@ -35,6 +36,11 @@
 #define TOGGLE_W     56
 #define TOGGLE_H     30
 #define TOGGLE_KNOB_R 12
+#define CAT_LIST_TOP (HEADER_H + 10)
+// The extra room a divider takes above its item.
+#define DIVIDER_GAP  22
+// Both lists end at the hint bar: Settings has no mini player.
+#define LIST_BOTTOM  (544 - UI_HINT_BAR_HEIGHT)
 
 typedef enum {
 	SETTINGS_ITEM_RADIO,
@@ -185,6 +191,43 @@ static const SettingsCategory categories[] = {
 };
 #define CATEGORY_COUNT (sizeof(categories) / sizeof(categories[0]))
 
+// The category column fits whole, so it never scrolls, but it takes taps the
+// same way as every list. The item list scrolls only if a category ever has
+// more items than fit.
+static TouchList category_list;
+static TouchList item_list;
+
+// Where item `i` starts in the item list, counting the divider above it; with
+// i == item_count, the list's height.
+static float Settings_ItemTop(const SettingsCategory *cat, int i) {
+	float top = i * ITEM_ROW_H;
+
+	if (cat->divider_before >= 0 && i >= cat->divider_before)
+		top += DIVIDER_GAP;
+
+	return top;
+}
+
+// The item at `y` in the item list, or -1 (the divider's gap, or past the end).
+static int Settings_ItemAt(const SettingsCategory *cat, float y) {
+	if (y < 0.0f)
+		return -1;
+
+	for (int i = 0; i < cat->item_count; i++) {
+		float top = Settings_ItemTop(cat, i);
+
+		if (y >= top && y < top + ITEM_ROW_H)
+			return i;
+	}
+
+	return -1;
+}
+
+// The item list starts under the title, and under the caption if it has one.
+static float Settings_ItemListTop(const SettingsCategory *cat) {
+	return HEADER_H + 18 + ((cat->caption < STR_COUNT) ? 36 : 0);
+}
+
 static void SettingsUI_DrawRadio(float cx, float cy, SceBool active) {
 	if (active) {
 		vita2d_draw_fill_circle(cx, cy, 11.0f, ui_color_accent);
@@ -213,14 +256,25 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 
 	UI_DrawText(UI_FACE_UI, UI_TS_TITLE, CAT_COL_X + 18, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, HEADER_H), UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SETTINGS_TITLE));
 
-	float y = HEADER_H + 10;
+	TouchList_Layout(&category_list, CAT_COL_X, CAT_LIST_TOP, CAT_COL_X + CAT_COL_W, LIST_BOTTOM,
+		(int)CATEGORY_COUNT, CAT_ROW_H, category_index);
 
-	for (int i = 0; i < (int)CATEGORY_COUNT; i++) {
+	int touched = TouchList_PressedRow(&category_list);
+	TouchList_BeginClip(&category_list);
+
+	for (int i = TouchList_FirstRow(&category_list); i < (int)CATEGORY_COUNT; i++) {
+		float y = TouchList_RowY(&category_list, i);
+
+		if (y >= LIST_BOTTOM)
+			break;
+
 		SceBool is_active = (i == category_index);
 		float row_x = CAT_COL_X + 10, row_w = CAT_COL_W - 20;
 
 		if (is_active)
 			UI_DrawRoundedRect(row_x, y, row_w, CAT_ROW_H, 14, ui_color_accent_wash);
+		else if (i == touched)
+			UI_DrawRowPressHighlight(row_x, y, row_w, CAT_ROW_H);
 
 		unsigned int text_color = is_active ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_SECONDARY;
 		char hint[32];
@@ -229,9 +283,9 @@ static void Menu_DrawSettingsCategoryColumn(int category_index) {
 
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, row_x + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, CAT_ROW_H), row_w - 28 - hint_w - 12, text_color, Lang_Get(categories[i].label));
 		UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, row_x + row_w - 14 - hint_w, UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, y, CAT_ROW_H), is_active ? ui_color_accent : UI_COLOR_TEXT_MUTED, hint);
-
-		y += CAT_ROW_H;
 	}
+
+	TouchList_EndClip();
 }
 
 static void Menu_DrawSettingsDetail(int category_index, int item_index) {
@@ -248,15 +302,32 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 		y += 36;
 	}
 
+	float list_top = Settings_ItemListTop(cat);
+	float show_top = Settings_ItemTop(cat, item_index);
+
+	TouchList_LayoutContent(&item_list, DETAIL_X, list_top, 960, LIST_BOTTOM,
+		Settings_ItemTop(cat, cat->item_count), show_top, show_top + ITEM_ROW_H);
+
+	int touched = Settings_ItemAt(cat, TouchList_PressedY(&item_list));
+	TouchList_BeginClip(&item_list);
+
 	for (int i = 0; i < cat->item_count; i++) {
-		if (cat->divider_before == i) {
-			vita2d_draw_rectangle(DETAIL_X + 26, y + 8, 960 - DETAIL_X - 52, 1, UI_COLOR_HAIRLINE);
-			y += 22;
-		}
+		y = TouchList_ContentTop(&item_list) + Settings_ItemTop(cat, i);
+
+		if (y >= LIST_BOTTOM)
+			break;
+
+		if (y + ITEM_ROW_H <= list_top)
+			continue;
+
+		if (cat->divider_before == i)
+			vita2d_draw_rectangle(DETAIL_X + 26, y - DIVIDER_GAP + 8, 960 - DETAIL_X - 52, 1, UI_COLOR_HAIRLINE);
 
 		SceBool row_selected = (i == item_index);
 		if (row_selected)
 			UI_DrawRoundedRect(DETAIL_X + 12, y, 960 - DETAIL_X - 24, ITEM_ROW_H, 14, ui_color_accent_wash);
+		else if (i == touched)
+			UI_DrawRowPressHighlight(DETAIL_X + 12, y, 960 - DETAIL_X - 24, ITEM_ROW_H);
 
 		const char *label = cat->item_label(i);
 		SettingsItemKind kind = cat->item_kind(i);
@@ -272,15 +343,18 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 
 			SettingsUI_DrawToggle(960 - 26 - TOGGLE_W, y + (ITEM_ROW_H - TOGGLE_H) / 2.0f, active);
 		}
-
-		y += ITEM_ROW_H;
 	}
+
+	TouchList_EndClip();
 }
 
 UI_Screen Menu_DisplaySettings(void) {
 	int category_index = 0, item_index = 0;
 
 	vita2d_set_clear_color(UI_COLOR_BG);
+
+	TouchList_Reset(&category_list);
+	TouchList_Reset(&item_list);
 
 	while (SCE_TRUE) {
 		const SettingsCategory *cat = &categories[category_index];
@@ -310,6 +384,12 @@ UI_Screen Menu_DisplaySettings(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
+		// Each list takes only the touches that start in it.
+		float item_tap_y = -1.0f;
+		int category_tap = TouchList_Update(&category_list, SCE_TRUE, NULL);
+		TouchList_Update(&item_list, SCE_TRUE, &item_tap_y);
+		int item_tap = Settings_ItemAt(cat, item_tap_y);
+
 		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_LIBRARY)
 			return tapped;
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
@@ -317,6 +397,23 @@ UI_Screen Menu_DisplaySettings(void) {
 
 		if (pressed & SCE_CTRL_CANCEL)
 			return UI_SCREEN_FOLDERS;
+
+		// Tapping a category does what L and R do: open it on its first item.
+		if (category_tap >= 0) {
+			category_index = category_tap;
+			item_index = 0;
+			TouchList_Reset(&item_list);
+			continue;
+		}
+
+		// Tapping an item selects it and does what Confirm does.
+		if (item_tap >= 0) {
+			item_index = item_tap;
+			cat->item_activate(item_index);
+			continue;
+		}
+
+		int before_category = category_index, before_item = item_index;
 
 		if (pressed & SCE_CTRL_LTRIGGER) {
 			category_index--;
@@ -329,7 +426,17 @@ UI_Screen Menu_DisplaySettings(void) {
 		Utils_SetMax(&category_index, 0, (int)CATEGORY_COUNT - 1);
 		Utils_SetMin(&category_index, (int)CATEGORY_COUNT - 1, 0);
 
+		if (category_index != before_category) {
+			TouchList_Reset(&item_list);
+			TouchList_Follow(&category_list);
+		}
+
 		Utils_ListStep(&item_index, cat->item_count, cat->item_count);
+
+		// A direction button stops any glide and brings the selection back
+		// into view.
+		if (item_index != before_item || (pressed & (SCE_CTRL_UP | SCE_CTRL_DOWN)))
+			TouchList_Follow(&item_list);
 
 		if (pressed & SCE_CTRL_ENTER)
 			cat->item_activate(item_index);

@@ -17,6 +17,10 @@
 // Y de su borde superior.
 float MiniPlayer_Top(void);
 
+// Donde termina una lista que se desplaza: en el mini reproductor si hay una
+// pista cargada, y si no en la leyenda de botones.
+float MiniPlayer_ListBottom(void);
+
 // No dibuja nada si no hay ninguna pista cargada.
 void MiniPlayer_Draw(void);
 

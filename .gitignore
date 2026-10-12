@@ -76,4 +76,6 @@ templates/
 /tests/test_key_repeat
 /tests/test_text_fold
 /tests/test_list_filter
+/tests/test_gesture
+/tests/test_list_scroll
 /tests/.cflags

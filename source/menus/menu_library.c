@@ -233,6 +233,72 @@ static const PlaylistSummary *Menu_LibraryPlaylistAt(int full) {
 	return (full >= 0 && full < playlist_count) ? &playlists[full] : NULL;
 }
 
+// La clave del mosaico de una playlist, o SCE_FALSE si no lleva mosaico.
+static SceBool Menu_LibraryMosaicKey(const PlaylistSummary *s, char *key) {
+	if (s->mosaic_count < 4)
+		return SCE_FALSE;
+
+	const char *albums[4], *paths[4];
+
+	for (int q = 0; q < 4; q++) {
+		albums[q] = s->mosaic_album[q];
+		paths[q] = s->mosaic_path[q];
+	}
+
+	Cover_MosaicKey(albums, paths, key, COVER_MOSAIC_KEY_MAX);
+	return SCE_TRUE;
+}
+
+// Vuelve a leer los resumenes despues de que esta pantalla escribio una
+// playlist. El mosaico que una playlist deja de usar se borra, salvo que otra
+// lo comparta: su clave depende de sus primeros albumes, asi que nadie mas lo
+// volveria a pedir.
+static void Menu_LibraryReloadPlaylists(void) {
+	PlaylistSummary *old = playlists;
+	int old_count = playlist_count;
+
+	playlists = NULL;
+	playlist_count = 0;
+	playlists_loaded = SCE_FALSE;
+	Menu_LibraryLoadPlaylists();
+
+	for (int i = 0; i < old_count; i++) {
+		char old_key[COVER_MOSAIC_KEY_MAX], key[COVER_MOSAIC_KEY_MAX];
+		SceBool used = SCE_FALSE;
+
+		if (!Menu_LibraryMosaicKey(&old[i], old_key))
+			continue;
+
+		for (int j = 0; j < playlist_count && !used; j++)
+			used = Menu_LibraryMosaicKey(&playlists[j], key) && strcmp(key, old_key) == 0;
+
+		if (!used)
+			Cover_ForgetMosaic(old_key);
+	}
+
+	free(old);
+}
+
+// La caratula de una playlist: el mosaico con cuatro albumes, la del primero
+// con uno a tres, y el marcador sin ninguno.
+static vita2d_texture *Menu_LibraryPlaylistArt(const PlaylistSummary *s, int *budget) {
+	if (s->mosaic_count >= 4) {
+		const char *albums[4], *paths[4];
+
+		for (int q = 0; q < 4; q++) {
+			albums[q] = s->mosaic_album[q];
+			paths[q] = s->mosaic_path[q];
+		}
+
+		return Cover_GetMosaic(albums, paths, !s->mosaic_pending, budget);
+	}
+
+	if (s->mosaic_count > 0)
+		return Cover_Get(s->mosaic_album[0], s->mosaic_path[0], budget);
+
+	return NULL;
+}
+
 // Las canciones de una playlist, y no la lista de playlists.
 static SceBool Menu_LibraryInPlaylist(void) {
 	return view == VIEW_PLAYLISTS && inside;
@@ -769,7 +835,7 @@ static void Menu_DrawLibraryList(void) {
 
 			char sub[48];
 			snprintf(sub, sizeof(sub), Lang_Get((s->count == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), s->count);
-			Menu_DrawLibraryRow(i, y, s->name, sub, NULL, NULL, SCE_FALSE);
+			Menu_DrawLibraryRow(i, y, s->name, sub, Menu_LibraryPlaylistArt(s, &budget), NULL, SCE_FALSE);
 		}
 		else if (Menu_LibraryShowsNames()) {
 			char sub[48];
@@ -1388,53 +1454,65 @@ static void Menu_LibraryNoticeAdded(const char *name, int added, int skipped, in
 }
 
 // Carga la playlist, le añade, la guarda y la suelta: no queda en RAM.
-static void Menu_LibraryAddToExisting(const char *file, const Playlist_Entry *entries, int n) {
+// SCE_TRUE si la playlist se escribio.
+static SceBool Menu_LibraryAddToExisting(const char *file, const Playlist_Entry *entries, int n) {
 	Playlist pl;
 	int added = 0, skipped = 0, full = 0;
+	SceBool wrote = SCE_FALSE;
 
 	if (PlaylistStore_Load(file, &pl) != PLAYLIST_OK) {
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_UNREADABLE);
-		return;
+		return SCE_FALSE;
 	}
 
-	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Save(file, &pl) < 0)
+	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Save(file, &pl) < 0) {
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
-	else
+	}
+	else {
 		Menu_LibraryNoticeAdded(pl.name, added, skipped, full);
+		wrote = SCE_TRUE;
+	}
 
 	Playlist_Free(&pl);
+	return wrote;
 }
 
 // "Nueva playlist…": pide el nombre y crea la playlist con lo que se añade, en
 // un solo paso. Descartar, un nombre vacio o uno repetido no crean nada.
-static void Menu_LibraryAddToNew(const Playlist_Entry *entries, int n) {
+// SCE_TRUE si la playlist se escribio.
+static SceBool Menu_LibraryAddToNew(const Playlist_Entry *entries, int n) {
 	char name[PLAYLIST_NAME_MAX];
 
 	if (SearchDialog_Prompt(Lang_Get(STR_PLAYLIST_NAME), "", name, sizeof(name),
 		Menu_DrawLibraryContent, UI_SCREEN_LIBRARY) != SEARCH_DIALOG_CONFIRMED)
-		return;
+		return SCE_FALSE;
 
 	if (!Playlist_NameValid(name))
-		return;
+		return SCE_FALSE;
 
 	if (Menu_LibraryNameTaken(name, NULL)) {
 		Menu_LibraryNoticef(STR_NOTICE_NAME_TAKEN, name);
-		return;
+		return SCE_FALSE;
 	}
 
 	Playlist pl;
 	char file[PLAYLIST_FILE_MAX];
 	int added = 0, skipped = 0, full = 0;
+	SceBool wrote = SCE_FALSE;
 
 	memset(&pl, 0, sizeof(pl));
 	snprintf(pl.name, sizeof(pl.name), "%s", name);
 
-	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Create(&pl, file) < 0)
+	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Create(&pl, file) < 0) {
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
-	else
+	}
+	else {
 		Menu_LibraryNoticeAdded(pl.name, added, skipped, full);
+		wrote = SCE_TRUE;
+	}
 
 	Playlist_Free(&pl);
+	return wrote;
 }
 
 static void Menu_LibraryOpenPicker(void) {
@@ -1466,12 +1544,18 @@ static void Menu_LibraryRunPicker(int item) {
 
 	picker_open = SCE_FALSE;
 
+	SceBool wrote = SCE_FALSE;
+
 	if (n > 0 && item == 0)
-		Menu_LibraryAddToNew(entries, n);
+		wrote = Menu_LibraryAddToNew(entries, n);
 	else if (n > 0 && file[0] != '\0')
-		Menu_LibraryAddToExisting(file, entries, n);
+		wrote = Menu_LibraryAddToExisting(file, entries, n);
 
 	free(entries);
+
+	if (wrote)
+		Menu_LibraryReloadPlaylists();
+
 	Menu_LibraryClosePicker();
 }
 

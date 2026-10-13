@@ -51,7 +51,7 @@ Rama: `change/add-playlists`
 
 ## Fuera de alcance
 
-- Selección múltiple y toque mantenido sobre las filas. Se entregan en el cambio `multi-select` (v3.11.0), que se apoya en este.
+- Selección múltiple y toque mantenido sobre las filas. Se entregan en el cambio `multi-select` (v4.1.0), que se apoya en este.
 - Acciones de playlist desde Reproduciendo, como "Añadir la que suena" o "Guardar cola como playlist". Siguen vigentes los requirements de `ui/now-playing` que no ofrecen gestionar la cola.
 - Añadir a una playlist desde Carpetas. Las playlists pertenecen a la biblioteca.
 - Importar o reconocer playlists hechas en el PC, incluidos los `.m3u` que estén en las carpetas de música.
@@ -62,7 +62,7 @@ Rama: `change/add-playlists`
 
 ## Notas de version
 
-Versión objetivo: **v3.10.0** (minor: funcionalidad nueva). Supone que no sale otra versión antes. Si el orden cambia, se ajusta al cerrar el cambio.
+Versión objetivo: **v4.0.0** (major). Por SemVer sería un minor, porque es funcionalidad nueva sin cambios incompatibles. Pero la consola muestra la versión como `XX.YZ`, con un solo dígito para el minor, y después de 3.9.0 no cabe 3.10.0: `03.10` ya lo usó v3.1.0 y es menor que el `03.90` actual. Supone que no sale otra versión antes. Si el orden cambia, se ajusta al cerrar el cambio.
 
 - New Playlists tab in the Library: make your own playlists right on the Vita.
 - Press Square on a song, an album or an artist and choose "Add to playlist" to add it to an existing playlist or to a new one.

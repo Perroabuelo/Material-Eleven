@@ -152,13 +152,16 @@ typedef enum {
 	OPTION_ADD_TO_PLAYLIST = 0,
 	OPTION_REMOVE_FROM_PLAYLIST,
 	OPTION_MOVE,
+	OPTION_RENAME,
+	OPTION_DELETE,
 	OPTION_RESCAN,
 	OPTION_CHOOSE_FOLDER,
 	OPTION_KINDS
 } Menu_LibraryOption;
 
 static const LangString option_label[OPTION_KINDS] = {
-	STR_MENU_ADD_TO_PLAYLIST, STR_MENU_REMOVE_FROM_PLAYLIST, STR_MENU_MOVE, STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER
+	STR_MENU_ADD_TO_PLAYLIST, STR_MENU_REMOVE_FROM_PLAYLIST, STR_MENU_MOVE, STR_MENU_RENAME, STR_MENU_DELETE,
+	STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER
 };
 
 #define OPTIONS_MAX 4
@@ -181,6 +184,17 @@ static int options_index = 0;
 static SceBool moving = SCE_FALSE;
 static int move_origin = 0;
 static int move_at = 0;
+
+// El dialogo que confirma borrar una playlist: una linea que la nombra y dos
+// opciones, borrar y cancelar, con cancelar marcada al abrirse.
+#define CONFIRM_DELETE 0
+#define CONFIRM_CANCEL 1
+#define CONFIRM_ITEMS  2
+
+static SceBool confirm_open = SCE_FALSE;
+static int confirm_index = CONFIRM_CANCEL;
+static char confirm_file[PLAYLIST_FILE_MAX] = "";
+static char confirm_name[PLAYLIST_NAME_MAX] = "";
 
 static SceBool picker_open = SCE_FALSE;
 static int picker_index = 0; // 0 es "Nueva playlist…", k la playlist k - 1
@@ -994,6 +1008,37 @@ static void Menu_DrawLibraryPicker(void) {
 	}
 }
 
+static float Menu_LibraryConfirmH(void) { return (CONFIRM_ITEMS + 1) * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
+static float Menu_LibraryConfirmX(void) { return 960 - 16 - PICKER_W; }
+static float Menu_LibraryConfirmY(void) { return MiniPlayer_Top() - 8 - Menu_LibraryConfirmH(); }
+
+// La opcion `i`, debajo de la linea del titulo.
+static float Menu_LibraryConfirmItemY(int i) { return Menu_LibraryConfirmY() + OPTIONS_PAD + (i + 1) * OPTIONS_ITEM_H; }
+
+static void Menu_DrawLibraryConfirm(void) {
+	if (!confirm_open)
+		return;
+
+	float x = Menu_LibraryConfirmX(), y = Menu_LibraryConfirmY();
+	char title[PLAYLIST_NAME_MAX + 32];
+	const LangString item_label[CONFIRM_ITEMS] = { STR_MENU_DELETE, STR_HINT_CANCEL };
+
+	snprintf(title, sizeof(title), Lang_Get(STR_DELETE_CONFIRM), confirm_name);
+	UI_DrawRoundedRect(x, y, PICKER_W, Menu_LibraryConfirmH(), 14, UI_COLOR_SURFACE_2);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + OPTIONS_PAD, OPTIONS_ITEM_H),
+		PICKER_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_SECONDARY, title);
+
+	for (int i = 0; i < CONFIRM_ITEMS; i++) {
+		float iy = Menu_LibraryConfirmItemY(i);
+
+		if (i == confirm_index)
+			UI_DrawRowHighlight(x + OPTIONS_PAD, iy, PICKER_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
+
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, iy, OPTIONS_ITEM_H),
+			PICKER_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(item_label[i]));
+	}
+}
+
 // El cuerpo de la pantalla, sin leyenda ni riel: lo comparten el lazo normal y
 // el fondo del dialogo de busqueda, que deben mostrar lo mismo.
 static void Menu_DrawLibraryContent(void) {
@@ -1024,6 +1069,7 @@ static void Menu_DrawLibraryContent(void) {
 	Menu_DrawLibraryNotice();
 	Menu_DrawLibraryOptions();
 	Menu_DrawLibraryPicker();
+	Menu_DrawLibraryConfirm();
 }
 
 // El termino cambia solo con uno confirmado: descartar, abandonar o no poder
@@ -1364,7 +1410,11 @@ static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
 			options[option_count++] = OPTION_REMOVE_FROM_PLAYLIST;
 			options[option_count++] = OPTION_MOVE;
 		}
-		else if (!Menu_LibraryShowsPlaylists()) {
+		else if (Menu_LibraryShowsPlaylists()) {
+			options[option_count++] = OPTION_RENAME;
+			options[option_count++] = OPTION_DELETE;
+		}
+		else {
 			options[option_count++] = OPTION_ADD_TO_PLAYLIST;
 		}
 	}
@@ -1711,6 +1761,115 @@ static void Menu_HandleLibraryMove(void) {
 	}
 }
 
+// --- renombrar y borrar una playlist ---------------------------------------
+
+// Marca en la pestaña la fila de la playlist del archivo `file`, o acota la
+// marca si ya no esta.
+static void Menu_LibrarySelectPlaylist(const char *file) {
+	view_dirty = SCE_TRUE;
+
+	int count = Menu_LibraryBuild();
+
+	for (int v = 0; v < count; v++) {
+		const PlaylistSummary *s = Menu_LibraryPlaylistAt(Menu_LibraryFull(v));
+
+		if (file != NULL && s != NULL && strcmp(s->file, file) == 0) {
+			selection = v;
+			TouchList_Follow(&library_list);
+			return;
+		}
+	}
+
+	if (selection >= count)
+		selection = (count > 0) ? count - 1 : 0;
+
+	TouchList_Follow(&library_list);
+}
+
+// Con el nombre actual ya escrito. Descartar, un nombre vacio o el mismo dejan
+// todo como estaba; uno que ya tiene otra playlist lo avisa.
+static void Menu_LibraryRenameSelected(void) {
+	const PlaylistSummary *s = Menu_LibraryPlaylistAt(Menu_LibraryFull(selection));
+	char file[PLAYLIST_FILE_MAX], current[PLAYLIST_NAME_MAX], name[PLAYLIST_NAME_MAX];
+
+	if (s == NULL)
+		return;
+
+	snprintf(file, sizeof(file), "%s", s->file);
+	snprintf(current, sizeof(current), "%s", s->name);
+
+	if (SearchDialog_Prompt(Lang_Get(STR_PLAYLIST_NAME), current, name, sizeof(name),
+		Menu_DrawLibraryContent, UI_SCREEN_LIBRARY) != SEARCH_DIALOG_CONFIRMED)
+		return;
+
+	if (!Playlist_NameValid(name) || strcmp(name, current) == 0)
+		return;
+
+	if (Menu_LibraryNameTaken(name, file)) {
+		Menu_LibraryNoticef(STR_NOTICE_NAME_TAKEN, name);
+		return;
+	}
+
+	char new_file[PLAYLIST_FILE_MAX];
+
+	if (PlaylistStore_Rename(file, name, new_file) < 0) {
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
+		return;
+	}
+
+	Menu_LibraryReloadPlaylists();
+	Menu_LibrarySelectPlaylist(new_file);
+}
+
+static void Menu_LibraryAskDelete(void) {
+	const PlaylistSummary *s = Menu_LibraryPlaylistAt(Menu_LibraryFull(selection));
+
+	if (s == NULL)
+		return;
+
+	snprintf(confirm_file, sizeof(confirm_file), "%s", s->file);
+	snprintf(confirm_name, sizeof(confirm_name), "%s", s->name);
+	confirm_index = CONFIRM_CANCEL;
+	confirm_open = SCE_TRUE;
+}
+
+// Borra el archivo de la playlist y nada mas: ni la musica que lista ni la cola
+// que suena, que es una copia.
+static void Menu_LibraryRunConfirm(int item) {
+	confirm_open = SCE_FALSE;
+
+	if (item != CONFIRM_DELETE)
+		return;
+
+	if (PlaylistStore_Delete(confirm_file) < 0)
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
+
+	Menu_LibraryReloadPlaylists();
+	Menu_LibrarySelectPlaylist(NULL);
+}
+
+// Como el menu: cancelar, volver o tocar fuera la dejan intacta.
+static void Menu_HandleLibraryConfirm(void) {
+	if (Touch_CheckPressed()) {
+		for (int i = 0; i < CONFIRM_ITEMS; i++) {
+			if (UI_TouchTarget(Menu_LibraryConfirmX(), Menu_LibraryConfirmItemY(i), PICKER_W, OPTIONS_ITEM_H)) {
+				Menu_LibraryRunConfirm(i);
+				return;
+			}
+		}
+
+		confirm_open = SCE_FALSE;
+		return;
+	}
+
+	Utils_ListStep(&confirm_index, CONFIRM_ITEMS, CONFIRM_ITEMS);
+
+	if (pressed & SCE_CTRL_ENTER)
+		Menu_LibraryRunConfirm(confirm_index);
+	else if (pressed & SCE_CTRL_CANCEL)
+		confirm_open = SCE_FALSE;
+}
+
 // Reescanear y elegir carpeta ya quitan la busqueda y salen del grupo: elegir
 // carpeta vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
 static void Menu_LibraryRunOption(int i) {
@@ -1725,6 +1884,12 @@ static void Menu_LibraryRunOption(int i) {
 			break;
 		case OPTION_MOVE:
 			Menu_LibraryStartMove();
+			break;
+		case OPTION_RENAME:
+			Menu_LibraryRenameSelected();
+			break;
+		case OPTION_DELETE:
+			Menu_LibraryAskDelete();
 			break;
 		case OPTION_RESCAN:
 			Menu_LibraryRescan();
@@ -1834,7 +1999,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (moving)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, move_hints, 4);
-		else if (options_open || picker_open)
+		else if (options_open || picker_open || confirm_open)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
 		else
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
@@ -1853,7 +2018,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// La lista toma solo los toques que empiezan en ella: no con el menu
 		// delante ni sobre el aviso, que la tapa en parte.
 		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
-		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !moving && !on_notice && state == LIBRARY_STATE_READY, NULL);
+		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !confirm_open && !moving && !on_notice && state == LIBRARY_STATE_READY, NULL);
 
 		if (notice_frames > 0)
 			notice_frames--;
@@ -1867,6 +2032,11 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (picker_open) {
 			Menu_HandleLibraryPicker();
+			continue;
+		}
+
+		if (confirm_open) {
+			Menu_HandleLibraryConfirm();
 			continue;
 		}
 

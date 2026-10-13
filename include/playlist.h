@@ -85,6 +85,35 @@ int Playlist_Remove(Playlist *pl, int index);
 // 0, or -1 when either is out of range, and then nothing moves.
 int Playlist_Move(Playlist *pl, int from, int to);
 
+// --- names -----------------------------------------------------------------
+
+// The file name is made from the visible name and is at most this many bytes
+// before the extension; with the extension and the NUL it fits
+// PLAYLIST_FILE_MAX.
+#define PLAYLIST_FILE_BASE_MAX 64
+#define PLAYLIST_FILE_EXT      ".m3u8"
+#define PLAYLIST_FILE_MAX      (PLAYLIST_FILE_BASE_MAX + sizeof(PLAYLIST_FILE_EXT))
+
+// Whether `name` can name a playlist: at least one character that is not a
+// space, and at most PLAYLIST_NAME_CHARS characters.
+int Playlist_NameValid(const char *name);
+
+// Whether two names are the same playlist name: case, accents and diaereses
+// do not count, and ñ is n, as in every search (TextFold_Fold). It also
+// agrees with the console's file system, which ignores case.
+int Playlist_NamesEqual(const char *a, const char *b);
+
+// Whether a file of that name (extension included) is already taken.
+typedef int (*Playlist_FileExists)(const char *file_name, void *ctx);
+
+// Writes into `out` (PLAYLIST_FILE_MAX bytes or more) the file name for the
+// visible `name`: / \ : * ? " < > | and control characters become _, the
+// result is cut to PLAYLIST_FILE_BASE_MAX bytes without splitting a
+// character, and PLAYLIST_FILE_EXT goes after it. When `exists` says the
+// name is taken, " (2)", " (3)"... go before the extension, cutting the base
+// further to make room. 0, or -1 when no free name turns up.
+int Playlist_FileName(const char *name, Playlist_FileExists exists, void *ctx, char *out, size_t cap);
+
 // Frees the entries and leaves `pl` empty, its name included. Takes an empty
 // one too.
 void Playlist_Free(Playlist *pl);

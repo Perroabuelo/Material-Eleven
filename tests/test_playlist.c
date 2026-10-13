@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "playlist.h"
 
@@ -411,6 +412,106 @@ static void test_move(void) {
 	Playlist_Free(&pl);
 }
 
+// --- nombres ---------------------------------------------------------------
+
+static void test_name_valid(void) {
+	CHECK(Playlist_NameValid("Favoritas"), "un nombre normal no fue valido");
+	CHECK(!Playlist_NameValid(""), "el nombre vacio fue valido");
+	CHECK(!Playlist_NameValid("   "), "un nombre de solo espacios fue valido");
+	CHECK(!Playlist_NameValid(" \t "), "espacios y tabuladores fueron validos");
+	CHECK(Playlist_NameValid("  a  "), "un nombre con espacios alrededor no fue valido");
+
+	char name[PLAYLIST_NAME_MAX];
+	memset(name, 'a', 64);
+	name[64] = '\0';
+	CHECK(Playlist_NameValid(name), "64 caracteres no fue valido");
+	name[64] = 'a';
+	name[65] = '\0';
+	CHECK(!Playlist_NameValid(name), "65 caracteres fue valido");
+
+	// 64 eñes son 128 bytes, pero 64 caracteres.
+	name[0] = '\0';
+	for (int i = 0; i < 64; i++)
+		strcat(name, "ñ");
+	CHECK(Playlist_NameValid(name), "64 enes no fueron validas");
+	strcat(name, "ñ");
+	CHECK(!Playlist_NameValid(name), "65 enes fueron validas");
+}
+
+static void test_names_equal(void) {
+	CHECK(Playlist_NamesEqual("Favoritas", "FAVORÍTAS"), "Favoritas y FAVORÍTAS no fueron iguales");
+	CHECK(Playlist_NamesEqual("favoritas", "Favoritas"), "solo mayusculas no fue igual");
+	CHECK(Playlist_NamesEqual("Año", "ANO"), "la ñ no se trato como n");
+	CHECK(!Playlist_NamesEqual("Viaje", "Viaje a la costa"), "un prefijo fue igual");
+	CHECK(!Playlist_NamesEqual("Viaje", "Viajes"), "nombres distintos fueron iguales");
+}
+
+// Simula una carpeta con estos archivos, comparando sin mayusculas como la Vita.
+typedef struct {
+	const char **files;
+	int count;
+} Folder;
+
+static int folder_has(const char *file, void *ctx) {
+	const Folder *f = ctx;
+	for (int i = 0; i < f->count; i++) {
+		if (strcasecmp(f->files[i], file) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+static void test_file_name(void) {
+	char out[PLAYLIST_FILE_MAX];
+
+	CHECK(Playlist_FileName("Favoritas", NULL, NULL, out, sizeof(out)) == 0 && strcmp(out, "Favoritas.m3u8") == 0, "simple: '%s'", out);
+
+	CHECK(Playlist_FileName("AC/DC: lo mejor?", NULL, NULL, out, sizeof(out)) == 0, "AC/DC fallo");
+	CHECK(strcmp(out, "AC_DC_ lo mejor_.m3u8") == 0, "AC/DC: '%s'", out);
+
+	CHECK(Playlist_FileName("a\\b*c\"d<e>f|g\th\x01", NULL, NULL, out, sizeof(out)) == 0, "caracteres raros fallo");
+	CHECK(strcmp(out, "a_b_c_d_e_f_g_h_.m3u8") == 0, "caracteres raros: '%s'", out);
+
+	CHECK(Playlist_FileName("Canción ñandú", NULL, NULL, out, sizeof(out)) == 0 && strcmp(out, "Canción ñandú.m3u8") == 0,
+		"las tildes no se conservaron: '%s'", out);
+
+	// 64 bytes justos quedan enteros; mas se cortan a 64.
+	char name[PLAYLIST_NAME_MAX];
+	memset(name, 'x', 64);
+	name[64] = '\0';
+	CHECK(Playlist_FileName(name, NULL, NULL, out, sizeof(out)) == 0 && strlen(out) == 64 + 5, "64 bytes: %zu", strlen(out));
+
+	// 63 equis y una ñ: la ñ no cabe entera y sale, sin dejar medio caracter.
+	memset(name, 'x', 63);
+	strcpy(name + 63, "ñyy");
+	CHECK(Playlist_FileName(name, NULL, NULL, out, sizeof(out)) == 0, "corte UTF-8 fallo");
+	CHECK(strlen(out) == 63 + 5 && strncmp(out + 63, ".m3u8", 5) == 0, "el corte partio la ñ: '%s'", out);
+
+	// Colision: "a/b" y "a_b" dan el mismo archivo.
+	const char *taken[] = { "a_b.m3u8" };
+	Folder one = { taken, 1 };
+	CHECK(Playlist_FileName("a/b", folder_has, &one, out, sizeof(out)) == 0 && strcmp(out, "a_b (2).m3u8") == 0, "colision: '%s'", out);
+
+	const char *taken3[] = { "A_B.m3u8", "a_b (2).m3u8", "a_b (3).M3U8" };
+	Folder three = { taken3, 3 };
+	CHECK(Playlist_FileName("a:b", folder_has, &three, out, sizeof(out)) == 0 && strcmp(out, "a_b (4).m3u8") == 0, "tres colisiones: '%s'", out);
+
+	// Con el sufijo tampoco se pasa de 64 bytes antes de la extension.
+	memset(name, 'x', 64);
+	name[64] = '\0';
+	char first[PLAYLIST_FILE_MAX];
+	memcpy(first, name, 64);
+	strcpy(first + 64, ".m3u8");
+	const char *long_taken[] = { first };
+	Folder lf = { long_taken, 1 };
+	CHECK(Playlist_FileName(name, folder_has, &lf, out, sizeof(out)) == 0, "colision larga fallo");
+	CHECK(strlen(out) == 64 + 5 && strstr(out, " (2).m3u8") != NULL, "colision larga: '%s' (%zu)", out, strlen(out));
+
+	// Un buffer chico no se desborda.
+	char tiny[8];
+	CHECK(Playlist_FileName("Favoritas", NULL, NULL, tiny, sizeof(tiny)) == -1, "un buffer chico no dio -1");
+}
+
 int main(void) {
 	test_round_trip();
 	test_empty_playlist_round_trip();
@@ -426,6 +527,9 @@ int main(void) {
 	test_append_nomem();
 	test_remove();
 	test_move();
+	test_name_valid();
+	test_names_equal();
+	test_file_name();
 
 	if (failures == 0)
 		printf("test_playlist: todo bien\n");

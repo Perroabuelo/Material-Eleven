@@ -1,7 +1,9 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "playlist.h"
+#include "text_fold.h"
 
 // The tests swap realloc for one that fails on demand, to walk the paths where
 // memory runs out (tests/test_playlist.c). Every allocation here goes through it.
@@ -316,6 +318,73 @@ int Playlist_Move(Playlist *pl, int from, int to) {
 
 	pl->entries[to] = moving;
 	return 0;
+}
+
+int Playlist_NameValid(const char *name) {
+	int chars = 0;
+	int visible = 0;
+
+	for (const unsigned char *p = (const unsigned char *)name; *p != '\0'; p++) {
+		// A character starts at every byte that is not a continuation byte.
+		if ((*p & 0xC0) != 0x80)
+			chars++;
+		if (*p != ' ' && *p != '\t')
+			visible = 1;
+	}
+
+	return visible && chars <= PLAYLIST_NAME_CHARS;
+}
+
+int Playlist_NamesEqual(const char *a, const char *b) {
+	// Folding never makes a text longer, so a name always fits whole.
+	char fa[PLAYLIST_NAME_MAX];
+	char fb[PLAYLIST_NAME_MAX];
+
+	TextFold_Fold(a, fa, sizeof(fa));
+	TextFold_Fold(b, fb, sizeof(fb));
+	return strcmp(fa, fb) == 0;
+}
+
+// Cuts `s`, `len` bytes long, to at most `max` bytes at a character boundary,
+// and returns the new length.
+static size_t CutUtf8(const char *s, size_t len, size_t max) {
+	if (len <= max)
+		return len;
+
+	while (max > 0 && ((unsigned char)s[max] & 0xC0) == 0x80)
+		max--;
+
+	return max;
+}
+
+// The largest suffix number tried before giving up.
+#define FILE_SUFFIX_LAST 999
+
+int Playlist_FileName(const char *name, Playlist_FileExists exists, void *ctx, char *out, size_t cap) {
+	char base[PLAYLIST_NAME_MAX];
+	size_t len = 0;
+
+	for (const unsigned char *p = (const unsigned char *)name; *p != '\0' && len + 1 < sizeof(base); p++)
+		base[len++] = (*p < 0x20 || *p == 0x7F || strchr("/\\:*?\"<>|", *p) != NULL) ? '_' : (char)*p;
+
+	base[len] = '\0';
+	len = CutUtf8(base, len, PLAYLIST_FILE_BASE_MAX);
+
+	for (int n = 1; n <= FILE_SUFFIX_LAST; n++) {
+		char suffix[16] = "";
+		if (n > 1)
+			snprintf(suffix, sizeof(suffix), " (%d)", n);
+
+		size_t keep = CutUtf8(base, len, PLAYLIST_FILE_BASE_MAX - strlen(suffix));
+		if (keep + strlen(suffix) + sizeof(PLAYLIST_FILE_EXT) > cap)
+			return -1;
+
+		snprintf(out, cap, "%.*s%s%s", (int)keep, base, suffix, PLAYLIST_FILE_EXT);
+		if (exists == NULL || !exists(out, ctx))
+			return 0;
+	}
+
+	return -1;
 }
 
 void Playlist_Free(Playlist *pl) {

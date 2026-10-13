@@ -68,6 +68,23 @@ Playlist_Result Playlist_Parse(const char *buf, size_t len, Playlist *out);
 // same. PLAYLIST_OK or PLAYLIST_NOMEM.
 Playlist_Result Playlist_Serialize(const Playlist *pl, char **out, size_t *len);
 
+// Adds the `n` entries of `src` at the end, in order, skipping those whose
+// path is already in the playlist (or earlier in `src`). When the playlist
+// reaches PLAYLIST_MAX_ENTRIES the rest is left out and `*full` is 1.
+// `*added` counts what went in and `*skipped` what was already there; any of
+// the three may be NULL.
+//
+// PLAYLIST_OK, or PLAYLIST_NOMEM with the playlist as it was.
+Playlist_Result Playlist_Append(Playlist *pl, const Playlist_Entry *src, int n, int *added, int *skipped, int *full);
+
+// Takes out the entry `index`; the ones after it move up. 0, or -1 when
+// `index` is out of range.
+int Playlist_Remove(Playlist *pl, int index);
+
+// Moves the entry `from` to position `to`; the ones in between shift by one.
+// 0, or -1 when either is out of range, and then nothing moves.
+int Playlist_Move(Playlist *pl, int from, int to);
+
 // Frees the entries and leaves `pl` empty, its name included. Takes an empty
 // one too.
 void Playlist_Free(Playlist *pl);

@@ -272,6 +272,145 @@ static void test_parse_nomem(void) {
 	Playlist_Free(&src);
 }
 
+// --- operaciones -----------------------------------------------------------
+
+// Si las rutas de la playlist son, en orden, "ux0:music/<prefix><ids[i]>.flac".
+static int order_is(const Playlist *pl, const char *prefix, const int *ids, int n) {
+	if (pl->count != n)
+		return 0;
+
+	for (int i = 0; i < n; i++) {
+		char path[64];
+		snprintf(path, sizeof(path), "ux0:music/%s%d.flac", prefix, ids[i]);
+		if (strcmp(pl->entries[i].path, path) != 0)
+			return 0;
+	}
+
+	return 1;
+}
+
+static void test_append_duplicates(void) {
+	// "Viaje" ya tiene 3 de las 10 pistas de un album.
+	Playlist viaje, album;
+	make_playlist(&viaje, "Viaje", "d", 0);
+	make_playlist(&album, "", "d", 10);
+
+	Playlist_Entry three[3] = { album.entries[2], album.entries[5], album.entries[9] };
+	int added = -1, skipped = -1, full = -1;
+	CHECK(Playlist_Append(&viaje, three, 3, &added, &skipped, &full) == PLAYLIST_OK, "anadir a una vacia fallo");
+	CHECK(added == 3 && skipped == 0 && full == 0, "a una vacia: %d anadidas, %d omitidas, llena %d", added, skipped, full);
+
+	CHECK(Playlist_Append(&viaje, album.entries, 10, &added, &skipped, &full) == PLAYLIST_OK, "anadir el album fallo");
+	CHECK(added == 7 && skipped == 3 && full == 0, "el album: %d anadidas, %d omitidas, llena %d", added, skipped, full);
+
+	const int expect[] = { 2, 5, 9, 0, 1, 3, 4, 6, 7, 8 };
+	CHECK(order_is(&viaje, "d", expect, 10), "no quedaron al final y en el orden del disco");
+
+	// Repetidas dentro de lo que se anade tampoco entran dos veces.
+	Playlist_Entry twice[2] = { album.entries[0], album.entries[0] };
+	Playlist other;
+	make_playlist(&other, "O", "z", 0);
+	CHECK(Playlist_Append(&other, twice, 2, &added, &skipped, NULL) == PLAYLIST_OK && added == 1 && skipped == 1,
+		"la repetida dentro del mismo anadido entro dos veces");
+
+	// Los contadores pueden ser NULL, y anadir nada no cambia nada.
+	CHECK(Playlist_Append(&other, NULL, 0, NULL, NULL, NULL) == PLAYLIST_OK && other.count == 1, "anadir 0 cambio algo");
+
+	Playlist_Free(&other);
+	Playlist_Free(&viaje);
+	Playlist_Free(&album);
+}
+
+static void test_append_full(void) {
+	Playlist pl, more;
+	make_playlist(&pl, "Casi llena", "f", 3998);
+	make_playlist(&more, "", "g", 5);
+
+	int added = -1, skipped = -1, full = -1;
+	CHECK(Playlist_Append(&pl, more.entries, 5, &added, &skipped, &full) == PLAYLIST_OK, "anadir a una casi llena fallo");
+	CHECK(pl.count == PLAYLIST_MAX_ENTRIES, "quedaron %d y no 4000", pl.count);
+	CHECK(added == 2 && full == 1, "%d anadidas, llena %d", added, full);
+	CHECK(strcmp(pl.entries[3998].path, "ux0:music/g0.flac") == 0 && strcmp(pl.entries[3999].path, "ux0:music/g1.flac") == 0,
+		"no entraron las primeras que cabian, en orden");
+
+	// Llena del todo: no entra nada, pero las que ya estaban se cuentan.
+	CHECK(Playlist_Append(&pl, more.entries, 5, &added, &skipped, &full) == PLAYLIST_OK, "anadir a una llena fallo");
+	CHECK(added == 0 && skipped == 2 && full == 1, "a una llena: %d anadidas, %d omitidas, llena %d", added, skipped, full);
+
+	Playlist_Free(&pl);
+	Playlist_Free(&more);
+}
+
+static void test_append_nomem(void) {
+	Playlist pl, more;
+	make_playlist(&pl, "P", "p", 3);
+	make_playlist(&more, "", "q", 4);
+
+	fail_reset(0);
+	int added = -1;
+	CHECK(Playlist_Append(&pl, more.entries, 4, &added, NULL, NULL) == PLAYLIST_NOMEM, "sin memoria no dio NOMEM");
+	fail_reset(-1);
+
+	const int expect[] = { 0, 1, 2 };
+	CHECK(order_is(&pl, "p", expect, 3) && pl.cap == 3, "sin memoria la playlist cambio");
+	CHECK(added == -1, "sin memoria escribio los contadores");
+
+	Playlist_Free(&pl);
+	Playlist_Free(&more);
+}
+
+static void test_remove(void) {
+	Playlist pl;
+	make_playlist(&pl, "R", "r", 5);
+
+	CHECK(Playlist_Remove(&pl, 0) == 0, "quitar la primera fallo");
+	const int a[] = { 1, 2, 3, 4 };
+	CHECK(order_is(&pl, "r", a, 4), "quitar la primera dejo otro orden");
+
+	CHECK(Playlist_Remove(&pl, 1) == 0, "quitar una del medio fallo");
+	const int b[] = { 1, 3, 4 };
+	CHECK(order_is(&pl, "r", b, 3), "quitar una del medio dejo otro orden");
+
+	CHECK(Playlist_Remove(&pl, 2) == 0, "quitar la ultima fallo");
+	const int c[] = { 1, 3 };
+	CHECK(order_is(&pl, "r", c, 2), "quitar la ultima dejo otro orden");
+
+	CHECK(Playlist_Remove(&pl, 2) == -1 && Playlist_Remove(&pl, -1) == -1, "quitar fuera de rango no dio -1");
+	CHECK(order_is(&pl, "r", c, 2), "quitar fuera de rango cambio algo");
+
+	Playlist_Free(&pl);
+}
+
+static void test_move(void) {
+	Playlist pl;
+	make_playlist(&pl, "M", "m", 6);
+
+	// La quinta, tres puestos arriba: queda segunda (spec "Mover una cancion").
+	CHECK(Playlist_Move(&pl, 4, 1) == 0, "mover hacia arriba fallo");
+	const int up[] = { 0, 4, 1, 2, 3, 5 };
+	CHECK(order_is(&pl, "m", up, 6), "mover hacia arriba dejo otro orden");
+
+	CHECK(Playlist_Move(&pl, 1, 3) == 0, "mover hacia abajo fallo");
+	const int down[] = { 0, 1, 2, 4, 3, 5 };
+	CHECK(order_is(&pl, "m", down, 6), "mover hacia abajo dejo otro orden");
+
+	CHECK(Playlist_Move(&pl, 5, 0) == 0, "mover al principio fallo");
+	const int first[] = { 5, 0, 1, 2, 4, 3 };
+	CHECK(order_is(&pl, "m", first, 6), "mover al principio dejo otro orden");
+
+	CHECK(Playlist_Move(&pl, 0, 5) == 0, "mover al final fallo");
+	const int last[] = { 0, 1, 2, 4, 3, 5 };
+	CHECK(order_is(&pl, "m", last, 6), "mover al final dejo otro orden");
+
+	CHECK(Playlist_Move(&pl, 2, 2) == 0 && order_is(&pl, "m", last, 6), "mover a su mismo puesto cambio algo");
+
+	CHECK(Playlist_Move(&pl, 0, -1) == -1 && Playlist_Move(&pl, 0, 6) == -1 && Playlist_Move(&pl, 6, 0) == -1,
+		"mover fuera de rango no dio -1");
+	CHECK(order_is(&pl, "m", last, 6), "mover fuera de rango cambio algo");
+
+	Playlist_Free(&pl);
+}
+
 int main(void) {
 	test_round_trip();
 	test_empty_playlist_round_trip();
@@ -282,6 +421,11 @@ int main(void) {
 	test_utf8_cut();
 	test_newlines_in_fields();
 	test_parse_nomem();
+	test_append_duplicates();
+	test_append_full();
+	test_append_nomem();
+	test_remove();
+	test_move();
 
 	if (failures == 0)
 		printf("test_playlist: todo bien\n");

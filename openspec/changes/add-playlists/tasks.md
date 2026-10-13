@@ -7,7 +7,7 @@
   - fallo de reserva inyectado en `Parse`, sin fugas.
 
   Agregar el test a `BIN` y a las reglas de `tests/Makefile`, y el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
-- [ ] 1.2 Agregar `Playlist_Append` (sin duplicados, devuelve añadidas, omitidas y si se llenó, con techo 4000), `Playlist_Remove` y `Playlist_Move`. Ampliar `test_playlist`:
+- [x] 1.2 Agregar `Playlist_Append` (sin duplicados, devuelve añadidas, omitidas y si se llenó, con techo 4000), `Playlist_Remove` y `Playlist_Move`. Ampliar `test_playlist`:
   - duplicados y conteo de omitidas;
   - 3998 + 5 deja 4000 y marca llena;
   - quitar primera, del medio y última;

@@ -241,6 +241,83 @@ Playlist_Result Playlist_Serialize(const Playlist *pl, char **out, size_t *len) 
 	return PLAYLIST_OK;
 }
 
+static int HasPath(const Playlist *pl, const char *path) {
+	for (int i = 0; i < pl->count; i++) {
+		if (strcmp(pl->entries[i].path, path) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
+Playlist_Result Playlist_Append(Playlist *pl, const Playlist_Entry *src, int n, int *added, int *skipped, int *full) {
+	int n_added = 0, n_skipped = 0, n_full = 0;
+
+	// Room for all of `src` up front, so running out of memory happens before
+	// anything changes. A realloc that fails leaves the old block alone.
+	int want = pl->count + (n > 0 ? n : 0);
+	if (want > PLAYLIST_MAX_ENTRIES)
+		want = PLAYLIST_MAX_ENTRIES;
+
+	if (want > pl->cap) {
+		Playlist_Entry *grown = playlist_realloc(pl->entries, (size_t)want * sizeof(Playlist_Entry));
+		if (grown == NULL)
+			return PLAYLIST_NOMEM;
+
+		pl->entries = grown;
+		pl->cap = want;
+	}
+
+	for (int i = 0; i < n; i++) {
+		if (HasPath(pl, src[i].path)) {
+			n_skipped++;
+		} else if (pl->count >= PLAYLIST_MAX_ENTRIES) {
+			// Keeps counting the ones that were already there, so the notice
+			// says the same whether the playlist filled up or not.
+			n_full = 1;
+		} else {
+			pl->entries[pl->count++] = src[i];
+			n_added++;
+		}
+	}
+
+	if (added != NULL)
+		*added = n_added;
+	if (skipped != NULL)
+		*skipped = n_skipped;
+	if (full != NULL)
+		*full = n_full;
+
+	return PLAYLIST_OK;
+}
+
+int Playlist_Remove(Playlist *pl, int index) {
+	if (index < 0 || index >= pl->count)
+		return -1;
+
+	memmove(&pl->entries[index], &pl->entries[index + 1], (size_t)(pl->count - index - 1) * sizeof(Playlist_Entry));
+	pl->count--;
+	return 0;
+}
+
+int Playlist_Move(Playlist *pl, int from, int to) {
+	if (from < 0 || from >= pl->count || to < 0 || to >= pl->count)
+		return -1;
+
+	if (from == to)
+		return 0;
+
+	Playlist_Entry moving = pl->entries[from];
+
+	if (from < to)
+		memmove(&pl->entries[from], &pl->entries[from + 1], (size_t)(to - from) * sizeof(Playlist_Entry));
+	else
+		memmove(&pl->entries[to + 1], &pl->entries[to], (size_t)(from - to) * sizeof(Playlist_Entry));
+
+	pl->entries[to] = moving;
+	return 0;
+}
+
 void Playlist_Free(Playlist *pl) {
 	free(pl->entries);
 	memset(pl, 0, sizeof(*pl));

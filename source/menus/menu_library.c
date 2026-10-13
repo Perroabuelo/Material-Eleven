@@ -108,6 +108,13 @@ static PlaylistSummary *playlists = NULL;
 static int playlist_count = 0;
 static SceBool playlists_loaded = SCE_FALSE;
 
+// Dentro de una playlist: su archivo, que es como se la vuelve a encontrar al
+// volver a la pantalla, y sus canciones mientras se ven. La playlist completa
+// solo esta en RAM mientras se esta dentro de ella y en esta pantalla.
+static char open_file[PLAYLIST_FILE_MAX] = "";
+static Playlist open_playlist;
+static SceBool open_loaded = SCE_FALSE;
+
 // Construir una vista es un qsort sobre miles de enteros. Se rehace cuando algo
 // la invalida - cambiar de pestaña, entrar, salir, reescanear - y no en cada
 // fotograma, que es lo que costaria dibujarla y leer el pad.
@@ -207,6 +214,41 @@ static const PlaylistSummary *Menu_LibraryPlaylistAt(int full) {
 	return (full >= 0 && full < playlist_count) ? &playlists[full] : NULL;
 }
 
+// Las canciones de una playlist, y no la lista de playlists.
+static SceBool Menu_LibraryInPlaylist(void) {
+	return view == VIEW_PLAYLISTS && inside;
+}
+
+static void Menu_LibraryFreeOpenPlaylist(void) {
+	Playlist_Free(&open_playlist);
+	open_loaded = SCE_FALSE;
+}
+
+static const Playlist_Entry *Menu_LibraryEntryAt(int full) {
+	return (open_loaded && full >= 0 && full < open_playlist.count) ? &open_playlist.entries[full] : NULL;
+}
+
+// Como se llama una cancion de la playlist en su fila: como en la biblioteca si
+// la biblioteca la tiene, y si no con el titulo que se guardo al añadirla.
+static const char *Menu_LibraryEntryTitle(const Playlist_Entry *e) {
+	const Library_Track *t = Library_FindPath(e->path);
+
+	if (t != NULL)
+		return Menu_LibraryTrackTitle(t);
+
+	return (e->title[0] != '\0') ? e->title : Utils_Basename(e->path);
+}
+
+// Vuelve a la pestaña sin entrar: la playlist que se tenia abierta ya no se
+// puede leer, por ejemplo porque se borro mientras sonaba.
+static void Menu_LibraryDropOpenPlaylist(void) {
+	Menu_LibraryFreeOpenPlaylist();
+	open_file[0] = '\0';
+	inside = SCE_FALSE;
+	group_search.term[0] = group_search.folded[0] = '\0';
+	selection = outer_selection;
+}
+
 static Library_Field Menu_LibraryField(void) {
 	return (view == VIEW_ALBUMS) ? LIBRARY_FIELD_ALBUM : LIBRARY_FIELD_ARTIST;
 }
@@ -289,6 +331,18 @@ static int Menu_LibraryFull(int visible) {
 }
 
 static int Menu_LibraryBuildFull(void) {
+	// Al volver a la pantalla la playlist abierta se lee otra vez por su
+	// archivo. Si ya no esta, la lista es la de la pestaña.
+	if (Menu_LibraryInPlaylist() && !open_loaded) {
+		if (PlaylistStore_Load(open_file, &open_playlist) == PLAYLIST_OK)
+			open_loaded = SCE_TRUE;
+		else
+			Menu_LibraryDropOpenPlaylist();
+	}
+
+	if (Menu_LibraryInPlaylist())
+		return open_playlist.count;
+
 	if (Menu_LibraryShowsPlaylists())
 		return Menu_LibraryLoadPlaylists();
 
@@ -336,6 +390,12 @@ static int Menu_LibraryMatchTitle(int index, void *folded) {
 	return t != NULL && TextFold_Contains(Menu_LibraryTrackTitle(t), folded);
 }
 
+static int Menu_LibraryMatchEntry(int index, void *folded) {
+	const Playlist_Entry *e = Menu_LibraryEntryAt(index);
+
+	return e != NULL && TextFold_Contains(Menu_LibraryEntryTitle(e), folded);
+}
+
 static int Menu_LibraryMatchPlaylist(int index, void *folded) {
 	const PlaylistSummary *s = Menu_LibraryPlaylistAt(index);
 
@@ -344,6 +404,9 @@ static int Menu_LibraryMatchPlaylist(int index, void *folded) {
 
 // Cuantas entradas tiene la lista completa ya construida del nivel vigente.
 static int Menu_LibraryFullCount(void) {
+	if (Menu_LibraryInPlaylist())
+		return open_playlist.count;
+
 	if (Menu_LibraryShowsPlaylists())
 		return playlist_count;
 
@@ -357,6 +420,8 @@ static void Menu_LibraryRefilter(int full_count) {
 
 	if (search->folded[0] != '\0' && Menu_LibraryShowsPlaylists())
 		match = Menu_LibraryMatchPlaylist;
+	else if (search->folded[0] != '\0' && Menu_LibraryInPlaylist())
+		match = Menu_LibraryMatchEntry;
 	else if (search->folded[0] != '\0')
 		match = Menu_LibraryShowsNames() ? Menu_LibraryMatchName : (inside ? Menu_LibraryMatchTitle : Menu_LibraryMatchTrack);
 
@@ -490,7 +555,8 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	// Dentro de un artista o un album manda su nombre, porque es lo que el usuario
 	// acaba de elegir; la pestaña sigue marcada al lado.
-	const char *heading = inside ? (inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name) : Lang_Get(STR_LIBRARY_TITLE);
+	const char *heading = Menu_LibraryInPlaylist() ? open_playlist.name
+		: inside ? (inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name) : Lang_Get(STR_LIBRARY_TITLE);
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H - 18),
 		text_w, UI_COLOR_TEXT_PRIMARY, heading);
@@ -609,9 +675,14 @@ static void Menu_DrawLibraryList(void) {
 		return;
 	}
 
-	// Sin playlists, la pestaña dice como se crea una.
+	// Sin playlists, la pestaña dice como se crea una; una playlist vacia lo dice.
 	if (count == 0 && Menu_LibraryShowsPlaylists()) {
 		Menu_DrawLibraryPlaceholder(Lang_Get(STR_PLAYLISTS_EMPTY), Lang_Get(STR_PLAYLISTS_EMPTY_HOW));
+		return;
+	}
+
+	if (count == 0 && Menu_LibraryInPlaylist()) {
+		Menu_DrawLibraryPlaceholder(Lang_Get(STR_PLAYLIST_EMPTY), NULL);
 		return;
 	}
 
@@ -630,7 +701,25 @@ static void Menu_DrawLibraryList(void) {
 
 		int full = Menu_LibraryFull(i);
 
-		if (Menu_LibraryShowsPlaylists()) {
+		if (Menu_LibraryInPlaylist()) {
+			const Playlist_Entry *e = Menu_LibraryEntryAt(full);
+
+			if (e == NULL)
+				break;
+
+			// Como la de un album si la biblioteca la tiene: sus tags, su
+			// extension y su caratula. Si no, atenuada, con lo que se guardo.
+			const Library_Track *t = Library_FindPath(e->path);
+			const char *artist = (t != NULL) ? t->artist : e->artist;
+
+			if (artist[0] == '\0')
+				artist = Lang_Get(STR_UNKNOWN);
+
+			Menu_DrawLibraryRow(i, y, Menu_LibraryEntryTitle(e), artist,
+				Cover_Get((t != NULL) ? t->album : e->album, e->path, &budget),
+				(t != NULL) ? t->ext : FS_GetFileExt(e->path), t == NULL);
+		}
+		else if (Menu_LibraryShowsPlaylists()) {
 			const PlaylistSummary *s = Menu_LibraryPlaylistAt(full);
 
 			if (s == NULL)
@@ -894,6 +983,63 @@ static void Menu_LibraryPlaySelected(void) {
 
 // ---------------------------------------------------------------------------
 
+// Reproducir desde una playlist: la cola es la playlist entera, en su orden, y
+// el ajuste de fin de album no la toca. La cola copia cada cadena, asi que es
+// una foto: lo que se edite despues en la playlist no cambia lo que suena.
+static void Menu_LibraryPlayPlaylist(void) {
+	Menu_LibraryBuild();
+
+	const Playlist_Entry *chosen = Menu_LibraryEntryAt(Menu_LibraryFull(selection));
+
+	if (chosen == NULL)
+		return;
+
+	if (!FS_FileExists(chosen->path)) {
+		Menu_LibraryNotice(STR_NOTICE_FILE_GONE);
+		return;
+	}
+
+	Queue_Clear();
+
+	for (int i = 0; i < open_playlist.count; i++) {
+		const Playlist_Entry *e = &open_playlist.entries[i];
+		const Library_Track *t = Library_FindPath(e->path);
+
+		// El album, del indice o de #EXTALB, para que "A continuacion" muestre
+		// su caratula aunque la biblioteca ya no tenga la pista.
+		if (!Queue_Add(e->path, Menu_LibraryEntryTitle(e), (t != NULL) ? t->album : e->album))
+			break;
+	}
+
+	if (!Menu_PlayQueued(chosen->path))
+		Menu_LibraryNotice(STR_NOTICE_UNREADABLE);
+}
+
+static void Menu_LibraryEnterPlaylist(void) {
+	const PlaylistSummary *s = Menu_LibraryPlaylistAt(Menu_LibraryFull(selection));
+	Playlist pl;
+
+	if (s == NULL)
+		return;
+
+	if (PlaylistStore_Load(s->file, &pl) != PLAYLIST_OK) {
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_UNREADABLE);
+		return;
+	}
+
+	Menu_LibraryFreeOpenPlaylist();
+	open_playlist = pl;
+	open_loaded = SCE_TRUE;
+	snprintf(open_file, sizeof(open_file), "%s", s->file);
+
+	outer_selection = selection;
+	inside = SCE_TRUE;
+	group_search.term[0] = group_search.folded[0] = '\0';
+	selection = 0;
+	view_dirty = SCE_TRUE;
+	TouchList_Reset(&library_list);
+}
+
 static void Menu_LibraryEnter(void) {
 	int full = Menu_LibraryFull(selection);
 	const char *name = Library_NameAt(full);
@@ -921,6 +1067,8 @@ static SceBool Menu_LibraryLeave(void) {
 	group_search.term[0] = group_search.folded[0] = '\0';
 	inside_unknown = SCE_FALSE;
 	inside_name[0] = '\0';
+	Menu_LibraryFreeOpenPlaylist();
+	open_file[0] = '\0';
 	selection = outer_selection;
 	view_dirty = SCE_TRUE;
 	TouchList_Reset(&library_list);
@@ -932,6 +1080,8 @@ static void Menu_LibrarySetView(Menu_LibraryTab next) {
 	// Los resumenes son de la pestaña: se sueltan al dejarla, y al volver a
 	// ella se leen de nuevo.
 	Menu_LibraryFreePlaylists();
+	Menu_LibraryFreeOpenPlaylist();
+	open_file[0] = '\0';
 	view = next;
 	inside = SCE_FALSE;
 	inside_unknown = SCE_FALSE;
@@ -956,10 +1106,11 @@ static void Menu_LibraryBack(void) {
 // Confirmar sobre la fila marcada: entra en un nombre o en una playlist, o
 // reproduce una pista.
 static void Menu_LibraryConfirm(void) {
-	if (Menu_LibraryShowsPlaylists())
-		return;
-
-	if (Menu_LibraryShowsNames())
+	if (Menu_LibraryInPlaylist())
+		Menu_LibraryPlayPlaylist();
+	else if (Menu_LibraryShowsPlaylists())
+		Menu_LibraryEnterPlaylist();
+	else if (Menu_LibraryShowsNames())
 		Menu_LibraryEnter();
 	else
 		Menu_LibraryPlaySelected();
@@ -1104,6 +1255,7 @@ static void Menu_HandleLibraryOptions(void) {
 // fila se quedan, y lo soltado se vuelve a leer al volver.
 static UI_Screen Menu_LibraryExit(UI_Screen next) {
 	Menu_LibraryFreePlaylists();
+	Menu_LibraryFreeOpenPlaylist();
 	return next;
 }
 

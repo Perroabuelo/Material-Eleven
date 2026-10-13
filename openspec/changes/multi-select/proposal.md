@@ -63,7 +63,7 @@ Depende de `add-playlists`: se apoya en su menú de Cuadrado contextual, en su s
 
 ## Notas de version
 
-Versión objetivo: la minor siguiente a la de `add-playlists`, que hoy figura como **v3.10.0**. Supone que no sale otra versión entre medio. Se ajusta al cerrar el cambio.
+Versión objetivo: **v4.1.0** (minor: funcionalidad nueva), la siguiente a `add-playlists` (v4.0.0). Supone que no sale otra versión entre medio. Se ajusta al cerrar el cambio.
 
 - Select several songs at once: choose "Select" from the Square menu, or touch and hold a row.
 - Add all selected songs, albums or artists to a playlist in one go.

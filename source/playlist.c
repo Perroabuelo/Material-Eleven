@@ -387,6 +387,69 @@ int Playlist_FileName(const char *name, Playlist_FileExists exists, void *ctx, c
 	return -1;
 }
 
+int Playlist_Recover(int has_main, int has_tmp, int has_bak) {
+	int actions = 0;
+
+	// A .tmp is complete only once step 3 renames it, so one still lying
+	// around may be cut short: it never wins over what is in place.
+	if (has_tmp)
+		actions |= PLAYLIST_RECOVER_DELETE_TMP;
+
+	// With the playlist in place, the .bak is the previous version and step 4
+	// did not finish; without it, the cut fell between steps 2 and 3 and the
+	// .bak is the only whole copy.
+	if (has_bak)
+		actions |= has_main ? PLAYLIST_RECOVER_DELETE_BAK : PLAYLIST_RECOVER_RESTORE_BAK;
+
+	return actions;
+}
+
+// Albums already seen without a cover, so a playlist with many tracks of one
+// such album asks about it once. Past this many, an album may be asked about
+// again, which costs time but not correctness.
+#define MOSAIC_REJECTED_MAX 64
+
+static int SameAlbum(const Playlist_Entry *a, const Playlist_Entry *b) {
+	if (a->album[0] == '\0' || b->album[0] == '\0')
+		return a->album[0] == '\0' && b->album[0] == '\0' && strcmp(a->path, b->path) == 0;
+
+	return strcmp(a->album, b->album) == 0;
+}
+
+int Playlist_MosaicAlbums(const Playlist *pl, Playlist_CoverProbe probe, void *ctx, int out[4], int *pending) {
+	const Playlist_Entry *rejected[MOSAIC_REJECTED_MAX];
+	int n_rejected = 0;
+	int n = 0;
+	int waiting = 0;
+
+	for (int i = 0; i < pl->count && n < 4; i++) {
+		const Playlist_Entry *e = &pl->entries[i];
+		int seen = 0;
+
+		for (int k = 0; k < n && !seen; k++)
+			seen = SameAlbum(e, &pl->entries[out[k]]);
+		for (int k = 0; k < n_rejected && !seen; k++)
+			seen = SameAlbum(e, rejected[k]);
+		if (seen)
+			continue;
+
+		int result = probe(e->album, e->path, ctx);
+		if (result > 0) {
+			out[n++] = i;
+		} else {
+			if (result < 0)
+				waiting = 1;
+			if (n_rejected < MOSAIC_REJECTED_MAX)
+				rejected[n_rejected++] = e;
+		}
+	}
+
+	if (pending != NULL)
+		*pending = waiting;
+
+	return n;
+}
+
 void Playlist_Free(Playlist *pl) {
 	free(pl->entries);
 	memset(pl, 0, sizeof(*pl));

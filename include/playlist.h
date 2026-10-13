@@ -114,6 +114,46 @@ typedef int (*Playlist_FileExists)(const char *file_name, void *ctx);
 // further to make room. 0, or -1 when no free name turns up.
 int Playlist_FileName(const char *name, Playlist_FileExists exists, void *ctx, char *out, size_t cap);
 
+// --- saving safely ---------------------------------------------------------
+// Renaming on the Vita does not replace a file that exists, so a save is
+//
+//     1. write   X.m3u8.tmp, whole, and close it
+//     2. rename  X.m3u8     -> X.m3u8.bak   (when X exists)
+//     3. rename  X.m3u8.tmp -> X.m3u8
+//     4. delete  X.m3u8.bak
+//
+// and a cut at any step leaves some of the three behind. Listing the folder
+// cleans them up with what Playlist_Recover says, in the order of the flags.
+
+#define PLAYLIST_TMP_EXT ".tmp"
+#define PLAYLIST_BAK_EXT ".bak"
+
+enum {
+	PLAYLIST_RECOVER_RESTORE_BAK = 1, // rename the .bak back to the playlist
+	PLAYLIST_RECOVER_DELETE_TMP = 2,
+	PLAYLIST_RECOVER_DELETE_BAK = 4
+};
+
+// What to do with a playlist file, its .tmp and its .bak, given which of them
+// exist: a mix of the flags above, 0 when nothing is left over. The playlist
+// ends up whole in its old version or in its new one, never half written.
+int Playlist_Recover(int has_main, int has_tmp, int has_bak);
+
+// --- the cover -------------------------------------------------------------
+
+// What the cover cache says about the album of an entry, as Cover_Probe: -1
+// when it has not been looked at yet, 0 when it has no cover, 1 when it has.
+// The album is the key, or the path when the album is "".
+typedef int (*Playlist_CoverProbe)(const char *album, const char *path, void *ctx);
+
+// The playlist's cover: the first distinct albums in it, in order, skipping
+// those without a cover, as the indices of the entries that represent them,
+// up to 4 into `out`. Returns how many. Entries without an album are each
+// their own album, keyed by path. `*pending` (may be NULL) is 1 when some
+// album on the way had not been looked at yet, so the choice may change once
+// the cover pass reaches it.
+int Playlist_MosaicAlbums(const Playlist *pl, Playlist_CoverProbe probe, void *ctx, int out[4], int *pending);
+
 // Frees the entries and leaves `pl` empty, its name included. Takes an empty
 // one too.
 void Playlist_Free(Playlist *pl);

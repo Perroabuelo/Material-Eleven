@@ -512,6 +512,192 @@ static void test_file_name(void) {
 	CHECK(Playlist_FileName("Favoritas", NULL, NULL, tiny, sizeof(tiny)) == -1, "un buffer chico no dio -1");
 }
 
+// --- recuperacion tras un corte --------------------------------------------
+
+static void test_recover_table(void) {
+	// Las tres filas de la tabla de design.md.
+	CHECK(Playlist_Recover(1, 1, 0) == PLAYLIST_RECOVER_DELETE_TMP, "corte en 1");
+	CHECK(Playlist_Recover(0, 1, 1) == (PLAYLIST_RECOVER_RESTORE_BAK | PLAYLIST_RECOVER_DELETE_TMP), "corte entre 2 y 3");
+	CHECK(Playlist_Recover(1, 0, 1) == PLAYLIST_RECOVER_DELETE_BAK, "corte en 4");
+	// Solo la playlist, y nada.
+	CHECK(Playlist_Recover(1, 0, 0) == 0, "solo main hizo algo");
+	CHECK(Playlist_Recover(0, 0, 0) == 0, "nada hizo algo");
+	// Las combinaciones que no salen de un solo guardado tambien quedan bien.
+	CHECK(Playlist_Recover(0, 1, 0) == PLAYLIST_RECOVER_DELETE_TMP, "solo tmp (una nueva que no llego a existir)");
+	CHECK(Playlist_Recover(0, 0, 1) == PLAYLIST_RECOVER_RESTORE_BAK, "solo bak");
+	CHECK(Playlist_Recover(1, 1, 1) == (PLAYLIST_RECOVER_DELETE_TMP | PLAYLIST_RECOVER_DELETE_BAK), "los tres");
+}
+
+// Un disco de mentira con la terna de archivos de una playlist. NULL es que el
+// archivo no existe.
+typedef struct {
+	const char *main, *tmp, *bak;
+} Disk;
+
+// Corre los pasos del guardado de design.md sobre el disco, y se corta antes
+// del paso `cut` (1 a 4; 5 no corta). Un corte en el paso 1 deja el .tmp a medias.
+static void save_with_cut(Disk *d, const char *content, int cut) {
+	if (cut == 1) {
+		d->tmp = "#EXTM3U\n#PLAYL";
+		return;
+	}
+	d->tmp = content;
+	if (cut == 2)
+		return;
+	if (d->main != NULL) {
+		d->bak = d->main;
+		d->main = NULL;
+	}
+	if (cut == 3)
+		return;
+	d->main = d->tmp;
+	d->tmp = NULL;
+	if (cut == 4)
+		return;
+	d->bak = NULL;
+}
+
+static void recover(Disk *d) {
+	int a = Playlist_Recover(d->main != NULL, d->tmp != NULL, d->bak != NULL);
+
+	if (a & PLAYLIST_RECOVER_RESTORE_BAK) {
+		d->main = d->bak;
+		d->bak = NULL;
+	}
+	if (a & PLAYLIST_RECOVER_DELETE_TMP)
+		d->tmp = NULL;
+	if (a & PLAYLIST_RECOVER_DELETE_BAK)
+		d->bak = NULL;
+}
+
+static void test_interrupted_save(void) {
+	const char *old_text = "#EXTM3U\n#PLAYLIST:V\nux0:a\nux0:b\n";
+	const char *new_text = "#EXTM3U\n#PLAYLIST:V\nux0:a\n";
+
+	for (int cut = 1; cut <= 5; cut++) {
+		Disk d = { old_text, NULL, NULL };
+		save_with_cut(&d, new_text, cut);
+		recover(&d);
+
+		CHECK(d.tmp == NULL && d.bak == NULL, "corte %d: quedaron restos", cut);
+		CHECK(d.main == old_text || d.main == new_text, "corte %d: la playlist no esta en ninguna de sus versiones", cut);
+		if (cut == 1)
+			CHECK(d.main == old_text, "escribir a medias no dejo el contenido anterior");
+
+		Playlist pl;
+		CHECK(d.main != NULL && parse_str(d.main, &pl) == PLAYLIST_OK && pl.count > 0, "corte %d: la playlist quedo vacia o ilegible", cut);
+		Playlist_Free(&pl);
+	}
+
+	// Una playlist nueva que se corta antes de existir no deja nada.
+	Disk d = { NULL, NULL, NULL };
+	save_with_cut(&d, new_text, 1);
+	recover(&d);
+	CHECK(d.main == NULL && d.tmp == NULL && d.bak == NULL, "una nueva cortada dejo restos");
+}
+
+// --- mosaico ---------------------------------------------------------------
+
+// Que dice el cache de cada album: una cadena con una letra por album
+// ('A' + i) que vale '1' con caratula, '0' sin ella y '-' sin mirar.
+typedef struct {
+	const char *covers;
+	int calls;
+} Probe;
+
+static int probe_table(const char *album, const char *path, void *ctx) {
+	Probe *p = ctx;
+	p->calls++;
+	if (album[0] == '\0')
+		return strstr(path, "con") != NULL ? 1 : 0;
+
+	char c = p->covers[album[0] - 'A'];
+	return c == '1' ? 1 : c == '0' ? 0 : -1;
+}
+
+// Una playlist cuyas entradas son de los albumes de `albums`, una letra por
+// pista; '.' es una pista sin album.
+static void make_albums(Playlist *pl, const char *albums) {
+	int n = (int)strlen(albums);
+	make_playlist(pl, "", "m", n);
+	for (int i = 0; i < n; i++) {
+		if (albums[i] == '.')
+			pl->entries[i].album[0] = '\0';
+		else
+			snprintf(pl->entries[i].album, sizeof(pl->entries[i].album), "%c", albums[i]);
+	}
+}
+
+static int mosaic_is(const Playlist *pl, const int *out, int n, const char *expect) {
+	if ((int)strlen(expect) != n)
+		return 0;
+	for (int i = 0; i < n; i++) {
+		if (pl->entries[out[i]].album[0] != expect[i])
+			return 0;
+	}
+	return 1;
+}
+
+static void test_mosaic(void) {
+	Playlist pl;
+	int out[4], pending;
+	Probe p = { "111111", 0 };
+
+	make_albums(&pl, "AABCBD");
+	int n = Playlist_MosaicAlbums(&pl, probe_table, &p, out, &pending);
+	CHECK(n == 4 && mosaic_is(&pl, out, n, "ABCD") && pending == 0, "A,A,B,C,B,D no dio A,B,C,D (%d)", n);
+	CHECK(p.calls == 4, "pregunto %d veces y no 4", p.calls);
+	Playlist_Free(&pl);
+
+	// B y D no tienen caratula: se saltan.
+	Probe skip = { "101011", 0 };
+	make_albums(&pl, "ABBCDEF");
+	n = Playlist_MosaicAlbums(&pl, probe_table, &skip, out, &pending);
+	CHECK(n == 4 && mosaic_is(&pl, out, n, "ACEF"), "no salto los albumes sin caratula (%d)", n);
+	CHECK(skip.calls == 6, "pregunto %d veces por 6 albumes", skip.calls);
+	Playlist_Free(&pl);
+
+	// 0, 1, 2 y 3 albumes distintos.
+	const char *few[] = { "", "AAA", "ABAB", "ABCCBA" };
+	for (int k = 0; k < 4; k++) {
+		Probe all = { "111111", 0 };
+		make_albums(&pl, few[k]);
+		n = Playlist_MosaicAlbums(&pl, probe_table, &all, out, NULL);
+		CHECK(n == k, "'%s' dio %d albumes y no %d", few[k], n, k);
+		Playlist_Free(&pl);
+	}
+
+	// Ninguno con caratula.
+	Probe none = { "000000", 0 };
+	make_albums(&pl, "ABC");
+	CHECK(Playlist_MosaicAlbums(&pl, probe_table, &none, out, &pending) == 0 && pending == 0, "sin caratulas eligio algo");
+	Playlist_Free(&pl);
+
+	// Un album sin mirar se salta por ahora, y lo avisa.
+	Probe waiting = { "1-1111", 0 };
+	make_albums(&pl, "ABCDE");
+	n = Playlist_MosaicAlbums(&pl, probe_table, &waiting, out, &pending);
+	CHECK(n == 4 && mosaic_is(&pl, out, n, "ACDE") && pending == 1, "el album sin mirar no marco pendiente");
+	Playlist_Free(&pl);
+
+	// Album vacio: cada pista es su propio album, con clave por ruta.
+	Probe by_path = { "111111", 0 };
+	make_albums(&pl, "..A");
+	snprintf(pl.entries[0].path, sizeof(pl.entries[0].path), "%s", "ux0:music/con caratula.flac");
+	snprintf(pl.entries[1].path, sizeof(pl.entries[1].path), "%s", "ux0:music/sin.flac");
+	n = Playlist_MosaicAlbums(&pl, probe_table, &by_path, out, NULL);
+	CHECK(n == 2 && out[0] == 0 && out[1] == 2, "el album vacio no se trato por ruta (%d)", n);
+	Playlist_Free(&pl);
+
+	// Dos pistas sin album, cada una con su caratula, son dos albumes.
+	Probe two_empty = { "111111", 0 };
+	make_albums(&pl, "..");
+	snprintf(pl.entries[0].path, sizeof(pl.entries[0].path), "%s", "ux0:music/con 1.flac");
+	snprintf(pl.entries[1].path, sizeof(pl.entries[1].path), "%s", "ux0:music/con 2.flac");
+	CHECK(Playlist_MosaicAlbums(&pl, probe_table, &two_empty, out, NULL) == 2, "dos pistas sin album no fueron dos albumes");
+	Playlist_Free(&pl);
+}
+
 int main(void) {
 	test_round_trip();
 	test_empty_playlist_round_trip();
@@ -530,6 +716,9 @@ int main(void) {
 	test_name_valid();
 	test_names_equal();
 	test_file_name();
+	test_recover_table();
+	test_interrupted_save();
+	test_mosaic();
 
 	if (failures == 0)
 		printf("test_playlist: todo bien\n");

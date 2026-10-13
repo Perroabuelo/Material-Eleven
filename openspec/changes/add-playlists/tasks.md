@@ -16,7 +16,7 @@
 
   Listo cuando `make -C tests` pase con sanitizers.
 - [x] 1.3 Agregar las reglas de nombre (Decisión 3): `Playlist_NameValid` (no vacío ni solo espacios, como mucho 64 caracteres), `Playlist_NamesEqual` con `TextFold_Fold`, y `Playlist_FileName` con saneado, recorte UTF-8 sin partir caracteres y sufijo ` (n)` ante colisión, recibiendo una función que dice si un nombre ya existe. Ampliar `test_playlist` con los casos de nombre de design.md, incluido `AC/DC: lo mejor?`. Listo cuando `make -C tests` pase con sanitizers.
-- [ ] 1.4 Agregar `Playlist_Recover` con la tabla de la Decisión 4, y `Playlist_MosaicAlbums`, que recibe una función de "¿tiene carátula?" (Decisión 8). Ampliar `test_playlist`:
+- [x] 1.4 Agregar `Playlist_Recover` con la tabla de la Decisión 4, y `Playlist_MosaicAlbums`, que recibe una función de "¿tiene carátula?" (Decisión 8). Ampliar `test_playlist`:
   - las tres filas de la tabla, más "solo main" y "nada";
   - A,A,B,C,B,D da A,B,C,D;
   - saltar álbumes sin carátula;

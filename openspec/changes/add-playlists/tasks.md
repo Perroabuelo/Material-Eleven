@@ -40,7 +40,7 @@
   - `make -C tests` pase con sanitizers;
   - `scripts/build.sh` compile;
   - y en la consola reescanear la biblioteca de prueba 10 veces deje el HEAP del overlay de debug igual que tras el primer escaneo, anotando antes y después.
-- [ ] 3.2 Mosaico (Decisión 8): reducción 2× pura con `tests/test_cover_mosaic.c` (patrón conocido y ubicación de cada cuadrante), y `Cover_GetMosaic` en `cover.c` con clave por contenido, presupuesto compartido con `Cover_Get`, guardado solo cuando el mosaico es definitivo y borrado de la clave anterior. Listo cuando `make -C tests` pase y `scripts/build.sh` compile. Se verifica en consola en 5.3.
+- [x] 3.2 Mosaico (Decisión 8): reducción 2× pura con `tests/test_cover_mosaic.c` (patrón conocido y ubicación de cada cuadrante), y `Cover_GetMosaic` en `cover.c` con clave por contenido, presupuesto compartido con `Cover_Get`, guardado solo cuando el mosaico es definitivo y borrado de la clave anterior. Listo cuando `make -C tests` pase y `scripts/build.sh` compile. Se verifica en consola en 5.3.
 
 ## 4. Pestaña Playlists y nivel interior
 

@@ -46,6 +46,29 @@ typedef enum {
 
 Cover_ProbeResult Cover_Probe(const char *album, const char *path);
 
+// --- el mosaico de una playlist ---------------------------------------------
+// Las caratulas de los cuatro primeros albumes de una playlist, reducidas a la
+// mitad, en los cuatro cuadrantes de una sola miniatura. Cada album va por su
+// clave de caratula: el album, o la ruta si no lo tiene.
+
+// La clave del mosaico de esos cuatro albumes, que depende solo de cuales son:
+// si cambian, cambia la clave y el mosaico se recompone sin invalidar nada, y
+// dos playlists que empiezan igual lo comparten. Cabe en 64 bytes.
+#define COVER_MOSAIC_KEY_MAX 64
+void Cover_MosaicKey(const char *const albums[4], const char *const paths[4], char *dst, size_t cap);
+
+// La textura del mosaico, que ocupa un slot como cualquier caratula. Si no
+// esta en disco se compone con las cuatro entradas del cache, y eso gasta una
+// unidad de `budget` como un Cover_Get. Se guarda en disco solo si es
+// `definitive` - ninguno de los albumes candidatos estaba sin mirar - y las
+// cuatro caratulas se pudieron leer; si no, el cuadrante que falta se pinta
+// del color de superficie y la proxima vez que se pida se vuelve a componer.
+vita2d_texture *Cover_GetMosaic(const char *const albums[4], const char *const paths[4], SceBool definitive, int *budget);
+
+// Borra el mosaico de esa clave, del disco y de RAM: el de una playlist cuyos
+// primeros albumes cambiaron.
+void Cover_ForgetMosaic(const char *key);
+
 // Suelta las texturas cacheadas en RAM. El cache en disco no se toca.
 void Cover_Free(void);
 

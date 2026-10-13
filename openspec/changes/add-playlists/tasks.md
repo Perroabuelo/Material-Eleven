@@ -1,6 +1,6 @@
 ## 1. Modelo puro de playlist
 
-- [ ] 1.1 Crear `source/playlist.c` e `include/playlist.h`, sin SCE ni vita2d, con el struct `Playlist`, `Playlist_Parse`, `Playlist_Serialize` y `Playlist_Free` según el formato de la Decisión 2. Crear `tests/test_playlist.c` con los casos de formato de la estrategia de pruebas de design.md:
+- [x] 1.1 Crear `source/playlist.c` e `include/playlist.h`, sin SCE ni vita2d, con el struct `Playlist`, `Playlist_Parse`, `Playlist_Serialize` y `Playlist_Free` según el formato de la Decisión 2. Crear `tests/test_playlist.c` con los casos de formato de la estrategia de pruebas de design.md:
   - ida y vuelta con tildes y emoji;
   - BOM, CRLF, líneas vacías y `#` desconocidas;
   - archivo vacío, sin `#EXTM3U` o truncado;

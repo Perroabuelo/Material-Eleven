@@ -65,6 +65,7 @@ add_executable(${PROJECT_NAME}
   source/mini_player.c
   source/nav_rail.c
   source/nav_request.c
+  source/playlist.c
   source/queue.c
   source/screen_off.c
   source/search_dialog.c

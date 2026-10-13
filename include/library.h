@@ -71,6 +71,11 @@ void Library_SetRoot(const char *path);
 int Library_Count(void);
 const Library_Track *Library_GetTrack(int index);
 
+// La pista del indice con esa ruta exacta, o NULL si la biblioteca no la tiene.
+// Busca por mitades en un orden por ruta que se construye al cargar el indice y
+// al terminar cada escaneo, asi que no toca la tarjeta.
+const Library_Track *Library_FindPath(const char *path);
+
 // Si el ultimo escaneo llego al techo y dejo pistas fuera.
 SceBool Library_IsTruncated(void);
 

@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index
 
 .PHONY: all clean FORCE
 
@@ -88,6 +88,9 @@ test_list_scroll: test_list_scroll.c ../source/list_scroll.c ../include/list_scr
 
 test_playlist: test_playlist.c ../source/playlist.c ../include/playlist.h ../source/text_fold.c ../include/text_fold.h ../source/text_encoding.c ../include/text_encoding.h
 	$(CC) $(CFLAGS) $(INCLUDE) -DPLAYLIST_TEST_ALLOC -o $@ test_playlist.c ../source/playlist.c ../source/text_fold.c ../source/text_encoding.c
+
+test_path_index: test_path_index.c ../source/path_index.c ../include/path_index.h
+	$(CC) $(CFLAGS) $(INCLUDE) -DPATH_INDEX_TEST_ALLOC -o $@ test_path_index.c ../source/path_index.c
 
 clean:
 	rm -f $(BIN) .cflags

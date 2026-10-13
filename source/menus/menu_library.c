@@ -17,6 +17,8 @@
 #include "mini_player.h"
 #include "nav_rail.h"
 #include "nav_request.h"
+#include "playlist.h"
+#include "playlist_store.h"
 #include "queue.h"
 #include "search_dialog.h"
 #include "status_bar.h"
@@ -68,16 +70,17 @@
 // A 60 fps, una vez por segundo.
 #define ROOT_CHECK_PERIOD 60
 
-// Las cuatro formas de recorrer la coleccion, y la etiqueta de cada una.
+// Las cinco formas de recorrer la coleccion, y la etiqueta de cada una.
 typedef enum {
 	VIEW_SONGS = 0,
 	VIEW_ARTISTS,
 	VIEW_ALBUMS,
 	VIEW_RECENT,
+	VIEW_PLAYLISTS,
 	VIEW_COUNT
 } Menu_LibraryTab;
 
-static const LangString view_label[VIEW_COUNT] = { STR_VIEW_SONGS, STR_VIEW_ARTISTS, STR_VIEW_ALBUMS, STR_VIEW_RECENT };
+static const LangString view_label[VIEW_COUNT] = { STR_VIEW_SONGS, STR_VIEW_ARTISTS, STR_VIEW_ALBUMS, STR_VIEW_RECENT, STR_VIEW_PLAYLISTS };
 
 // La etiqueta del cubo de las pistas sin ese campo (STR_UNKNOWN). La pone la
 // vista, no el indice: asi un artista que de verdad se llame asi no se mezcla con
@@ -96,6 +99,14 @@ static SceBool inside = SCE_FALSE;
 static SceBool inside_unknown = SCE_FALSE;
 static char inside_name[LIBRARY_TAG_MAX] = "";
 static int outer_selection = 0;
+
+// Los resumenes de la pestaña Playlists, de la modificada mas recientemente a
+// la mas antigua. Se leen al entrar en la pestaña - o al abrir el selector de
+// playlists - y se sueltan al salir de ella y de la pantalla; esta pantalla los
+// rehace cada vez que escribe una playlist, y no en cada fotograma.
+static PlaylistSummary *playlists = NULL;
+static int playlist_count = 0;
+static SceBool playlists_loaded = SCE_FALSE;
 
 // Construir una vista es un qsort sobre miles de enteros. Se rehace cuando algo
 // la invalida - cambiar de pestaña, entrar, salir, reescanear - y no en cada
@@ -161,6 +172,39 @@ static const char *Menu_LibraryTrackTitle(const Library_Track *track) {
 // enteros, y tenerla en cache obligaria a invalidarla en cada reescaneo.
 static SceBool Menu_LibraryShowsNames(void) {
 	return (view == VIEW_ARTISTS || view == VIEW_ALBUMS) && !inside;
+}
+
+// La lista de playlists de la pestaña, y no las canciones de una de ellas.
+static SceBool Menu_LibraryShowsPlaylists(void) {
+	return view == VIEW_PLAYLISTS && !inside;
+}
+
+// Si confirmar sobre una fila entra en ella en vez de reproducirla.
+static SceBool Menu_LibraryRowsOpen(void) {
+	return Menu_LibraryShowsNames() || Menu_LibraryShowsPlaylists();
+}
+
+static int Menu_LibraryLoadPlaylists(void) {
+	if (!playlists_loaded) {
+		int n = PlaylistStore_List(&playlists);
+
+		// Sin memoria para la lista, la pestaña se ve vacia en vez de a medias.
+		playlist_count = (n > 0) ? n : 0;
+		playlists_loaded = SCE_TRUE;
+	}
+
+	return playlist_count;
+}
+
+static void Menu_LibraryFreePlaylists(void) {
+	free(playlists);
+	playlists = NULL;
+	playlist_count = 0;
+	playlists_loaded = SCE_FALSE;
+}
+
+static const PlaylistSummary *Menu_LibraryPlaylistAt(int full) {
+	return (full >= 0 && full < playlist_count) ? &playlists[full] : NULL;
 }
 
 static Library_Field Menu_LibraryField(void) {
@@ -245,6 +289,9 @@ static int Menu_LibraryFull(int visible) {
 }
 
 static int Menu_LibraryBuildFull(void) {
+	if (Menu_LibraryShowsPlaylists())
+		return Menu_LibraryLoadPlaylists();
+
 	if (Menu_LibraryShowsNames()) {
 		int names = Library_BuildFieldNames(Menu_LibraryField());
 		Menu_LibraryResetArtistCovers((view == VIEW_ARTISTS) ? names : 0);
@@ -289,12 +336,28 @@ static int Menu_LibraryMatchTitle(int index, void *folded) {
 	return t != NULL && TextFold_Contains(Menu_LibraryTrackTitle(t), folded);
 }
 
+static int Menu_LibraryMatchPlaylist(int index, void *folded) {
+	const PlaylistSummary *s = Menu_LibraryPlaylistAt(index);
+
+	return s != NULL && TextFold_Contains(s->name, folded);
+}
+
+// Cuantas entradas tiene la lista completa ya construida del nivel vigente.
+static int Menu_LibraryFullCount(void) {
+	if (Menu_LibraryShowsPlaylists())
+		return playlist_count;
+
+	return Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount();
+}
+
 // Rehace la lista visible sobre la vista ya construida, con el termino vigente.
 static void Menu_LibraryRefilter(int full_count) {
 	Menu_LibrarySearch *search = Menu_LibrarySearchNow();
 	ListFilter_Match match = NULL;
 
-	if (search->folded[0] != '\0')
+	if (search->folded[0] != '\0' && Menu_LibraryShowsPlaylists())
+		match = Menu_LibraryMatchPlaylist;
+	else if (search->folded[0] != '\0')
 		match = Menu_LibraryShowsNames() ? Menu_LibraryMatchName : (inside ? Menu_LibraryMatchTitle : Menu_LibraryMatchTrack);
 
 	ListFilter_Build(Menu_LibraryFilter(), full_count, match, search->folded);
@@ -324,7 +387,7 @@ static void Menu_LibrarySetTerm(const char *term) {
 	snprintf(search->term, sizeof(search->term), "%s", term);
 	TextFold_Fold(search->term, search->folded, sizeof(search->folded));
 
-	Menu_LibraryRefilter(Menu_LibraryShowsNames() ? Library_NameCount() : Library_ViewCount());
+	Menu_LibraryRefilter(Menu_LibraryFullCount());
 
 	int kept = (term[0] == '\0' && full >= 0) ? ListFilter_ToVisible(Menu_LibraryFilter(), full) : -1;
 	selection = (kept >= 0) ? kept : 0;
@@ -481,19 +544,24 @@ static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
 
 // Una fila: la linea de arriba es lo que la vista lista, y la de abajo lo que
 // ayuda a distinguirlo de sus vecinas.
-// `ext` es la extension del archivo en las filas que son una cancion, y NULL en
-// las de artista o album, que no son un archivo y no llevan badge de formato.
+// `art` es la caratula, o NULL para el marcador. `ext` es la extension del
+// archivo en las filas que son una cancion, y NULL en las de artista, album o
+// playlist, que no son un archivo y no llevan badge de formato. Una fila
+// `dimmed` es una cancion de playlist que la biblioteca ya no tiene.
 static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary,
-		const char *album, const char *path, const char *ext, int *budget) {
+		vita2d_texture *art, const char *ext, SceBool dimmed) {
 	if (i == selection)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 	else if (i == TouchList_PressedRow(&library_list))
 		UI_DrawRowPressHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
 	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
-	vita2d_texture *art = (album != NULL || path != NULL) ? Cover_Get(album, path, budget) : NULL;
 
-	if (art != NULL) {
+	if (art != NULL && dimmed) {
+		vita2d_draw_texture_tint_scale(art, art_x, art_y, ROW_ART / (float)COVER_SIZE, ROW_ART / (float)COVER_SIZE,
+			RGBA8(255, 255, 255, 96));
+	}
+	else if (art != NULL) {
 		vita2d_draw_texture_scale(art, art_x, art_y, ROW_ART / (float)COVER_SIZE, ROW_ART / (float)COVER_SIZE);
 	}
 	else {
@@ -508,8 +576,9 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 
 	// El badge termina donde termina el de la lista de carpetas, y el texto se
 	// recorta antes de llegar a el en vez de pasarle por debajo.
+	// Una fila atenuada no lleva badge: el archivo que diria su formato no esta.
 	const char *badge_label = NULL; unsigned int badge_color = 0, badge_wash = 0;
-	SceBool has_badge = (ext != NULL) && UI_GetFormatBadge(ext, &badge_label, &badge_color, &badge_wash);
+	SceBool has_badge = (ext != NULL) && !dimmed && UI_GetFormatBadge(ext, &badge_label, &badge_color, &badge_wash);
 	float badge_x = 0;
 
 	if (has_badge) {
@@ -518,11 +587,11 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 	}
 
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + 6, 24),
-		text_w, UI_COLOR_TEXT_PRIMARY, primary);
+		text_w, dimmed ? UI_COLOR_TEXT_TERTIARY : UI_COLOR_TEXT_PRIMARY, primary);
 
 	if (secondary != NULL) {
 		UI_DrawTextClipped(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y + 34, 20),
-			text_w, UI_COLOR_TEXT_TERTIARY, secondary);
+			text_w, dimmed ? UI_COLOR_TEXT_MUTED : UI_COLOR_TEXT_TERTIARY, secondary);
 	}
 
 	if (has_badge)
@@ -537,6 +606,12 @@ static void Menu_DrawLibraryList(void) {
 		char line[160];
 		snprintf(line, sizeof(line), Lang_Get(STR_NO_RESULTS), Menu_LibrarySearchNow()->term);
 		Menu_DrawLibraryPlaceholder(line, NULL);
+		return;
+	}
+
+	// Sin playlists, la pestaña dice como se crea una.
+	if (count == 0 && Menu_LibraryShowsPlaylists()) {
+		Menu_DrawLibraryPlaceholder(Lang_Get(STR_PLAYLISTS_EMPTY), Lang_Get(STR_PLAYLISTS_EMPTY_HOW));
 		return;
 	}
 
@@ -555,7 +630,17 @@ static void Menu_DrawLibraryList(void) {
 
 		int full = Menu_LibraryFull(i);
 
-		if (Menu_LibraryShowsNames()) {
+		if (Menu_LibraryShowsPlaylists()) {
+			const PlaylistSummary *s = Menu_LibraryPlaylistAt(full);
+
+			if (s == NULL)
+				break;
+
+			char sub[48];
+			snprintf(sub, sizeof(sub), Lang_Get((s->count == 1) ? STR_TRACKS_ONE : STR_TRACKS_MANY), s->count);
+			Menu_DrawLibraryRow(i, y, s->name, sub, NULL, NULL, SCE_FALSE);
+		}
+		else if (Menu_LibraryShowsNames()) {
 			char sub[48];
 			int n = Library_NameTrackCount(full);
 
@@ -578,8 +663,9 @@ static void Menu_DrawLibraryList(void) {
 				}
 			}
 
+			vita2d_texture *art = (art_album != NULL || art_path != NULL) ? Cover_Get(art_album, art_path, &budget) : NULL;
 			Menu_DrawLibraryRow(i, y, Library_NameIsUnknown(full) ? Lang_Get(STR_UNKNOWN) : Library_NameAt(full), sub,
-				art_album, art_path, NULL, &budget);
+				art, NULL, SCE_FALSE);
 		}
 		else {
 			const Library_Track *track = Library_ViewTrack(full);
@@ -588,7 +674,8 @@ static void Menu_DrawLibraryList(void) {
 				break;
 
 			const char *artist = (track->artist[0] != '\0') ? track->artist : Lang_Get(STR_UNKNOWN);
-			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, track->album, track->path, track->ext, &budget);
+			Menu_DrawLibraryRow(i, y, Menu_LibraryTrackTitle(track), artist, Cover_Get(track->album, track->path, &budget),
+				track->ext, SCE_FALSE);
 		}
 	}
 
@@ -842,6 +929,9 @@ static SceBool Menu_LibraryLeave(void) {
 }
 
 static void Menu_LibrarySetView(Menu_LibraryTab next) {
+	// Los resumenes son de la pestaña: se sueltan al dejarla, y al volver a
+	// ella se leen de nuevo.
+	Menu_LibraryFreePlaylists();
 	view = next;
 	inside = SCE_FALSE;
 	inside_unknown = SCE_FALSE;
@@ -863,19 +953,26 @@ static void Menu_LibraryBack(void) {
 		Menu_LibraryLeave();
 }
 
-// Tocar una fila es seleccionarla y confirmar: entra en un nombre o reproduce
-// una pista. `row` es la fila tocada este fotograma, o -1.
-static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
-	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
-		return SCE_FALSE;
-
-	selection = row;
+// Confirmar sobre la fila marcada: entra en un nombre o en una playlist, o
+// reproduce una pista.
+static void Menu_LibraryConfirm(void) {
+	if (Menu_LibraryShowsPlaylists())
+		return;
 
 	if (Menu_LibraryShowsNames())
 		Menu_LibraryEnter();
 	else
 		Menu_LibraryPlaySelected();
+}
 
+// Tocar una fila es seleccionarla y confirmar. `row` es la fila tocada este
+// fotograma, o -1.
+static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
+	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
+		return SCE_FALSE;
+
+	selection = row;
+	Menu_LibraryConfirm();
 	return SCE_TRUE;
 }
 
@@ -949,13 +1046,8 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 		if (selection != before || (pressed & (SCE_CTRL_UP | SCE_CTRL_DOWN | SCE_CTRL_LEFT | SCE_CTRL_RIGHT)))
 			TouchList_Follow(&library_list);
 
-		if (pressed & SCE_CTRL_ENTER) {
-			// Sobre un nombre, confirmar entra; sobre una pista, reproduce.
-			if (Menu_LibraryShowsNames())
-				Menu_LibraryEnter();
-			else
-				Menu_LibraryPlaySelected();
-		}
+		if (pressed & SCE_CTRL_ENTER)
+			Menu_LibraryConfirm();
 	}
 	else if ((state != LIBRARY_STATE_READY) && (pressed & SCE_CTRL_ENTER))
 		Menu_LibraryEmptyAction(state);
@@ -1008,8 +1100,27 @@ static void Menu_HandleLibraryOptions(void) {
 		options_open = SCE_FALSE;
 }
 
+// Lo que la pantalla suelta al irse. La pestaña, el nivel, la busqueda y la
+// fila se quedan, y lo soltado se vuelve a leer al volver.
+static UI_Screen Menu_LibraryExit(UI_Screen next) {
+	Menu_LibraryFreePlaylists();
+	return next;
+}
+
 UI_Screen Menu_DisplayLibrary(void) {
 	vita2d_set_clear_color(UI_COLOR_BG);
+
+	// Las playlists se soltaron al irse: la lista se rehace leyendolas, con la
+	// misma busqueda, y la fila elegida se acota por si alguna desaparecio.
+	if (view == VIEW_PLAYLISTS)
+		view_dirty = SCE_TRUE;
+
+	if (Menu_LibraryGetState() == LIBRARY_STATE_READY) {
+		int count = Menu_LibraryBuild();
+
+		if (selection >= count)
+			selection = (count > 0) ? count - 1 : 0;
+	}
 
 	// Al volver - de Reproduciendo o por el riel - la fila elegida se ve, y no
 	// sigue ningun dedo ni deslizamiento de la vez anterior.
@@ -1025,7 +1136,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		Menu_DrawLibraryContent();
 
 		const char *play_hint = Lang_Get((state != LIBRARY_STATE_READY) ? STR_HINT_START
-			: (Menu_LibraryShowsNames() ? STR_HINT_OPEN : STR_HINT_PLAY));
+			: (Menu_LibraryRowsOpen() ? STR_HINT_OPEN : STR_HINT_PLAY));
 		// Abrir no se anuncia cuando una busqueda no dejo nada sobre que actuar.
 		if (state == LIBRARY_STATE_READY && Menu_LibraryBuild() == 0)
 			play_hint = NULL;
@@ -1081,9 +1192,9 @@ UI_Screen Menu_DisplayLibrary(void) {
 		}
 
 		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_SETTINGS)
-			return tapped;
+			return Menu_LibraryExit(tapped);
 		else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
-			return tapped;
+			return Menu_LibraryExit(tapped);
 
 		if (MiniPlayer_HandleTouch())
 			continue;
@@ -1104,9 +1215,9 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// Reproducir una pista no entra a Reproduciendo: lo pide.
 		UI_Screen requested = NavRequest_Take();
 		if (requested != UI_SCREEN_NONE)
-			return requested;
+			return Menu_LibraryExit(requested);
 
 		if (pressed & SCE_CTRL_SELECT)
-			return UI_SCREEN_SETTINGS;
+			return Menu_LibraryExit(UI_SCREEN_SETTINGS);
 	}
 }

@@ -87,6 +87,11 @@ X(STR_VIEW_SONGS,            "Songs",                    "Canciones")
 X(STR_VIEW_ARTISTS,          "Artists",                  "Artistas")
 X(STR_VIEW_ALBUMS,           "Albums",                   "Álbumes")
 X(STR_VIEW_RECENT,           "Recent",                   "Recientes")
+// "Playlists" en los dos idiomas: es la palabra que se usa en español, y la
+// mas corta para que quepan las cinco pestañas con la caja de busqueda.
+X(STR_VIEW_PLAYLISTS,        "Playlists",                "Playlists")
+X(STR_PLAYLISTS_EMPTY,       "There are no playlists yet.", "Todavía no hay playlists.")
+X(STR_PLAYLISTS_EMPTY_HOW,   "Press Square on any song and choose “Add to playlist…” to make one.", "Para crear una, pulsa Cuadrado sobre una canción y elige «Añadir a playlist…».")
 X(STR_UNKNOWN,               "Unknown",                  "Desconocido")
 X(STR_TRACKS_ONE,            "%d track",                 "%d pista")
 X(STR_TRACKS_MANY,           "%d tracks",                "%d pistas")

@@ -120,6 +120,18 @@ X(STR_HINT_VIEWS,            "Views",                    "Vistas")
 X(STR_HINT_OPTIONS,          "Options",                  "Opciones")
 X(STR_MENU_RESCAN,           "Rescan",                   "Reescanear")
 X(STR_MENU_CHOOSE_FOLDER,    "Choose folder",            "Elegir carpeta")
+X(STR_MENU_ADD_TO_PLAYLIST,  "Add to playlist…",         "Añadir a playlist…")
+X(STR_MENU_NEW_PLAYLIST,     "New playlist…",            "Nueva playlist…")
+X(STR_PLAYLIST_NAME,         "Playlist name",            "Nombre de la playlist")
+// El aviso de añadir se arma con hasta tres frases: cuantas entraron y en cual,
+// cuantas ya estaban, y si se lleno.
+X(STR_NOTICE_ADDED_ONE,      "%d song added to “%s”.",   "Se añadió %d canción a «%s».")
+X(STR_NOTICE_ADDED_MANY,     "%d songs added to “%s”.",  "Se añadieron %d canciones a «%s».")
+X(STR_NOTICE_SKIPPED_ONE,    " %d was already there.",   " %d ya estaba.")
+X(STR_NOTICE_SKIPPED_MANY,   " %d were already there.",  " %d ya estaban.")
+X(STR_NOTICE_PLAYLIST_FULL,  " The playlist is full.",   " La playlist está llena.")
+X(STR_NOTICE_NAME_TAKEN,     "There's already a playlist called “%s”.", "Ya hay una playlist llamada «%s».")
+X(STR_NOTICE_PLAYLIST_SAVE_FAILED, "Couldn't save the playlist.", "No se pudo guardar la playlist.")
 
 // ---- Escaneo de la biblioteca ----
 X(STR_SCAN_TITLE,            "Scanning the library",     "Escaneando la biblioteca")

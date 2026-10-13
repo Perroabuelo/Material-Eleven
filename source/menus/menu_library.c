@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -143,28 +144,46 @@ typedef struct {
 static Menu_LibrarySearch outer_search;
 static Menu_LibrarySearch group_search;
 
-// Reescanear y elegir carpeta, reunidas en el menu de Cuadrado. Es un estado
-// del mismo lazo, no un lazo propio: mientras esta abierto, la pantalla solo
-// atiende al menu.
+// El menu de Cuadrado. Es un estado del mismo lazo, no un lazo propio:
+// mientras esta abierto, la pantalla solo atiende al menu. Sus opciones se
+// arman al abrirlo segun la fila marcada: primero lo que esa fila admite, y
+// al final reescanear y elegir carpeta, que estan siempre.
 typedef enum {
-	OPTION_RESCAN = 0,
+	OPTION_ADD_TO_PLAYLIST = 0,
+	OPTION_RESCAN,
 	OPTION_CHOOSE_FOLDER,
-	OPTION_COUNT
+	OPTION_KINDS
 } Menu_LibraryOption;
 
-static const LangString option_label[OPTION_COUNT] = { STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER };
+static const LangString option_label[OPTION_KINDS] = { STR_MENU_ADD_TO_PLAYLIST, STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER };
 
+#define OPTIONS_MAX 4
+
+static Menu_LibraryOption options[OPTIONS_MAX];
+static int option_count = 0;
 static SceBool options_open = SCE_FALSE;
 static int options_index = 0;
+
+// El selector de "Añadir a playlist…": "Nueva playlist…" y despues las
+// playlists, en el orden de la pestaña. Es otro estado del mismo lazo, en el
+// mismo recuadro que el menu, y se desplaza si no caben todas.
+#define PICKER_W    360
+#define PICKER_ROWS 5
+
+static SceBool picker_open = SCE_FALSE;
+static int picker_index = 0; // 0 es "Nueva playlist…", k la playlist k - 1
+static int picker_top = 0;   // la primera opcion que se ve
 
 // Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
 // las otras dos que mueven la vista.
 static void Menu_LibrarySetView(Menu_LibraryTab next);
 static SceBool root_missing = SCE_FALSE;
 static int root_check_frames = 0;
-// El aviso se guarda como id y se resuelve al dibujar, para que cambiar de
-// idioma con uno en pantalla lo muestre ya traducido.
+// Un aviso fijo se guarda como id y se resuelve al dibujar, para que cambiar
+// de idioma con uno en pantalla lo muestre ya traducido. Uno que lleva nombres
+// o numeros se guarda ya escrito, en `notice_text`, con `notice` en STR_COUNT.
 static LangString notice = STR_COUNT;
+static char notice_text[192] = "";
 static int notice_frames = 0;
 
 // Como se llama una pista en la vista: su titulo si lo trae, y el nombre del
@@ -467,7 +486,30 @@ static void Menu_LibraryClearSearches(void) {
 
 static void Menu_LibraryNotice(LangString text) {
 	notice = text;
+	notice_text[0] = '\0';
 	notice_frames = NOTICE_FRAMES;
+}
+
+// Un aviso con formato: `format` es un texto con especificadores de snprintf.
+static void Menu_LibraryNoticef(LangString format, ...) {
+	va_list args;
+
+	va_start(args, format);
+	vsnprintf(notice_text, sizeof(notice_text), Lang_Get(format), args);
+	va_end(args);
+
+	notice = STR_COUNT;
+	notice_frames = NOTICE_FRAMES;
+}
+
+// Añade una frase al aviso con formato que se esta mostrando.
+static void Menu_LibraryNoticeAppend(LangString format, ...) {
+	size_t used = strlen(notice_text);
+	va_list args;
+
+	va_start(args, format);
+	vsnprintf(notice_text + used, sizeof(notice_text) - used, Lang_Get(format), args);
+	va_end(args);
 }
 
 // ---------------------------------------------------------------------------
@@ -794,7 +836,7 @@ static void Menu_DrawLibraryList(void) {
 static float Menu_LibraryNoticeY(void) { return MiniPlayer_Top() - NOTICE_H - 8; }
 
 static SceBool Menu_LibraryNoticeShown(void) {
-	return notice_frames > 0 && notice < STR_COUNT;
+	return notice_frames > 0 && (notice < STR_COUNT || notice_text[0] != '\0');
 }
 
 static void Menu_DrawLibraryNotice(void) {
@@ -805,10 +847,10 @@ static void Menu_DrawLibraryNotice(void) {
 
 	UI_DrawRoundedRect(CONTENT_X + 16, y, 960 - CONTENT_X - 32, h, 12, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, CONTENT_X + 32, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y, h),
-		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, Lang_Get(notice));
+		960 - CONTENT_X - 64, UI_COLOR_TEXT_PRIMARY, (notice < STR_COUNT) ? Lang_Get(notice) : notice_text);
 }
 
-static float Menu_LibraryOptionsH(void) { return OPTION_COUNT * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
+static float Menu_LibraryOptionsH(void) { return option_count * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
 static float Menu_LibraryOptionsX(void) { return 960 - 16 - OPTIONS_W; }
 static float Menu_LibraryOptionsY(void) { return MiniPlayer_Top() - 8 - Menu_LibraryOptionsH(); }
 
@@ -822,14 +864,51 @@ static void Menu_DrawLibraryOptions(void) {
 
 	UI_DrawRoundedRect(x, Menu_LibraryOptionsY(), OPTIONS_W, Menu_LibraryOptionsH(), 14, UI_COLOR_SURFACE_2);
 
-	for (int i = 0; i < OPTION_COUNT; i++) {
+	for (int i = 0; i < option_count; i++) {
 		float y = Menu_LibraryOptionY(i);
 
 		if (i == options_index)
 			UI_DrawRowHighlight(x + OPTIONS_PAD, y, OPTIONS_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
 
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, OPTIONS_ITEM_H),
-			OPTIONS_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(option_label[i]));
+			OPTIONS_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(option_label[options[i]]));
+	}
+}
+
+static int Menu_LibraryPickerCount(void) { return 1 + playlist_count; }
+
+static int Menu_LibraryPickerShown(void) {
+	int n = Menu_LibraryPickerCount();
+	return (n < PICKER_ROWS) ? n : PICKER_ROWS;
+}
+
+static float Menu_LibraryPickerH(void) { return Menu_LibraryPickerShown() * OPTIONS_ITEM_H + 2 * OPTIONS_PAD; }
+static float Menu_LibraryPickerX(void) { return 960 - 16 - PICKER_W; }
+static float Menu_LibraryPickerY(void) { return MiniPlayer_Top() - 8 - Menu_LibraryPickerH(); }
+
+// La fila visible `row` del selector.
+static float Menu_LibraryPickerRowY(int row) { return Menu_LibraryPickerY() + OPTIONS_PAD + row * OPTIONS_ITEM_H; }
+
+static void Menu_DrawLibraryPicker(void) {
+	if (!picker_open)
+		return;
+
+	float x = Menu_LibraryPickerX();
+
+	UI_DrawRoundedRect(x, Menu_LibraryPickerY(), PICKER_W, Menu_LibraryPickerH(), 14, UI_COLOR_SURFACE_2);
+
+	for (int row = 0; row < Menu_LibraryPickerShown(); row++) {
+		int item = picker_top + row;
+		float y = Menu_LibraryPickerRowY(row);
+
+		if (item == picker_index)
+			UI_DrawRowHighlight(x + OPTIONS_PAD, y, PICKER_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
+
+		const PlaylistSummary *s = Menu_LibraryPlaylistAt(item - 1);
+		const char *label = (item == 0) ? Lang_Get(STR_MENU_NEW_PLAYLIST) : (s != NULL ? s->name : "");
+
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, OPTIONS_ITEM_H),
+			PICKER_W - 2 * OPTIONS_PAD - 32, (item == 0) ? ui_color_accent : UI_COLOR_TEXT_PRIMARY, label);
 	}
 }
 
@@ -862,6 +941,7 @@ static void Menu_DrawLibraryContent(void) {
 	MiniPlayer_Draw();
 	Menu_DrawLibraryNotice();
 	Menu_DrawLibraryOptions();
+	Menu_DrawLibraryPicker();
 }
 
 // El termino cambia solo con uno confirmado: descartar, abandonar o no poder
@@ -1169,6 +1249,23 @@ static SceBool Menu_HandleLibraryTouchControls(Menu_LibraryState state) {
 	return SCE_FALSE;
 }
 
+// Arma el menu para la fila marcada y lo abre con la marca en la primera
+// opcion. Sin filas - una pestaña Playlists o una playlist vacias, o una
+// busqueda sin resultados - solo quedan reescanear y elegir carpeta.
+static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
+	option_count = 0;
+
+	if (state == LIBRARY_STATE_READY && Menu_LibraryBuild() > 0) {
+		if (!Menu_LibraryShowsPlaylists() && !Menu_LibraryInPlaylist())
+			options[option_count++] = OPTION_ADD_TO_PLAYLIST;
+	}
+
+	options[option_count++] = OPTION_RESCAN;
+	options[option_count++] = OPTION_CHOOSE_FOLDER;
+	options_open = SCE_TRUE;
+	options_index = 0;
+}
+
 static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	int count = Menu_LibraryBuild();
 
@@ -1211,28 +1308,228 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 	// Triangulo busca, y solo donde hay en que buscar.
 	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_TRIANGLE))
 		Menu_LibraryPromptSearch();
-	else if (pressed & SCE_CTRL_SQUARE) {
-		options_open = SCE_TRUE;
-		options_index = 0;
-	}
+	else if (pressed & SCE_CTRL_SQUARE)
+		Menu_LibraryOpenOptions(state);
 }
 
-// Las dos acciones ya quitan la busqueda y salen del grupo: elegir carpeta
-// vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
-static void Menu_LibraryRunOption(int option) {
+// --- añadir a una playlist -------------------------------------------------
+
+// Lo que se añade desde la fila marcada, en `*out`, que el llamador libera: la
+// cancion, o todas las pistas del artista o del album en el orden en que se ven
+// al entrar en el. Devuelve cuantas, 0 si no hay nada o falta memoria.
+static int Menu_LibraryCollect(Playlist_Entry **out) {
+	*out = NULL;
+	Menu_LibraryBuild();
+
+	int full = Menu_LibraryFull(selection);
+	int n = 1;
+	const Library_Track *one = NULL;
+
+	if (Menu_LibraryShowsNames()) {
+		const char *name = Library_NameAt(full);
+
+		if (name == NULL)
+			return 0;
+
+		// Construye la vista del grupo sobre el arreglo de pistas, que la lista
+		// de nombres no usa: los nombres y sus caratulas siguen como estaban.
+		n = Library_BuildFieldTracks(Menu_LibraryField(), name, Library_NameIsUnknown(full));
+	}
+	else if ((one = Library_ViewTrack(full)) == NULL) {
+		return 0;
+	}
+
+	if (n <= 0)
+		return 0;
+
+	Playlist_Entry *entries = (Playlist_Entry *)calloc((size_t)n, sizeof(Playlist_Entry));
+
+	if (entries == NULL)
+		return 0;
+
+	for (int i = 0; i < n; i++) {
+		const Library_Track *t = (one != NULL) ? one : Library_ViewTrack(i);
+
+		if (t == NULL) {
+			n = i;
+			break;
+		}
+
+		snprintf(entries[i].path, sizeof(entries[i].path), "%s", t->path);
+		snprintf(entries[i].title, sizeof(entries[i].title), "%s", t->title);
+		snprintf(entries[i].artist, sizeof(entries[i].artist), "%s", t->artist);
+		snprintf(entries[i].album, sizeof(entries[i].album), "%s", t->album);
+	}
+
+	*out = entries;
+	return n;
+}
+
+// Si otra playlist que la del archivo `except` (NULL: ninguna) ya se llama asi.
+static SceBool Menu_LibraryNameTaken(const char *name, const char *except) {
+	Menu_LibraryLoadPlaylists();
+
+	for (int i = 0; i < playlist_count; i++) {
+		if ((except == NULL || strcmp(playlists[i].file, except) != 0) && Playlist_NamesEqual(playlists[i].name, name))
+			return SCE_TRUE;
+	}
+
+	return SCE_FALSE;
+}
+
+static void Menu_LibraryNoticeAdded(const char *name, int added, int skipped, int full) {
+	Menu_LibraryNoticef((added == 1) ? STR_NOTICE_ADDED_ONE : STR_NOTICE_ADDED_MANY, added, name);
+
+	if (skipped > 0)
+		Menu_LibraryNoticeAppend((skipped == 1) ? STR_NOTICE_SKIPPED_ONE : STR_NOTICE_SKIPPED_MANY, skipped);
+
+	if (full)
+		Menu_LibraryNoticeAppend(STR_NOTICE_PLAYLIST_FULL);
+}
+
+// Carga la playlist, le añade, la guarda y la suelta: no queda en RAM.
+static void Menu_LibraryAddToExisting(const char *file, const Playlist_Entry *entries, int n) {
+	Playlist pl;
+	int added = 0, skipped = 0, full = 0;
+
+	if (PlaylistStore_Load(file, &pl) != PLAYLIST_OK) {
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_UNREADABLE);
+		return;
+	}
+
+	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Save(file, &pl) < 0)
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
+	else
+		Menu_LibraryNoticeAdded(pl.name, added, skipped, full);
+
+	Playlist_Free(&pl);
+}
+
+// "Nueva playlist…": pide el nombre y crea la playlist con lo que se añade, en
+// un solo paso. Descartar, un nombre vacio o uno repetido no crean nada.
+static void Menu_LibraryAddToNew(const Playlist_Entry *entries, int n) {
+	char name[PLAYLIST_NAME_MAX];
+
+	if (SearchDialog_Prompt(Lang_Get(STR_PLAYLIST_NAME), "", name, sizeof(name),
+		Menu_DrawLibraryContent, UI_SCREEN_LIBRARY) != SEARCH_DIALOG_CONFIRMED)
+		return;
+
+	if (!Playlist_NameValid(name))
+		return;
+
+	if (Menu_LibraryNameTaken(name, NULL)) {
+		Menu_LibraryNoticef(STR_NOTICE_NAME_TAKEN, name);
+		return;
+	}
+
+	Playlist pl;
+	char file[PLAYLIST_FILE_MAX];
+	int added = 0, skipped = 0, full = 0;
+
+	memset(&pl, 0, sizeof(pl));
+	snprintf(pl.name, sizeof(pl.name), "%s", name);
+
+	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Create(&pl, file) < 0)
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
+	else
+		Menu_LibraryNoticeAdded(pl.name, added, skipped, full);
+
+	Playlist_Free(&pl);
+}
+
+static void Menu_LibraryOpenPicker(void) {
+	Menu_LibraryLoadPlaylists();
+	picker_open = SCE_TRUE;
+	picker_index = 0;
+	picker_top = 0;
+}
+
+// Cierra el selector. Los resumenes que leyo se sueltan: son de la pestaña
+// Playlists, que es la unica que los guarda.
+static void Menu_LibraryClosePicker(void) {
+	picker_open = SCE_FALSE;
+
+	if (view != VIEW_PLAYLISTS)
+		Menu_LibraryFreePlaylists();
+}
+
+static void Menu_LibraryRunPicker(int item) {
+	Playlist_Entry *entries = NULL;
+	int n = Menu_LibraryCollect(&entries);
+	char file[PLAYLIST_FILE_MAX] = "";
+	const PlaylistSummary *s = Menu_LibraryPlaylistAt(item - 1);
+
+	// El archivo se copia antes de cerrar, que suelta los resumenes. El
+	// dialogo del nombre se dibuja sobre la pantalla sin el selector.
+	if (s != NULL)
+		snprintf(file, sizeof(file), "%s", s->file);
+
+	picker_open = SCE_FALSE;
+
+	if (n > 0 && item == 0)
+		Menu_LibraryAddToNew(entries, n);
+	else if (n > 0 && file[0] != '\0')
+		Menu_LibraryAddToExisting(file, entries, n);
+
+	free(entries);
+	Menu_LibraryClosePicker();
+}
+
+// Como el menu: arriba y abajo lo recorren, confirmar o tocar una opcion la
+// elige, y volver o tocar fuera lo cierra sin añadir nada.
+static void Menu_HandleLibraryPicker(void) {
+	int shown = Menu_LibraryPickerShown();
+
+	if (Touch_CheckPressed()) {
+		for (int row = 0; row < shown; row++) {
+			if (UI_TouchTarget(Menu_LibraryPickerX(), Menu_LibraryPickerRowY(row), PICKER_W, OPTIONS_ITEM_H)) {
+				Menu_LibraryRunPicker(picker_top + row);
+				return;
+			}
+		}
+
+		Menu_LibraryClosePicker();
+		return;
+	}
+
+	Utils_ListStep(&picker_index, Menu_LibraryPickerCount(), shown);
+
+	if (picker_index < picker_top)
+		picker_top = picker_index;
+	else if (picker_index >= picker_top + shown)
+		picker_top = picker_index - shown + 1;
+
+	if (pressed & SCE_CTRL_ENTER)
+		Menu_LibraryRunPicker(picker_index);
+	else if (pressed & SCE_CTRL_CANCEL)
+		Menu_LibraryClosePicker();
+}
+
+// Reescanear y elegir carpeta ya quitan la busqueda y salen del grupo: elegir
+// carpeta vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
+static void Menu_LibraryRunOption(int i) {
 	options_open = SCE_FALSE;
 
-	if (option == OPTION_RESCAN)
-		Menu_LibraryRescan();
-	else if (option == OPTION_CHOOSE_FOLDER)
-		Menu_LibraryPickRoot();
+	switch (options[i]) {
+		case OPTION_ADD_TO_PLAYLIST:
+			Menu_LibraryOpenPicker();
+			break;
+		case OPTION_RESCAN:
+			Menu_LibraryRescan();
+			break;
+		case OPTION_CHOOSE_FOLDER:
+			Menu_LibraryPickRoot();
+			break;
+		default:
+			break;
+	}
 }
 
 // Con el menu abierto la lista no recibe nada: arriba y abajo lo recorren,
 // confirmar o tocar una opcion la ejecuta, y volver o tocar fuera lo cierra.
 static void Menu_HandleLibraryOptions(void) {
 	if (Touch_CheckPressed()) {
-		for (int i = 0; i < OPTION_COUNT; i++) {
+		for (int i = 0; i < option_count; i++) {
 			if (UI_TouchTarget(Menu_LibraryOptionsX(), Menu_LibraryOptionY(i), OPTIONS_W, OPTIONS_ITEM_H)) {
 				Menu_LibraryRunOption(i);
 				return;
@@ -1243,7 +1540,7 @@ static void Menu_HandleLibraryOptions(void) {
 		return;
 	}
 
-	Utils_ListStep(&options_index, OPTION_COUNT, OPTION_COUNT);
+	Utils_ListStep(&options_index, option_count, option_count);
 
 	if (pressed & SCE_CTRL_ENTER)
 		Menu_LibraryRunOption(options_index);
@@ -1312,7 +1609,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
 
-		if (options_open)
+		if (options_open || picker_open)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
 		else
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
@@ -1331,7 +1628,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// La lista toma solo los toques que empiezan en ella: no con el menu
 		// delante ni sobre el aviso, que la tapa en parte.
 		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
-		int tapped_row = TouchList_Update(&library_list, !options_open && !on_notice && state == LIBRARY_STATE_READY, NULL);
+		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !on_notice && state == LIBRARY_STATE_READY, NULL);
 
 		if (notice_frames > 0)
 			notice_frames--;
@@ -1340,6 +1637,11 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// de el lo cierra y nada mas.
 		if (options_open) {
 			Menu_HandleLibraryOptions();
+			continue;
+		}
+
+		if (picker_open) {
+			Menu_HandleLibraryPicker();
 			continue;
 		}
 

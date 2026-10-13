@@ -150,12 +150,16 @@ static Menu_LibrarySearch group_search;
 // al final reescanear y elegir carpeta, que estan siempre.
 typedef enum {
 	OPTION_ADD_TO_PLAYLIST = 0,
+	OPTION_REMOVE_FROM_PLAYLIST,
+	OPTION_MOVE,
 	OPTION_RESCAN,
 	OPTION_CHOOSE_FOLDER,
 	OPTION_KINDS
 } Menu_LibraryOption;
 
-static const LangString option_label[OPTION_KINDS] = { STR_MENU_ADD_TO_PLAYLIST, STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER };
+static const LangString option_label[OPTION_KINDS] = {
+	STR_MENU_ADD_TO_PLAYLIST, STR_MENU_REMOVE_FROM_PLAYLIST, STR_MENU_MOVE, STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER
+};
 
 #define OPTIONS_MAX 4
 
@@ -169,6 +173,14 @@ static int options_index = 0;
 // mismo recuadro que el menu, y se desplaza si no caben todas.
 #define PICKER_W    360
 #define PICKER_ROWS 5
+
+// Mover una cancion dentro de la playlist abierta: otro estado del lazo. La
+// cancion se desplaza en la copia en RAM y solo se guarda al confirmar;
+// cancelar la devuelve a `move_origin`. Las dos son posiciones de la playlist
+// completa, porque al mover no hay busqueda.
+static SceBool moving = SCE_FALSE;
+static int move_origin = 0;
+static int move_at = 0;
 
 static SceBool picker_open = SCE_FALSE;
 static int picker_index = 0; // 0 es "Nueva playlist…", k la playlist k - 1
@@ -729,6 +741,10 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 	else if (i == TouchList_PressedRow(&library_list))
 		UI_DrawRowPressHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 
+	// La cancion que se esta moviendo lleva ademas una marca del acento.
+	if (moving && i == selection)
+		vita2d_draw_rectangle(CONTENT_X, y, 4, ROW_H, ui_color_accent);
+
 	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
 
 	if (art != NULL && dimmed) {
@@ -1204,10 +1220,15 @@ static void Menu_LibraryEnter(void) {
 }
 
 // SCE_TRUE si habia de donde salir. La lista de fuera vuelve con su termino, y
-// `outer_selection` sigue valiendo porque ese termino no cambio.
+// `outer_selection` sigue valiendo porque ese termino no cambio. Al salir de una
+// playlist que se modifico, esta paso al principio de la pestaña: la seleccion
+// la sigue.
 static SceBool Menu_LibraryLeave(void) {
 	if (!inside)
 		return SCE_FALSE;
+
+	char was_open[PLAYLIST_FILE_MAX];
+	snprintf(was_open, sizeof(was_open), "%s", open_file);
 
 	inside = SCE_FALSE;
 	group_search.term[0] = group_search.folded[0] = '\0';
@@ -1217,6 +1238,23 @@ static SceBool Menu_LibraryLeave(void) {
 	open_file[0] = '\0';
 	selection = outer_selection;
 	view_dirty = SCE_TRUE;
+
+	if (was_open[0] != '\0') {
+		int count = Menu_LibraryBuild();
+
+		for (int v = 0; v < count; v++) {
+			const PlaylistSummary *s = Menu_LibraryPlaylistAt(Menu_LibraryFull(v));
+
+			if (s != NULL && strcmp(s->file, was_open) == 0) {
+				selection = v;
+				break;
+			}
+		}
+
+		if (selection >= count)
+			selection = (count > 0) ? count - 1 : 0;
+	}
+
 	TouchList_Reset(&library_list);
 	TouchList_Follow(&library_list);
 	return SCE_TRUE;
@@ -1322,8 +1360,13 @@ static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
 	option_count = 0;
 
 	if (state == LIBRARY_STATE_READY && Menu_LibraryBuild() > 0) {
-		if (!Menu_LibraryShowsPlaylists() && !Menu_LibraryInPlaylist())
+		if (Menu_LibraryInPlaylist()) {
+			options[option_count++] = OPTION_REMOVE_FROM_PLAYLIST;
+			options[option_count++] = OPTION_MOVE;
+		}
+		else if (!Menu_LibraryShowsPlaylists()) {
 			options[option_count++] = OPTION_ADD_TO_PLAYLIST;
+		}
 	}
 
 	options[option_count++] = OPTION_RESCAN;
@@ -1589,6 +1632,85 @@ static void Menu_HandleLibraryPicker(void) {
 		Menu_LibraryClosePicker();
 }
 
+// --- editar la playlist abierta ---------------------------------------------
+
+// Guarda la playlist abierta despues de cambiarla, y rehace los resumenes de la
+// pestaña, donde ahora va primera. Si no se pudo guardar, la copia en RAM ya no
+// es la del disco: se suelta y la lista se vuelve a leer del archivo.
+static void Menu_LibrarySaveOpen(void) {
+	if (PlaylistStore_Save(open_file, &open_playlist) < 0) {
+		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
+		Menu_LibraryFreeOpenPlaylist();
+	}
+
+	Menu_LibraryReloadPlaylists();
+	view_dirty = SCE_TRUE;
+}
+
+// Sin confirmacion. Queda marcada la que ocupaba su lugar, o la anterior si
+// era la ultima.
+static void Menu_LibraryRemoveSelected(void) {
+	int full = Menu_LibraryFull(selection);
+
+	if (Menu_LibraryEntryAt(full) == NULL)
+		return;
+
+	Playlist_Remove(&open_playlist, full);
+	Menu_LibrarySaveOpen();
+
+	int count = Menu_LibraryBuild();
+
+	if (selection >= count)
+		selection = (count > 0) ? count - 1 : 0;
+
+	TouchList_Follow(&library_list);
+}
+
+// Mover recorre la playlist entera, asi que una busqueda aplicada se quita
+// antes: la cancion sigue marcada.
+static void Menu_LibraryStartMove(void) {
+	if (Menu_LibraryHasTerm())
+		Menu_LibrarySetTerm("");
+
+	int full = Menu_LibraryFull(selection);
+
+	if (Menu_LibraryEntryAt(full) == NULL)
+		return;
+
+	moving = SCE_TRUE;
+	move_origin = move_at = full;
+}
+
+// Arriba y abajo la desplazan un puesto por pulsacion, sin envolver por los
+// extremos. Confirmar la deja ahi y guarda; volver la devuelve a su puesto.
+static void Menu_HandleLibraryMove(void) {
+	int target = move_at;
+
+	if ((pressed & SCE_CTRL_UP) && move_at > 0)
+		target = move_at - 1;
+	else if ((pressed & SCE_CTRL_DOWN) && move_at < open_playlist.count - 1)
+		target = move_at + 1;
+
+	if (target != move_at && Playlist_Move(&open_playlist, move_at, target) == 0) {
+		move_at = target;
+		selection = move_at;
+		TouchList_Follow(&library_list);
+	}
+
+	if (pressed & SCE_CTRL_ENTER) {
+		moving = SCE_FALSE;
+
+		if (move_at != move_origin)
+			Menu_LibrarySaveOpen();
+	}
+	else if (pressed & SCE_CTRL_CANCEL) {
+		Playlist_Move(&open_playlist, move_at, move_origin);
+		selection = move_origin;
+		moving = SCE_FALSE;
+		TouchList_Follow(&library_list);
+	}
+}
+
 // Reescanear y elegir carpeta ya quitan la busqueda y salen del grupo: elegir
 // carpeta vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
 static void Menu_LibraryRunOption(int i) {
@@ -1597,6 +1719,12 @@ static void Menu_LibraryRunOption(int i) {
 	switch (options[i]) {
 		case OPTION_ADD_TO_PLAYLIST:
 			Menu_LibraryOpenPicker();
+			break;
+		case OPTION_REMOVE_FROM_PLAYLIST:
+			Menu_LibraryRemoveSelected();
+			break;
+		case OPTION_MOVE:
+			Menu_LibraryStartMove();
 			break;
 		case OPTION_RESCAN:
 			Menu_LibraryRescan();
@@ -1635,6 +1763,9 @@ static void Menu_HandleLibraryOptions(void) {
 // Lo que la pantalla suelta al irse. La pestaña, el nivel, la busqueda y la
 // fila se quedan, y lo soltado se vuelve a leer al volver.
 static UI_Screen Menu_LibraryExit(UI_Screen next) {
+	// Irse a mitad de un movimiento lo cancela: la playlist se vuelve a leer
+	// del archivo, que no se toco.
+	moving = SCE_FALSE;
 	Menu_LibraryFreePlaylists();
 	Menu_LibraryFreeOpenPlaylist();
 	return next;
@@ -1693,7 +1824,17 @@ UI_Screen Menu_DisplayLibrary(void) {
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
 
-		if (options_open || picker_open)
+		// Mientras se mueve una cancion, solo las acciones de ese modo.
+		const NavRail_Hint move_hints[] = {
+			{ { HINT_BTN_UP }, 0, Lang_Get(STR_HINT_MOVE) },
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_PLACE) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_CANCEL) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+
+		if (moving)
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, move_hints, 4);
+		else if (options_open || picker_open)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
 		else
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
@@ -1712,7 +1853,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// La lista toma solo los toques que empiezan en ella: no con el menu
 		// delante ni sobre el aviso, que la tapa en parte.
 		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
-		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !on_notice && state == LIBRARY_STATE_READY, NULL);
+		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !moving && !on_notice && state == LIBRARY_STATE_READY, NULL);
 
 		if (notice_frames > 0)
 			notice_frames--;
@@ -1726,6 +1867,20 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		if (picker_open) {
 			Menu_HandleLibraryPicker();
+			continue;
+		}
+
+		// L y R, Triangulo, Cuadrado y la lista no hacen nada mientras se
+		// mueve; el riel y el mini reproductor siguen.
+		if (moving) {
+			if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_SETTINGS)
+				return Menu_LibraryExit(tapped);
+			else if (tapped == UI_SCREEN_NOW_PLAYING && Audio_HasTrack())
+				return Menu_LibraryExit(tapped);
+
+			if (!MiniPlayer_HandleTouch())
+				Menu_HandleLibraryMove();
+
 			continue;
 		}
 

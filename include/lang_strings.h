@@ -121,7 +121,11 @@ X(STR_HINT_OPTIONS,          "Options",                  "Opciones")
 X(STR_MENU_RESCAN,           "Rescan",                   "Reescanear")
 X(STR_MENU_CHOOSE_FOLDER,    "Choose folder",            "Elegir carpeta")
 X(STR_MENU_ADD_TO_PLAYLIST,  "Add to playlist…",         "Añadir a playlist…")
-X(STR_MENU_NEW_PLAYLIST,     "New playlist…",            "Nueva playlist…")
+X(STR_MENU_REMOVE_FROM_PLAYLIST, "Remove from playlist", "Quitar de la playlist")
+X(STR_MENU_MOVE,             "Move",                     "Mover")
+X(STR_HINT_MOVE,             "Move",                     "Mover")
+X(STR_HINT_PLACE,            "Place here",               "Dejar aquí")
+X(STR_MENU_NEW_PLAYLIST,    "New playlist…",            "Nueva playlist…")
 X(STR_PLAYLIST_NAME,         "Playlist name",            "Nombre de la playlist")
 // El aviso de añadir se arma con hasta tres frases: cuantas entraron y en cual,
 // cuantas ya estaban, y si se lleno.

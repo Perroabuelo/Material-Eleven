@@ -27,7 +27,7 @@
 
 ## 2. Almacenamiento
 
-- [ ] 2.1 Crear `source/playlist_store.c` e `include/playlist_store.h`:
+- [x] 2.1 Crear `source/playlist_store.c` e `include/playlist_store.h`:
   - `PlaylistStore_List` aplica `Playlist_Recover` a cada terna y devuelve resúmenes (nombre, archivo, cantidad, mtime, álbumes del mosaico) ordenados por mtime descendente, saltando los archivos inválidos.
   - `PlaylistStore_Load` y `PlaylistStore_Save` con temporal, `.bak` y renombrado (Decisión 4).
   - `PlaylistStore_Rename` en dos pasos y `PlaylistStore_Delete`.

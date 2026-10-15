@@ -7,7 +7,7 @@ Define qué ve el usuario cuando abre la biblioteca y qué puede hacer con ella:
 ## Requirements
 
 ### Requirement: La biblioteca presenta la colección por canciones, artistas, álbumes y añadidos recientemente
-El sistema SHALL ofrecer en la pantalla de biblioteca cuatro formas de recorrer la colección indexada —todas las canciones, agrupada por artista, agrupada por álbum, y ordenada por lo añadido más recientemente— y SHALL permitir al usuario cambiar entre ellas sin salir de la pantalla.
+El sistema SHALL ofrecer en la pantalla de biblioteca cinco formas de recorrer la colección indexada —todas las canciones, agrupada por artista, agrupada por álbum, ordenada por lo añadido más recientemente, y las playlists del usuario— y SHALL permitir al usuario cambiar entre ellas sin salir de la pantalla. La pestaña Playlists SHALL ir a continuación de Añadidos recientemente. Lo que contiene y cómo se presenta lo define `library/playlists`.
 
 #### Scenario: Cambiar de vista
 - **WHEN** el usuario está viendo la lista de canciones y elige la agrupación por artista
@@ -25,8 +25,16 @@ El sistema SHALL ofrecer en la pantalla de biblioteca cuatro formas de recorrer 
 - **WHEN** el usuario elige la vista de añadidos recientemente
 - **THEN** ve sus pistas ordenadas de la más reciente a la más antigua según la fecha del archivo
 
+#### Scenario: Llegar a las playlists
+- **WHEN** el usuario está en la vista Añadidos recientemente y pulsa R
+- **THEN** la pantalla pasa a la pestaña Playlists, sin salir de la biblioteca; y pulsar R otra vez lleva a la vista Canciones
+
+#### Scenario: Entrar en una playlist
+- **WHEN** el usuario elige una playlist en la pestaña Playlists
+- **THEN** ve sus canciones en el orden de la playlist
+
 ### Requirement: Reproducir desde una vista convierte esa vista en la cola
-El sistema SHALL tomar como cola de reproducción la lista de pistas de la vista desde la que el usuario inició la reproducción, en el orden en que esa vista las muestra. Las acciones de pista siguiente y anterior SHALL recorrer esa cola, y no la carpeta en la que se encuentre el archivo reproducido.
+El sistema SHALL tomar como cola de reproducción la lista de pistas de la vista desde la que el usuario inició la reproducción, en el orden en que esa vista las muestra. Las acciones de pista siguiente y anterior SHALL recorrer esa cola, y no la carpeta en la que se encuentre el archivo reproducido. Reproducir desde dentro de una playlist SHALL tomar como cola esa playlist, como define `library/playlists`.
 
 Una búsqueda aplicada SHALL NOT cambiar la cola. Si el usuario reproduce una pista desde una lista filtrada, la cola SHALL ser la misma vista sin filtrar, en su orden completo, y la reproducción SHALL empezar por la pista elegida. Es el mismo resultado que elegir esa pista sin haber buscado.
 
@@ -34,7 +42,7 @@ La única excepción es reproducir desde dentro de un álbum o de un artista con
 - Dentro de un álbum: agrupada por álbum, con los álbumes en el orden de la vista Álbumes y las pistas de cada uno en el orden del disco.
 - Dentro de un artista: agrupada por artista, con los artistas en el orden de la vista Artistas y las pistas de cada uno en el orden que muestra ese artista.
 
-La reproducción SHALL empezar por la pista elegida. Con el ajuste en "Repetirlo", la cola SHALL ser solo la vista abierta, como hasta ahora. En las vistas Canciones y Añadidos recientemente el ajuste SHALL NOT cambiar nada.
+La reproducción SHALL empezar por la pista elegida. Con el ajuste en "Repetirlo", la cola SHALL ser solo la vista abierta, como hasta ahora. En las vistas Canciones y Añadidos recientemente, y dentro de una playlist, el ajuste SHALL NOT cambiar nada.
 
 #### Scenario: Reproducir desde un álbum
 - **WHEN** el usuario abre un álbum en la biblioteca y reproduce una de sus pistas
@@ -80,6 +88,10 @@ La reproducción SHALL empezar por la pista elegida. Con el ajuste en "Repetirlo
 - **WHEN** el ajuste está en "Repetirlo", el usuario filtra un álbum de 10 pistas con un término que deja la pista 4 y la reproduce
 - **THEN** después de la pista 4 suena la pista 5 del álbum, y al terminar la 10 suena la 1
 
+#### Scenario: Reproducir un resultado dentro de una playlist
+- **WHEN** el usuario filtra una playlist de 8 canciones con un término que deja la quinta y la reproduce
+- **THEN** después de la quinta suena la sexta de la playlist, y al terminar la octava suena la primera
+
 ### Requirement: La biblioteca dice en qué estado está
 El sistema SHALL distinguir en la pantalla de biblioteca los estados en que puede encontrarse —sin carpeta elegida, escaneando, vacía tras un escaneo, y con contenido— y SHALL ofrecer en cada uno la acción que corresponde, en vez de presentar una lista vacía sin explicación.
 
@@ -101,6 +113,14 @@ El sistema SHALL distinguir en la pantalla de biblioteca los estados en que pued
 
 ### Requirement: Reescanear y cambiar de carpeta se piden desde la biblioteca
 El sistema SHALL ofrecer desde la propia pantalla de biblioteca las acciones de reescanear la carpeta vigente y de elegir una carpeta distinta, sin que el usuario tenga que buscarlas en otra pantalla. Las dos acciones SHALL reunirse en un menú que se abre con el botón Cuadrado. El menú SHALL recorrerse con arriba y abajo, SHALL ejecutar la opción marcada con el botón de confirmar o al tocarla, y SHALL cerrarse sin hacer nada con el botón de volver o al tocar fuera de él. Mientras el menú está abierto, la lista de debajo SHALL NOT recibir los botones. Reescanear o elegir otra carpeta SHALL quitar cualquier búsqueda aplicada en la biblioteca.
+
+El menú SHALL depender de la fila marcada cuando se abre. Antes de reescanear y elegir carpeta, SHALL ofrecer las acciones que esa fila admite según `library/playlists`:
+- Sobre una canción fuera de una playlist: "Añadir a playlist…".
+- Sobre un artista o un álbum: añadir sus pistas a una playlist.
+- Sobre una canción dentro de una playlist: "Quitar de la playlist" y "Mover".
+- Sobre una playlist en la pestaña Playlists: "Renombrar" y "Borrar".
+
+Al abrirse, la marca del menú SHALL estar en la primera opción. Con la pestaña Playlists vacía, o dentro de una playlist vacía, el menú SHALL ofrecer solo reescanear y elegir carpeta.
 
 En los estados sin contenido (sin carpeta, sin escanear, carpeta sin música), el botón de confirmar SHALL seguir ejecutando directamente la acción que corresponde a ese estado.
 
@@ -127,6 +147,18 @@ En los estados sin contenido (sin carpeta, sin escanear, carpeta sin música), e
 #### Scenario: Confirmar en una biblioteca sin escanear
 - **WHEN** la biblioteca tiene carpeta pero nunca se escaneó, y el usuario pulsa el botón de confirmar
 - **THEN** empieza el escaneo, igual que antes de este cambio
+
+#### Scenario: El menú sobre una canción
+- **WHEN** el usuario marca una canción en la vista Canciones y pulsa Cuadrado
+- **THEN** el menú muestra "Añadir a playlist…" marcada en primer lugar, y debajo "Reescanear" y "Elegir carpeta"
+
+#### Scenario: El menú sobre una playlist
+- **WHEN** el usuario marca una playlist en la pestaña Playlists y pulsa Cuadrado
+- **THEN** el menú muestra "Renombrar" y "Borrar", y debajo "Reescanear" y "Elegir carpeta"
+
+#### Scenario: El menú en la pestaña Playlists vacía
+- **WHEN** no hay playlists, el usuario está en la pestaña Playlists y pulsa Cuadrado
+- **THEN** el menú muestra solo "Reescanear" y "Elegir carpeta"
 
 ### Requirement: La biblioteca no reemplaza al navegador de carpetas
 El sistema SHALL conservar el navegador de carpetas como camino independiente y completo hacia la reproducción, con el mismo comportamiento que tenía antes de existir la biblioteca. El uso de uno SHALL NOT condicionar ni limitar el uso del otro.
@@ -226,12 +258,14 @@ Lo que se compara depende de la lista:
 - En Canciones y en Añadidos recientemente, una pista coincide cuando su título, su artista o su álbum contiene el término. El título que se compara es el que muestra la fila: el del tag, o el nombre del archivo si no lo trae.
 - En Artistas y en Álbumes, un grupo coincide cuando su nombre contiene el término. El cubo de los desconocidos se compara por la etiqueta que muestra.
 - Dentro de un artista o de un álbum, una pista coincide cuando su título contiene el término.
+- En Playlists, una playlist coincide cuando su nombre contiene el término.
+- Dentro de una playlist, una canción coincide cuando el título que muestra su fila contiene el término, esté disponible o atenuada.
 
 La comparación SHALL NOT distinguir entre mayúsculas y minúsculas ni entre letras con y sin tilde o diéresis, y SHALL tratar la ñ como n. Las entradas que coinciden SHALL conservar el orden que tienen en la lista completa.
 
 El término SHALL pertenecer a la lista en la que se escribió:
 - Cambiar de pestaña SHALL borrar los términos de la pestaña que se deja.
-- Entrar en un artista o en un álbum SHALL empezar sin término, y volver de él SHALL devolver la lista exterior con el término que tenía.
+- Entrar en un artista, en un álbum o en una playlist SHALL empezar sin término, y volver de él SHALL devolver la lista exterior con el término que tenía.
 - Ir a otra pantalla con el nav rail y volver a la biblioteca SHALL conservar el término y la fila seleccionada.
 
 Mientras hay un término aplicado, la pantalla SHALL mostrarlo en la caja de búsqueda. El contador de la lista SHALL contar las entradas que quedan. La búsqueda SHALL estar disponible solo cuando la biblioteca tiene contenido.
@@ -255,6 +289,14 @@ Mientras hay un término aplicado, la pantalla SHALL mostrarlo en la caja de bú
 #### Scenario: Buscar dentro de un álbum
 - **WHEN** el usuario está dentro de un álbum y confirma un término
 - **THEN** la lista muestra solo las pistas de ese álbum cuyo título contiene el término
+
+#### Scenario: Buscar una playlist
+- **WHEN** existen las playlists "Viaje", "Viaje a la costa" y "Favoritas", y el usuario confirma "viaje" en la pestaña Playlists
+- **THEN** la lista muestra "Viaje" y "Viaje a la costa", en el orden que tenían
+
+#### Scenario: Buscar dentro de una playlist
+- **WHEN** el usuario está dentro de una playlist y confirma un término
+- **THEN** la lista muestra solo las canciones de esa playlist cuyo título contiene el término, en el orden de la playlist
 
 #### Scenario: Sin distinguir tildes ni mayúsculas
 - **WHEN** la biblioteca tiene una pista titulada "Canción del Mariachi" y el usuario busca "cancion"

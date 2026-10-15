@@ -68,17 +68,21 @@
 
 ## 5. Crear y añadir
 
-- [ ] 5.1 Convertir el menú de Cuadrado en una lista armada al abrirlo según la fila marcada (Decisión 9), por ahora con "Añadir a playlist…" sobre canciones y sobre artistas y álbumes, más reescanear y elegir carpeta. Convertir el aviso en texto formateado con `Menu_LibraryNoticef`. Agregar los textos a `lang_strings.h`. Listo cuando:
+- [x] 5.1 Convertir el menú de Cuadrado en una lista armada al abrirlo según la fila marcada (Decisión 9), por ahora con "Añadir a playlist…" sobre canciones y sobre artistas y álbumes, más reescanear y elegir carpeta. Convertir el aviso en texto formateado con `Menu_LibraryNoticef`. Agregar los textos a `lang_strings.h`. Listo cuando:
   - `make -C tests` pase;
   - `scripts/build.sh` compile;
   - en la consola se cumplan "El menú sobre una canción" y "El menú en la pestaña Playlists vacía" de `library/views`;
   - y los escenarios previos del menú sigan pasando: "Pedir un reescaneo", "Cerrar el menú sin hacer nada" y "Reescanear quita la búsqueda".
-- [ ] 5.2 Selector de playlists con "Nueva playlist…" (`SearchDialog_Prompt`), crear y añadir, añadir a una existente, y avisos de añadidas, omitidas, llena y nombre repetido. La playlist destino se carga, se modifica, se guarda y se libera en cada acción. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de:
+
+  Resultado (2026-10-14, Vita): se cumplen el menú sobre una canción, el de la pestaña vacía y los escenarios previos del menú.
+- [x] 5.2 Selector de playlists con "Nueva playlist…" (`SearchDialog_Prompt`), crear y añadir, añadir a una existente, y avisos de añadidas, omitidas, llena y nombre repetido. La playlist destino se carga, se modifica, se guarda y se libera en cada acción. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de:
   - "Crear una playlist con nombre";
   - "Añadir canciones a una playlist" (el de playlist llena ya lo cubre `test_playlist`);
   - y "Una playlist sobrevive al reinicio" y "El archivo es un M3U legible" de `library/playlists`.
 
   Anotar el HEAP antes y después de añadir un álbum a una playlist 20 veces.
+
+  Resultado (2026-10-14, Vita): se cumplen todos los escenarios. HEAP al añadir un álbum 20 veces: se mantiene en 1388 KB.
 - [ ] 5.3 Mostrar el mosaico en las filas de la pestaña con `Cover_GetMosaic`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Presentación de las playlists" de `library/playlists`, incluido "Recorrer la pestaña con muchas playlists" con el HEAP anotado antes y después de recorrerla 20 veces.
 
 ## 6. Editar
@@ -86,13 +90,17 @@
 - [x] 6.1 Dentro de una playlist, menú con "Quitar de la playlist" y "Mover", con el modo mover y su leyenda. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Quitar y mover canciones dentro de una playlist" de `library/playlists`.
 
   Resultado (2026-10-14, Vita): se cumplen todos los escenarios, incluido quitar una canción atenuada, y los cambios siguen tras reiniciar.
-- [ ] 6.2 En la pestaña, menú con "Renombrar" (teclado del sistema con el nombre cargado) y "Borrar" con el diálogo de confirmación, con "Cancelar" marcada al abrir. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
+- [x] 6.2 En la pestaña, menú con "Renombrar" (teclado del sistema con el nombre cargado) y "Borrar" con el diálogo de confirmación, con "Cancelar" marcada al abrir. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
   - todos los escenarios de "Renombrar y borrar una playlist" de `library/playlists`;
   - "El menú sobre una playlist" de `library/views`;
   - y "Volver a una playlist que se borró" de `ui/nav-shell`.
+
+  Resultado (2026-10-14, Vita): se cumplen todos los escenarios ("Favoritas" quedó renombrada a "Favorita").
 - [ ] 6.3 Escenario de corte en consola: con una playlist de 500 canciones abierta, quitar una canción y apagar la consola manteniendo el botón de encendido justo después. Listo cuando, al reiniciar, la playlist aparezca entera en su versión anterior o en la nueva, nunca vacía, y no queden `.tmp` ni `.bak` en `ux0:data/ElevenMPV/playlists/` después de abrir la pestaña. El escenario "Guardado interrumpido" ya lo cubre `test_playlist` (1.4).
 
 ## 7. Versión y cierre
 
-- [ ] 7.1 Agregar los bullets de Notas de versión de `proposal.md` a `CHANGELOG.md` bajo `[Unreleased]` en `### Added`, y subir `VITA_VERSION` en `CMakeLists.txt` a la versión objetivo de la propuesta, en el formato que exige `.github/scripts/check-version.sh`. Listo cuando `scripts/build.sh --clean` compile sin warnings y el `.vpk` instalado encima de la versión anterior muestre la nueva y conserve la configuración, el índice y las playlists.
+- [x] 7.1 Agregar los bullets de Notas de versión de `proposal.md` a `CHANGELOG.md` bajo `[Unreleased]` en `### Added`, y subir `VITA_VERSION` en `CMakeLists.txt` a la versión objetivo de la propuesta, en el formato que exige `.github/scripts/check-version.sh`. Listo cuando `scripts/build.sh --clean` compile sin warnings y el `.vpk` instalado encima de la versión anterior muestre la nueva y conserve la configuración, el índice y las playlists.
+
+  Resultado (2026-10-14, Vita): instalado encima de v3.9.0 muestra 04.00 y conserva la configuración, el índice y las playlists.
 - [ ] 7.2 Push de `change/add-playlists` y PR a `main`. Listo cuando el CI del PR esté en verde: build del `.vpk` y tests en PC, incluidos `test_playlist`, `test_path_index` y `test_cover_mosaic`.

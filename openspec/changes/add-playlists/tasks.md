@@ -53,12 +53,16 @@
   - las cinco pestañas, la caja de búsqueda y el título se vean sin solaparse en English y en Español (riesgo de design.md);
   - un `.m3u8` vacío y otro con basura no rompan la pestaña ("Un archivo dañado no rompe la pestaña");
   - y se mida el tiempo de entrada con una playlist de 4000 canciones generada en el PC, anotándolo.
-- [ ] 4.2 Entrar en una playlist (Decisión 9: `inside_kind`, nombre de archivo de la playlist abierta), con sus filas como las de un álbum, las no disponibles atenuadas con el título y el artista guardados, y "playlist vacía". Reproducir con la Decisión 10. Liberar la playlist abierta al salir de ella, al cambiar de pestaña y al salir de la pantalla. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
+- [x] 4.2 Entrar en una playlist (Decisión 9: `inside_kind`, nombre de archivo de la playlist abierta), con sus filas como las de un álbum, las no disponibles atenuadas con el título y el artista guardados, y "playlist vacía". Reproducir con la Decisión 10. Liberar la playlist abierta al salir de ella, al cambiar de pestaña y al salir de la pantalla. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
   - "Entrar en una playlist" de `library/views`;
   - todos los escenarios de "Reproducir una playlist" y de "Canciones que la biblioteca ya no tiene" de `library/playlists`;
   - "Volver a la playlist de origen" de `ui/nav-shell`;
   - y el HEAP antes y después de entrar y salir 20 veces de una playlist de 500 canciones, anotándolo.
-- [ ] 4.3 Búsqueda en la pestaña y dentro de una playlist, con las comparaciones de `library/views`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan "Buscar una playlist", "Buscar dentro de una playlist" y "Reproducir un resultado dentro de una playlist".
+
+  Resultado (2026-10-14, Vita): se entra en "Mis cosas" (291 canciones) y en "Favoritas", la reproducción avanza por la playlist y las 2 canciones inexistentes de "Favoritas" salen grisáceas y se saltan. HEAP al entrar y salir 20 veces de "Mis cosas" (291, no 500): alterna entre 1583 y 1710 KB sin crecer. Quitar una canción no cambia la cola en curso y rige al volver a reproducir. Se cumplen además el resto de escenarios de la tarea, incluido "Volver a la playlist de origen".
+- [x] 4.3 Búsqueda en la pestaña y dentro de una playlist, con las comparaciones de `library/views`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan "Buscar una playlist", "Buscar dentro de una playlist" y "Reproducir un resultado dentro de una playlist".
+
+  Resultado (2026-10-14, Vita): los tres escenarios se cumplen.
 
 ## 5. Crear y añadir
 
@@ -77,7 +81,9 @@
 
 ## 6. Editar
 
-- [ ] 6.1 Dentro de una playlist, menú con "Quitar de la playlist" y "Mover", con el modo mover y su leyenda. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Quitar y mover canciones dentro de una playlist" de `library/playlists`.
+- [x] 6.1 Dentro de una playlist, menú con "Quitar de la playlist" y "Mover", con el modo mover y su leyenda. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Quitar y mover canciones dentro de una playlist" de `library/playlists`.
+
+  Resultado (2026-10-14, Vita): se cumplen todos los escenarios, incluido quitar una canción atenuada, y los cambios siguen tras reiniciar.
 - [ ] 6.2 En la pestaña, menú con "Renombrar" (teclado del sistema con el nombre cargado) y "Borrar" con el diálogo de confirmación, con "Cancelar" marcada al abrir. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
   - todos los escenarios de "Renombrar y borrar una playlist" de `library/playlists`;
   - "El menú sobre una playlist" de `library/views`;

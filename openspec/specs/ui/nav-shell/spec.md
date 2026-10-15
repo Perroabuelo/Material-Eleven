@@ -36,7 +36,7 @@ The system SHALL visually distinguish the entry for the currently active screen 
 - **THEN** the Folders entry in the rail is visually marked as active and the other entries are not
 
 ### Requirement: Existing physical-button navigation still works
-The system SHALL preserve the physical-button navigation behavior that existed before the navigation rail (for example, SELECT opening Settings from the folder browser), alongside the new rail-based navigation. En Reproduciendo, el botón de volver de la consola SHALL llevar a la pantalla donde el usuario eligió la canción que suena (Carpetas o Biblioteca), y SHALL hacerlo aunque el usuario haya llegado a Reproduciendo desde otra pantalla con el nav rail. Al volver a la Biblioteca, la pantalla SHALL mostrar la misma pestaña, el mismo artista o álbum abierto, la misma búsqueda aplicada y la misma fila seleccionada que tenía cuando se eligió la canción. Pasar a la pista siguiente o a la anterior SHALL NOT cambiar adónde lleva el botón de volver. START SHALL NOT exit the app on any screen; its behavior is defined by `playback/screen-off`. The app SHALL be closed the same way as any other console application, from the PS button and its LiveArea.
+The system SHALL preserve the physical-button navigation behavior that existed before the navigation rail (for example, SELECT opening Settings from the folder browser), alongside the new rail-based navigation. En Reproduciendo, el botón de volver de la consola SHALL llevar a la pantalla donde el usuario eligió la canción que suena (Carpetas o Biblioteca), y SHALL hacerlo aunque el usuario haya llegado a Reproduciendo desde otra pantalla con el nav rail. Al volver a la Biblioteca, la pantalla SHALL mostrar la misma pestaña, el mismo artista, álbum o playlist abierto, la misma búsqueda aplicada y la misma fila seleccionada que tenía cuando se eligió la canción. Pasar a la pista siguiente o a la anterior SHALL NOT cambiar adónde lleva el botón de volver. START SHALL NOT exit the app on any screen; its behavior is defined by `playback/screen-off`. The app SHALL be closed the same way as any other console application, from the PS button and its LiveArea.
 
 #### Scenario: SELECT still opens Settings
 - **WHEN** the user presses SELECT while viewing Folders
@@ -57,6 +57,14 @@ The system SHALL preserve the physical-button navigation behavior that existed b
 #### Scenario: Volver a la Biblioteca con una búsqueda aplicada
 - **WHEN** el usuario filtra la vista Canciones con un término, reproduce el segundo resultado y, en Reproduciendo, pulsa el botón de volver de la consola
 - **THEN** la aplicación vuelve a la Biblioteca, en la vista Canciones, con el mismo término aplicado y con el segundo resultado seleccionado
+
+#### Scenario: Volver a la playlist de origen
+- **WHEN** el usuario entra en la playlist "Viaje" desde la pestaña Playlists, reproduce su cuarta canción y, en Reproduciendo, pulsa el botón de volver de la consola
+- **THEN** la aplicación vuelve a la Biblioteca, en la pestaña Playlists, dentro de "Viaje" y con la cuarta canción seleccionada
+
+#### Scenario: Volver a una playlist que se borró
+- **WHEN** el usuario reproduce desde la playlist "Viaje", la borra mientras suena y luego, en Reproduciendo, pulsa el botón de volver de la consola
+- **THEN** la aplicación vuelve a la Biblioteca, en la pestaña Playlists, sin entrar en ninguna playlist
 
 #### Scenario: El origen se mantiene al entrar por el nav rail
 - **WHEN** el usuario reproduce una canción desde la Biblioteca, va a Ajustes con el nav rail, vuelve a Reproduciendo con el nav rail y pulsa el botón de volver de la consola

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-14
+
 ### Added
 
 - New Playlists tab in the Library: make your own playlists right on the Vita.

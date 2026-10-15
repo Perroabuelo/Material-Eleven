@@ -46,13 +46,15 @@
 
 ## 4. Pestaña Playlists y nivel interior
 
-- [ ] 4.1 Agregar `VIEW_PLAYLISTS` y la etiqueta "Playlists" en los dos idiomas a `lang_strings.h`. La pestaña lista los resúmenes con nombre y cantidad, todavía con el marcador como carátula. Mostrar el estado vacío con su explicación. Liberar los resúmenes al salir de la pestaña y de la pantalla. Listo cuando:
+- [x] 4.1 Agregar `VIEW_PLAYLISTS` y la etiqueta "Playlists" en los dos idiomas a `lang_strings.h`. La pestaña lista los resúmenes con nombre y cantidad, todavía con el marcador como carátula. Mostrar el estado vacío con su explicación. Liberar los resúmenes al salir de la pestaña y de la pantalla. Listo cuando:
   - `make -C tests` pase (`test_lang`);
   - `scripts/build.sh` compile;
   - en la consola, con dos `.m3u8` copiados a mano en `ux0:data/ElevenMPV/playlists/`, se cumplan "Llegar a las playlists" de `library/views` y "Sin playlists" de `library/playlists`;
   - las cinco pestañas, la caja de búsqueda y el título se vean sin solaparse en English y en Español (riesgo de design.md);
   - un `.m3u8` vacío y otro con basura no rompan la pestaña ("Un archivo dañado no rompe la pestaña");
   - y se mida el tiempo de entrada con una playlist de 4000 canciones generada en el PC, anotándolo.
+
+  Resultado (2026-10-14, Vita): la pestaña vacía muestra su explicación. Con "Mis cosas", "Favoritas", "Grande 4000" (4000 canciones), un `.m3u8` vacío y otro con 4 KB de basura, la pestaña lista solo las tres válidas y no se rompe. Entrar en la pestaña con R desde Añadidos recientemente tarda como mucho 0,22 s con la de 4000. R vuelve a Canciones. Pestañas, búsqueda y título no se solapan en English ni en Español.
 - [x] 4.2 Entrar en una playlist (Decisión 9: `inside_kind`, nombre de archivo de la playlist abierta), con sus filas como las de un álbum, las no disponibles atenuadas con el título y el artista guardados, y "playlist vacía". Reproducir con la Decisión 10. Liberar la playlist abierta al salir de ella, al cambiar de pestaña y al salir de la pantalla. Listo cuando `scripts/build.sh` compile y en la consola se cumplan:
   - "Entrar en una playlist" de `library/views`;
   - todos los escenarios de "Reproducir una playlist" y de "Canciones que la biblioteca ya no tiene" de `library/playlists`;

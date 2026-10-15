@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- New Playlists tab in the Library: make your own playlists right on the Vita.
+- Press Square on a song, an album or an artist and choose "Add to playlist" to add it to an existing playlist or to a new one.
+- Inside a playlist, press Square on a song to remove it or move it to another position.
+- Rename or delete a playlist with Square in the Playlists tab.
+- Each playlist shows a cover made from the first four albums in it.
+- Songs whose file is gone are shown dimmed and skipped during playback.
+
 ## [3.9.0] - 2026-10-12
 
 ### Added

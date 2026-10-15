@@ -9,14 +9,20 @@
 
 #include "common.h"
 #include "cover.h"
+#include "cover_mosaic.h"
 #include "fs.h"
 #include "opus/opusfile.h"
 #include "ui_gpu.h"
+#include "ui_theme.h"
 
 #define COVER_DIR      "ux0:data/ElevenMPV/covers"
 #define COVER_HEADER   128
 #define COVER_KEY_MAX  (COVER_HEADER - 12)
 #define COVER_PIXELS   (COVER_SIZE * COVER_SIZE * 4)
+
+// Empieza las claves de los mosaicos. Un album no empieza con un caracter de
+// control, asi que ninguno choca con ellas.
+#define COVER_MOSAIC_PREFIX "\x01" "mosaic:"
 
 // Cuantas miniaturas se tienen decodificadas a la vez. A 64 KB cada una son
 // 1 MB: cabe una pagina de lista con margen para desplazarse sin releer.
@@ -389,6 +395,33 @@ static Cover_Slot *Cover_ClaimSlot(void) {
 	return oldest;
 }
 
+// Ocupa un slot para `key` con la imagen de `pixels`, o con la marca de que no
+// hay caratula si `pixels` es NULL o la textura no se pudo crear.
+static vita2d_texture *Cover_Fill(const char *key, const unsigned char *pixels) {
+	Cover_Slot *slot = Cover_ClaimSlot();
+	snprintf(slot->key, sizeof(slot->key), "%s", key);
+	slot->age = ++cover_clock;
+	slot->texture = NULL;
+	slot->empty = SCE_TRUE;
+
+	if (pixels != NULL) {
+		vita2d_texture *tex = vita2d_create_empty_texture(COVER_SIZE, COVER_SIZE);
+
+		if (tex != NULL) {
+			unsigned char *dst = (unsigned char *)vita2d_texture_get_datap(tex);
+			unsigned int stride = vita2d_texture_get_stride(tex);
+
+			for (int y = 0; y < COVER_SIZE; y++)
+				memcpy(dst + (size_t)y * stride, pixels + (size_t)y * COVER_SIZE * 4, COVER_SIZE * 4);
+
+			slot->texture = tex;
+			slot->empty = SCE_FALSE;
+		}
+	}
+
+	return slot->texture;
+}
+
 vita2d_texture *Cover_Get(const char *album, const char *path, int *budget) {
 	char key[COVER_KEY_MAX];
 	Cover_Key(key, sizeof(key), album, path);
@@ -414,29 +447,100 @@ vita2d_texture *Cover_Get(const char *album, const char *path, int *budget) {
 		return NULL;
 
 	int state = Cover_ReadEntry(key, pixels);
-	slot = Cover_ClaimSlot();
-	snprintf(slot->key, sizeof(slot->key), "%s", key);
-	slot->age = ++cover_clock;
-	slot->texture = NULL;
-	slot->empty = SCE_TRUE;
-
-	if (state == 1) {
-		vita2d_texture *tex = vita2d_create_empty_texture(COVER_SIZE, COVER_SIZE);
-
-		if (tex != NULL) {
-			unsigned char *dst = (unsigned char *)vita2d_texture_get_datap(tex);
-			unsigned int stride = vita2d_texture_get_stride(tex);
-
-			for (int y = 0; y < COVER_SIZE; y++)
-				memcpy(dst + (size_t)y * stride, pixels + (size_t)y * COVER_SIZE * 4, COVER_SIZE * 4);
-
-			slot->texture = tex;
-			slot->empty = SCE_FALSE;
-		}
-	}
+	vita2d_texture *tex = Cover_Fill(key, (state == 1) ? pixels : NULL);
 
 	free(pixels);
-	return slot->texture;
+	return tex;
+}
+
+void Cover_MosaicKey(const char *const albums[4], const char *const paths[4], char *dst, size_t cap) {
+	char key[COVER_KEY_MAX];
+	int used = snprintf(dst, cap, "%s", COVER_MOSAIC_PREFIX);
+
+	for (int q = 0; q < COVER_MOSAIC_QUARTERS && used >= 0 && (size_t)used < cap; q++) {
+		Cover_Key(key, sizeof(key), albums[q], paths[q]);
+		used += snprintf(dst + used, cap - (size_t)used, "%08x", Cover_Hash(key));
+	}
+}
+
+vita2d_texture *Cover_GetMosaic(const char *const albums[4], const char *const paths[4], SceBool definitive, int *budget) {
+	char key[COVER_KEY_MAX];
+	Cover_MosaicKey(albums, paths, key, sizeof(key));
+
+	Cover_Slot *slot = Cover_FindSlot(key);
+
+	if (slot != NULL) {
+		slot->age = ++cover_clock;
+		return slot->texture;
+	}
+
+	// Leer el mosaico hecho o componerlo cuesta lo mismo que una caratula: la
+	// lista no se detiene, y la fila lo recibe en un fotograma proximo.
+	if (budget != NULL && *budget <= 0)
+		return NULL;
+
+	if (budget != NULL)
+		(*budget)--;
+
+	unsigned char *pixels = (unsigned char *)malloc(COVER_PIXELS);
+
+	if (pixels == NULL)
+		return NULL;
+
+	if (Cover_ReadEntry(key, pixels) != 1) {
+		// Las cuatro caratulas pasan de una en una por el mismo buffer.
+		unsigned char *one = (unsigned char *)malloc(COVER_PIXELS);
+
+		if (one == NULL) {
+			free(pixels);
+			return NULL;
+		}
+
+		static const unsigned char surface[4] = {
+			UI_COLOR_SURFACE & 0xFF, (UI_COLOR_SURFACE >> 8) & 0xFF, (UI_COLOR_SURFACE >> 16) & 0xFF, 255
+		};
+		SceBool whole = definitive;
+
+		for (int q = 0; q < COVER_MOSAIC_QUARTERS; q++) {
+			char album_key[COVER_KEY_MAX];
+			Cover_Key(album_key, sizeof(album_key), albums[q], paths[q]);
+
+			if (Cover_ReadEntry(album_key, one) == 1) {
+				CoverMosaic_Reduce(one, pixels, COVER_SIZE, q);
+			} else {
+				CoverMosaic_Fill(pixels, COVER_SIZE, q, surface);
+				whole = SCE_FALSE;
+			}
+		}
+
+		free(one);
+
+		// Solo se guarda el definitivo: uno con un cuadrante vacio o con
+		// albumes que la pasada de caratulas aun no miro se recompone la
+		// proxima vez que se pida, en vez de quedar asi para siempre.
+		if (whole)
+			Cover_WriteEntry(key, pixels);
+	}
+
+	vita2d_texture *tex = Cover_Fill(key, pixels);
+
+	free(pixels);
+	return tex;
+}
+
+void Cover_ForgetMosaic(const char *key) {
+	Cover_Slot *slot = Cover_FindSlot(key);
+
+	if (slot != NULL) {
+		UI_GpuFreeTexture(&slot->texture);
+		slot->key[0] = '\0';
+		slot->empty = SCE_FALSE;
+		slot->age = 0;
+	}
+
+	char file[512];
+	Cover_FilePath(file, sizeof(file), key);
+	sceIoRemove(file);
 }
 
 Cover_ProbeResult Cover_Probe(const char *album, const char *path) {

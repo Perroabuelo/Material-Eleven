@@ -14,6 +14,7 @@
 #include "library_row.h"
 #include "cover.h"
 #include "nav_rail.h"
+#include "path_index.h"
 #include "tags.h"
 #include "track_meta.h"
 #include "ui_gpu.h"
@@ -75,6 +76,11 @@ static SceBool library_has_unknown = SCE_FALSE;
 static int *library_cand = NULL;
 static int *library_cand_start = NULL;
 
+// Las pistas por ruta, para que una playlist sepa cuales de las suyas siguen en
+// la biblioteca sin recorrer el indice entero por cada una. Se rehace cada vez
+// que el indice queda construido, y se suelta con el.
+static PathIndex library_paths;
+
 // ---------------------------------------------------------------------------
 // la lista
 
@@ -127,6 +133,8 @@ void Library_Free(void) {
 	library_view_count = 0;
 	library_name_count = 0;
 
+	PathIndex_Free(&library_paths);
+
 	free(library_tracks);
 	library_tracks = NULL;
 	library_count = 0;
@@ -144,6 +152,23 @@ const Library_Track *Library_GetTrack(int index) {
 		return NULL;
 
 	return &library_tracks[index];
+}
+
+static const char *Library_PathAt(int index, void *ctx) {
+	(void)ctx;
+	return library_tracks[index].path;
+}
+
+// Sin memoria el indice por ruta queda vacio: las filas de las playlists se ven
+// atenuadas, pero siguen sonando, porque la cola abre la ruta igual.
+static void Library_IndexPaths(void) {
+	PathIndex_Free(&library_paths);
+	PathIndex_Build(&library_paths, library_count, Library_PathAt, NULL);
+}
+
+const Library_Track *Library_FindPath(const char *path) {
+	int index = PathIndex_Find(&library_paths, path);
+	return (index >= 0) ? &library_tracks[index] : NULL;
 }
 
 SceBool Library_IsTruncated(void) {
@@ -430,6 +455,7 @@ SceBool Library_Load(void) {
 	}
 
 	library_built = SCE_TRUE;
+	Library_IndexPaths();
 	return SCE_TRUE;
 }
 
@@ -1105,6 +1131,7 @@ SceBool Library_RunScan(void) {
 		library_capacity = old_count;
 		library_built = old_built;
 		library_truncated = old_truncated;
+		Library_IndexPaths();
 		return SCE_FALSE;
 	}
 
@@ -1227,6 +1254,7 @@ SceBool Library_RunScan(void) {
 	}
 
 	library_built = SCE_TRUE;
+	Library_IndexPaths();
 	Library_Save();
 	return SCE_TRUE;
 }

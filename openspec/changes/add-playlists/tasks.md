@@ -107,4 +107,6 @@
 - [x] 7.1 Agregar los bullets de Notas de versión de `proposal.md` a `CHANGELOG.md` bajo `[Unreleased]` en `### Added`, y subir `VITA_VERSION` en `CMakeLists.txt` a la versión objetivo de la propuesta, en el formato que exige `.github/scripts/check-version.sh`. Listo cuando `scripts/build.sh --clean` compile sin warnings y el `.vpk` instalado encima de la versión anterior muestre la nueva y conserve la configuración, el índice y las playlists.
 
   Resultado (2026-10-14, Vita): instalado encima de v3.9.0 muestra 04.00 y conserva la configuración, el índice y las playlists.
-- [ ] 7.2 Push de `change/add-playlists` y PR a `main`. Listo cuando el CI del PR esté en verde: build del `.vpk` y tests en PC, incluidos `test_playlist`, `test_path_index` y `test_cover_mosaic`.
+- [x] 7.2 Push de `change/add-playlists` y PR a `main`. Listo cuando el CI del PR esté en verde: build del `.vpk` y tests en PC, incluidos `test_playlist`, `test_path_index` y `test_cover_mosaic`.
+
+  Resultado (2026-10-14): PR #45, CI en verde (build del `.vpk` y tests en PC, con `test_playlist`, `test_path_index` y `test_cover_mosaic`).

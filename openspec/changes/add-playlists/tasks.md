@@ -83,7 +83,9 @@
   Anotar el HEAP antes y después de añadir un álbum a una playlist 20 veces.
 
   Resultado (2026-10-14, Vita): se cumplen todos los escenarios. HEAP al añadir un álbum 20 veces: se mantiene en 1388 KB.
-- [ ] 5.3 Mostrar el mosaico en las filas de la pestaña con `Cover_GetMosaic`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Presentación de las playlists" de `library/playlists`, incluido "Recorrer la pestaña con muchas playlists" con el HEAP anotado antes y después de recorrerla 20 veces.
+- [x] 5.3 Mostrar el mosaico en las filas de la pestaña con `Cover_GetMosaic`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan todos los escenarios de "Presentación de las playlists" de `library/playlists`, incluido "Recorrer la pestaña con muchas playlists" con el HEAP anotado antes y después de recorrerla 20 veces.
+
+  Resultado (2026-10-14, Vita): se cumplen todos los escenarios. HEAP al recorrer la pestaña 20 veces: estable en torno a 1370 KB, sin fugas.
 
 ## 6. Editar
 
@@ -96,7 +98,9 @@
   - y "Volver a una playlist que se borró" de `ui/nav-shell`.
 
   Resultado (2026-10-14, Vita): se cumplen todos los escenarios ("Favoritas" quedó renombrada a "Favorita").
-- [ ] 6.3 Escenario de corte en consola: con una playlist de 500 canciones abierta, quitar una canción y apagar la consola manteniendo el botón de encendido justo después. Listo cuando, al reiniciar, la playlist aparezca entera en su versión anterior o en la nueva, nunca vacía, y no queden `.tmp` ni `.bak` en `ux0:data/ElevenMPV/playlists/` después de abrir la pestaña. El escenario "Guardado interrumpido" ya lo cubre `test_playlist` (1.4).
+- [x] 6.3 Escenario de corte en consola: con una playlist de 500 canciones abierta, quitar una canción y apagar la consola manteniendo el botón de encendido justo después. Listo cuando, al reiniciar, la playlist aparezca entera en su versión anterior o en la nueva, nunca vacía, y no queden `.tmp` ni `.bak` en `ux0:data/ElevenMPV/playlists/` después de abrir la pestaña. El escenario "Guardado interrumpido" ya lo cubre `test_playlist` (1.4).
+
+  Resultado (2026-10-14, Vita): tras quitar una canción y cortar la energía con el botón de encendido, la playlist aparece entera y no quedan `.tmp` ni `.bak` en la carpeta. Se hizo sobre "Favorita" (9 canciones), no sobre una de 500.
 
 ## 7. Versión y cierre
 

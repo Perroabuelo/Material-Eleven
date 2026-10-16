@@ -194,14 +194,23 @@ static SceBool moving = SCE_FALSE;
 static int move_origin = 0;
 static int move_at = 0;
 
-// El dialogo que confirma borrar una playlist: una linea que la nombra y dos
-// opciones, borrar y cancelar, con cancelar marcada al abrirse.
-#define CONFIRM_DELETE 0
+// El dialogo que confirma borrar una playlist o quitar de la playlist abierta
+// las canciones marcadas: una linea que dice que se hara y dos opciones, la
+// accion y cancelar, con cancelar marcada al abrirse. Cada tipo pone su titulo
+// y el nombre de su accion; la geometria, el toque y la leyenda son los mismos.
+#define CONFIRM_ACTION 0
 #define CONFIRM_CANCEL 1
 #define CONFIRM_ITEMS  2
 
+typedef enum {
+	CONFIRM_DELETE_PLAYLIST,
+	CONFIRM_REMOVE_MARKED
+} Menu_LibraryConfirmKind;
+
 static SceBool confirm_open = SCE_FALSE;
+static Menu_LibraryConfirmKind confirm_kind = CONFIRM_DELETE_PLAYLIST;
 static int confirm_index = CONFIRM_CANCEL;
+static int confirm_count = 0;
 static char confirm_file[PLAYLIST_FILE_MAX] = "";
 static char confirm_name[PLAYLIST_NAME_MAX] = "";
 
@@ -1158,10 +1167,15 @@ static void Menu_DrawLibraryConfirm(void) {
 		return;
 
 	float x = Menu_LibraryConfirmX(), y = Menu_LibraryConfirmY();
-	char title[PLAYLIST_NAME_MAX + 32];
-	const LangString item_label[CONFIRM_ITEMS] = { STR_MENU_DELETE, STR_HINT_CANCEL };
+	char title[PLAYLIST_NAME_MAX + 64];
+	SceBool removing = (confirm_kind == CONFIRM_REMOVE_MARKED);
+	const LangString item_label[CONFIRM_ITEMS] = { removing ? STR_MENU_REMOVE : STR_MENU_DELETE, STR_HINT_CANCEL };
 
-	snprintf(title, sizeof(title), Lang_Get(STR_DELETE_CONFIRM), confirm_name);
+	if (removing)
+		snprintf(title, sizeof(title), Lang_Get((confirm_count == 1) ? STR_REMOVE_CONFIRM_ONE : STR_REMOVE_CONFIRM_MANY),
+			confirm_count, confirm_name);
+	else
+		snprintf(title, sizeof(title), Lang_Get(STR_DELETE_CONFIRM), confirm_name);
 	UI_DrawRoundedRect(x, y, PICKER_W, Menu_LibraryConfirmH(), 14, UI_COLOR_SURFACE_2);
 	UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y + OPTIONS_PAD, OPTIONS_ITEM_H),
 		PICKER_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_SECONDARY, title);
@@ -2196,17 +2210,70 @@ static void Menu_LibraryAskDelete(void) {
 
 	snprintf(confirm_file, sizeof(confirm_file), "%s", s->file);
 	snprintf(confirm_name, sizeof(confirm_name), "%s", s->name);
+	confirm_kind = CONFIRM_DELETE_PLAYLIST;
 	confirm_index = CONFIRM_CANCEL;
 	confirm_open = SCE_TRUE;
 }
 
-// Borra el archivo de la playlist y nada mas: ni la musica que lista ni la cola
-// que suena, que es una copia.
+// "Quitar de la playlist" en el modo seleccion: cuantas y de cual.
+static void Menu_LibraryAskRemoveMarked(void) {
+	if (!open_loaded || Selection_Count(&marks) == 0)
+		return;
+
+	snprintf(confirm_name, sizeof(confirm_name), "%s", open_playlist.name);
+	confirm_count = Selection_Count(&marks);
+	confirm_kind = CONFIRM_REMOVE_MARKED;
+	confirm_index = CONFIRM_CANCEL;
+	confirm_open = SCE_TRUE;
+}
+
+static int Menu_LibraryMarkedDoomed(int index, void *ctx) {
+	(void)ctx;
+	return Selection_Has(&marks, index);
+}
+
+// Quita todas las marcadas, tambien las atenuadas y las que la busqueda oculta,
+// y guarda una sola vez. Queda marcada la que ahora ocupa el lugar de la
+// primera quitada, o la ultima que se ve si esa no se ve o ya no hay.
+static void Menu_LibraryRemoveMarked(void) {
+	char name[PLAYLIST_NAME_MAX];
+	int first = -1;
+
+	snprintf(name, sizeof(name), "%s", open_playlist.name);
+
+	int removed = Playlist_RemoveIf(&open_playlist, Menu_LibraryMarkedDoomed, NULL, &first);
+
+	Menu_LibraryEndSelect();
+
+	if (removed == 0)
+		return;
+
+	// Si no se pudo guardar, la playlist abierta se solto y el aviso ya lo dice.
+	Menu_LibrarySaveOpen();
+
+	if (open_loaded)
+		Menu_LibraryNoticef((removed == 1) ? STR_NOTICE_REMOVED_ONE : STR_NOTICE_REMOVED_MANY, removed, name);
+
+	int count = Menu_LibraryBuild();
+	int kept = ListFilter_ToVisible(Menu_LibraryFilter(), first);
+
+	selection = (kept >= 0) ? kept : ((count > 0) ? count - 1 : 0);
+	TouchList_Follow(&library_list);
+}
+
+// Borrar una playlist borra su archivo y nada mas: ni la musica que lista ni la
+// cola que suena, que es una copia. Cancelar deja todo como estaba, tambien el
+// modo seleccion con sus marcas.
 static void Menu_LibraryRunConfirm(int item) {
 	confirm_open = SCE_FALSE;
 
-	if (item != CONFIRM_DELETE)
+	if (item != CONFIRM_ACTION)
 		return;
+
+	if (confirm_kind == CONFIRM_REMOVE_MARKED) {
+		Menu_LibraryRemoveMarked();
+		return;
+	}
 
 	if (PlaylistStore_Delete(confirm_file) < 0)
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
@@ -2251,7 +2318,9 @@ static void Menu_LibraryRunOption(int i) {
 			Menu_LibraryOpenPicker();
 			break;
 		case OPTION_REMOVE_FROM_PLAYLIST:
-			if (!selecting)
+			if (selecting)
+				Menu_LibraryAskRemoveMarked();
+			else
 				Menu_LibraryRemoveSelected();
 			break;
 		case OPTION_MOVE:

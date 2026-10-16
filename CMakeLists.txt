@@ -73,6 +73,7 @@ add_executable(${PROJECT_NAME}
   source/screen_off.c
   source/search_dialog.c
   source/seek_bar.c
+  source/selection.c
   source/status_bar.c
   source/tags.c
   source/text_encoding.c

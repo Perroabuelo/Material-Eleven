@@ -1,6 +1,6 @@
 ## 1. Lógica pura
 
-- [ ] 1.1 Crear `source/selection.c` e `include/selection.h`, sin SCE ni vita2d, con el bitmap estático de la Decisión 1: `Selection_Clear`, `Toggle`, `Set`, `Has`, `Count`, `AllState`, `ToggleAll` y `Next`. Crear `tests/test_selection.c` con los casos de la estrategia de pruebas de design.md:
+- [x] 1.1 Crear `source/selection.c` e `include/selection.h`, sin SCE ni vita2d, con el bitmap estático de la Decisión 1: `Selection_Clear`, `Toggle`, `Set`, `Has`, `Count`, `AllState`, `ToggleAll` y `Next`. Crear `tests/test_selection.c` con los casos de la estrategia de pruebas de design.md:
   - posiciones 0, 3999 y fuera de rango;
   - `AllState` con filtro vacío, ninguna, algunas, todas y con marcas ocultas;
   - la secuencia de "queen" y "abba" con `ToggleAll`, que no toca lo oculto;

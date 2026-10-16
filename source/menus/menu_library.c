@@ -22,6 +22,7 @@
 #include "playlist_store.h"
 #include "queue.h"
 #include "search_dialog.h"
+#include "selection.h"
 #include "status_bar.h"
 #include "text_fold.h"
 #include "touch.h"
@@ -146,14 +147,16 @@ static Menu_LibrarySearch group_search;
 
 // El menu de Cuadrado. Es un estado del mismo lazo, no un lazo propio:
 // mientras esta abierto, la pantalla solo atiende al menu. Sus opciones se
-// arman al abrirlo segun la fila marcada: primero lo que esa fila admite, y
-// al final reescanear y elegir carpeta, que estan siempre.
+// arman al abrirlo segun la fila marcada: primero lo que esa fila admite,
+// despues "Seleccionar" donde hay modo seleccion, y al final reescanear y
+// elegir carpeta, que estan siempre.
 typedef enum {
 	OPTION_ADD_TO_PLAYLIST = 0,
 	OPTION_REMOVE_FROM_PLAYLIST,
 	OPTION_MOVE,
 	OPTION_RENAME,
 	OPTION_DELETE,
+	OPTION_SELECT,
 	OPTION_RESCAN,
 	OPTION_CHOOSE_FOLDER,
 	OPTION_KINDS
@@ -161,10 +164,13 @@ typedef enum {
 
 static const LangString option_label[OPTION_KINDS] = {
 	STR_MENU_ADD_TO_PLAYLIST, STR_MENU_REMOVE_FROM_PLAYLIST, STR_MENU_MOVE, STR_MENU_RENAME, STR_MENU_DELETE,
-	STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER
+	STR_MENU_SELECT, STR_MENU_RESCAN, STR_MENU_CHOOSE_FOLDER
 };
 
-#define OPTIONS_MAX 4
+// El caso mas largo es dentro de una playlist: quitar, mover, seleccionar,
+// reescanear y elegir carpeta. Cinco filas caben entre la barra superior y el
+// mini reproductor.
+#define OPTIONS_MAX 5
 
 static Menu_LibraryOption options[OPTIONS_MAX];
 static int option_count = 0;
@@ -199,6 +205,28 @@ static char confirm_name[PLAYLIST_NAME_MAX] = "";
 static SceBool picker_open = SCE_FALSE;
 static int picker_index = 0; // 0 es "Nueva playlist…", k la playlist k - 1
 static int picker_top = 0;   // la primera opcion que se ve
+
+// El modo seleccion: otro estado del lazo. Las marcas son posiciones de la
+// lista completa del nivel vigente, asi que la busqueda no las toca. Mientras
+// `header_focus` esta puesto la posicion actual es la casilla Todo, y
+// `selection` guarda la ultima fila, que es adonde vuelve abajo.
+static SceBool selecting = SCE_FALSE;
+static Selection marks;
+static SceBool header_focus = SCE_FALSE;
+
+static void Menu_LibraryStartSelect(void) {
+	selecting = SCE_TRUE;
+	header_focus = SCE_FALSE;
+	Selection_Clear(&marks);
+}
+
+// La unica salida del modo: descarta las marcas. La llama todo lo que cambia
+// la lista completa, para que una marca nunca apunte a otra lista.
+static void Menu_LibraryEndSelect(void) {
+	selecting = SCE_FALSE;
+	header_focus = SCE_FALSE;
+	Selection_Clear(&marks);
+}
 
 // Declarada aqui porque elegir carpeta la usa y se define mas abajo, junto a
 // las otras dos que mueven la vista.
@@ -333,6 +361,7 @@ static SceBool Menu_LibraryInPlaylist(void) {
 static void Menu_LibraryFreeOpenPlaylist(void) {
 	Playlist_Free(&open_playlist);
 	open_loaded = SCE_FALSE;
+	Menu_LibraryEndSelect();
 }
 
 static const Playlist_Entry *Menu_LibraryEntryAt(int full) {
@@ -1108,6 +1137,8 @@ static void Menu_LibraryPickRoot(void) {
 }
 
 static void Menu_LibraryRescan(void) {
+	Menu_LibraryEndSelect();
+
 	if (!Library_HasRoot())
 		return;
 
@@ -1255,6 +1286,7 @@ static void Menu_LibraryEnter(void) {
 	if (name == NULL)
 		return;
 
+	Menu_LibraryEndSelect();
 	inside_unknown = Library_NameIsUnknown(full);
 	snprintf(inside_name, sizeof(inside_name), "%s", name);
 	outer_selection = selection;
@@ -1272,6 +1304,8 @@ static void Menu_LibraryEnter(void) {
 static SceBool Menu_LibraryLeave(void) {
 	if (!inside)
 		return SCE_FALSE;
+
+	Menu_LibraryEndSelect();
 
 	char was_open[PLAYLIST_FILE_MAX];
 	snprintf(was_open, sizeof(was_open), "%s", open_file);
@@ -1309,6 +1343,7 @@ static SceBool Menu_LibraryLeave(void) {
 static void Menu_LibrarySetView(Menu_LibraryTab next) {
 	// Los resumenes son de la pestaña: se sueltan al dejarla, y al volver a
 	// ella se leen de nuevo.
+	Menu_LibraryEndSelect();
 	Menu_LibraryFreePlaylists();
 	Menu_LibraryFreeOpenPlaylist();
 	open_file[0] = '\0';
@@ -1325,10 +1360,12 @@ static void Menu_LibrarySetView(Menu_LibraryTab next) {
 
 // Cancelar deshace lo mas reciente primero, igual que el filtro del navegador
 // de carpetas: con un termino en la lista que se ve lo quita y se queda en el
-// mismo nivel, y sin termino sale del grupo.
+// mismo nivel, y sin termino sale del modo seleccion o, fuera de el, del grupo.
 static void Menu_LibraryBack(void) {
 	if (Menu_LibraryHasTerm())
 		Menu_LibrarySetTerm("");
+	else if (selecting)
+		Menu_LibraryEndSelect();
 	else
 		Menu_LibraryLeave();
 }
@@ -1354,6 +1391,27 @@ static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
 
 	selection = row;
 	Menu_LibraryConfirm();
+	return SCE_TRUE;
+}
+
+// Mantener el dedo sobre una fila entra en el modo seleccion con ella marcada
+// y como fila actual, y dentro del modo la marca o la desmarca. En la pestaña
+// Playlists no hace nada: la lista pide el toque mantenido igual, para que
+// levantar el dedo despues no entre en la playlist. `row` es la fila mantenida
+// este fotograma, o -1.
+static SceBool Menu_HandleLibraryHold(Menu_LibraryState state, int row) {
+	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
+		return SCE_FALSE;
+
+	if (Menu_LibraryShowsPlaylists())
+		return SCE_TRUE;
+
+	if (!selecting)
+		Menu_LibraryStartSelect();
+
+	selection = row;
+	header_focus = SCE_FALSE;
+	Selection_Toggle(&marks, Menu_LibraryFull(row));
 	return SCE_TRUE;
 }
 
@@ -1409,6 +1467,7 @@ static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
 		if (Menu_LibraryInPlaylist()) {
 			options[option_count++] = OPTION_REMOVE_FROM_PLAYLIST;
 			options[option_count++] = OPTION_MOVE;
+			options[option_count++] = OPTION_SELECT;
 		}
 		else if (Menu_LibraryShowsPlaylists()) {
 			options[option_count++] = OPTION_RENAME;
@@ -1416,6 +1475,7 @@ static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
 		}
 		else {
 			options[option_count++] = OPTION_ADD_TO_PLAYLIST;
+			options[option_count++] = OPTION_SELECT;
 		}
 	}
 
@@ -1891,6 +1951,9 @@ static void Menu_LibraryRunOption(int i) {
 		case OPTION_DELETE:
 			Menu_LibraryAskDelete();
 			break;
+		case OPTION_SELECT:
+			Menu_LibraryStartSelect();
+			break;
 		case OPTION_RESCAN:
 			Menu_LibraryRescan();
 			break;
@@ -1929,8 +1992,9 @@ static void Menu_HandleLibraryOptions(void) {
 // fila se quedan, y lo soltado se vuelve a leer al volver.
 static UI_Screen Menu_LibraryExit(UI_Screen next) {
 	// Irse a mitad de un movimiento lo cancela: la playlist se vuelve a leer
-	// del archivo, que no se toco.
+	// del archivo, que no se toco. Irse tambien sale del modo seleccion.
 	moving = SCE_FALSE;
+	Menu_LibraryEndSelect();
 	Menu_LibraryFreePlaylists();
 	Menu_LibraryFreeOpenPlaylist();
 	return next;
@@ -1952,7 +2016,9 @@ UI_Screen Menu_DisplayLibrary(void) {
 	}
 
 	// Al volver - de Reproduciendo o por el riel - la fila elegida se ve, y no
-	// sigue ningun dedo ni deslizamiento de la vez anterior.
+	// sigue ningun dedo ni deslizamiento de la vez anterior. La lista de la
+	// biblioteca, a diferencia de las otras, distingue el toque mantenido.
+	library_list.hold_ms = GESTURE_HOLD_MS;
 	TouchList_Reset(&library_list);
 	TouchList_Follow(&library_list);
 
@@ -2019,6 +2085,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		// delante ni sobre el aviso, que la tapa en parte.
 		SceBool on_notice = Menu_LibraryNoticeShown() && Touch_GetY() >= Menu_LibraryNoticeY();
 		int tapped_row = TouchList_Update(&library_list, !options_open && !picker_open && !confirm_open && !moving && !on_notice && state == LIBRARY_STATE_READY, NULL);
+		int held_row = TouchList_HeldRow(&library_list);
 
 		if (notice_frames > 0)
 			notice_frames--;
@@ -2072,7 +2139,7 @@ UI_Screen Menu_DisplayLibrary(void) {
 		if (Menu_HandleLibraryTouchControls(state))
 			continue;
 
-		if (!Menu_HandleLibraryTap(state, tapped_row))
+		if (!Menu_HandleLibraryHold(state, held_row) && !Menu_HandleLibraryTap(state, tapped_row))
 			Menu_HandleLibraryControls(state);
 
 		// Reproducir una pista no entra a Reproduciendo: lo pide.

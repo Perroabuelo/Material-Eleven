@@ -140,6 +140,24 @@ X(STR_NOTICE_PLAYLIST_FULL,  " The playlist is full.",   " La playlist está lle
 X(STR_NOTICE_NAME_TAKEN,     "There's already a playlist called “%s”.", "Ya hay una playlist llamada «%s».")
 X(STR_NOTICE_PLAYLIST_SAVE_FAILED, "Couldn't save the playlist.", "No se pudo guardar la playlist.")
 
+// ---- Modo selección de la biblioteca ----
+X(STR_MENU_SELECT,           "Select",                   "Seleccionar")
+// El contador del encabezado concuerda con lo que se marca: canciones, o
+// artistas y álbumes.
+X(STR_SELECTED_SONGS_ONE,    "%d selected",              "%d seleccionada")
+X(STR_SELECTED_SONGS_MANY,   "%d selected",              "%d seleccionadas")
+X(STR_SELECTED_GROUPS_ONE,   "%d selected",              "%d seleccionado")
+X(STR_SELECTED_GROUPS_MANY,  "%d selected",              "%d seleccionados")
+X(STR_SELECT_ALL,            "All",                      "Todo")
+X(STR_HINT_MARK,             "Mark",                     "Marcar")
+X(STR_HINT_EXIT,             "Exit",                     "Salir")
+X(STR_HINT_ACTIONS,          "Actions",                  "Acciones")
+X(STR_MENU_REMOVE,           "Remove",                   "Quitar")
+X(STR_REMOVE_CONFIRM_ONE,    "Remove %d song from “%s”?", "¿Quitar %d canción de «%s»?")
+X(STR_REMOVE_CONFIRM_MANY,   "Remove %d songs from “%s”?", "¿Quitar %d canciones de «%s»?")
+X(STR_NOTICE_REMOVED_ONE,    "%d song removed from “%s”.", "Se quitó %d canción de «%s».")
+X(STR_NOTICE_REMOVED_MANY,   "%d songs removed from “%s”.", "Se quitaron %d canciones de «%s».")
+
 // ---- Escaneo de la biblioteca ----
 X(STR_SCAN_TITLE,            "Scanning the library",     "Escaneando la biblioteca")
 X(STR_SCAN_FOUND_ONE,        "%d track found",           "%d pista encontrada")

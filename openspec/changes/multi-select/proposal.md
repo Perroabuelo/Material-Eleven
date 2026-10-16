@@ -4,57 +4,60 @@ Con `add-playlists`, añadir canciones a una playlist es de una en una, o un art
 
 Rama: `change/multi-select`
 
-Depende de `add-playlists`: se apoya en su menú de Cuadrado contextual, en su selector de playlists y en la acción de quitar. Su rama se crea desde `main` una vez integrado `add-playlists`.
+Se apoya en `add-playlists` (v4.0.0, ya integrado en `main`): en su menú de Cuadrado contextual, en su selector de playlists y en la acción de quitar.
 
 ## What Changes
 
 - **Entrar en el modo selección**, de dos formas:
   - desde el menú de Cuadrado, con la opción **Seleccionar**;
   - manteniendo el dedo sobre una fila, que además la deja marcada.
+- **Dónde se puede seleccionar:** en las listas de canciones (Canciones, Añadidos recientemente y dentro de un artista o de un álbum), en las vistas Artistas y Álbumes, y dentro de una playlist. La pestaña Playlists no tiene modo selección.
 - **Dentro del modo:**
-  - Confirmar, o tocar una fila, marca o desmarca esa fila.
-  - Cada fila muestra una casilla y la barra superior muestra cuántas hay marcadas, con un botón para salir.
-  - El botón de volver sale del modo y descarta lo marcado.
-  - La leyenda cambia a las acciones del modo.
-- **Cuadrado en modo selección** abre un menú de acciones sobre lo marcado:
-  - Fuera de una playlist: **Añadir N a playlist…**, que usa el mismo selector de `add-playlists`, incluida "Nueva playlist…".
-  - Dentro de una playlist: **Quitar N de la playlist**.
-  - En los dos casos: **Seleccionar todo** y **Ninguno**.
-- **Seleccionar todo marca solo lo que se ve.** Combinado con la búsqueda, filtrar y seleccionar todo añade exactamente los resultados.
-- **En las vistas Artistas y Álbumes también se pueden marcar filas.** Añadir varios álbumes o artistas añade sus pistas, grupo por grupo, en el orden en que se muestran en la lista y cada grupo en su orden interno.
-- **Lo marcado pertenece a la lista en que se marcó.** Cambiar el término de búsqueda conserva las marcas, incluso las de filas que el filtro oculta. En cambio, salir del modo, cambiar de pantalla con el nav rail, entrar en un grupo o salir de él descarta las marcas. L y R no cambian de pestaña mientras dura el modo.
-- **El orden de lo añadido es el de la lista**, no el orden en que se marcaron las filas. Las canciones que ya estaban en la playlist se omiten, y el aviso lo dice, igual que en `add-playlists`.
+  - Confirmar, o tocar una fila, marca o desmarca esa fila. Mantener el dedo sobre una fila hace lo mismo.
+  - Cada fila muestra una casilla.
+  - La barra superior se convierte en un **encabezado fijo** con un botón para salir, el contador de filas marcadas, la caja de búsqueda y una casilla **Todo** de tres estados (ninguna, algunas, todas) que se calcula sobre las filas visibles.
+  - El encabezado entra en el recorrido de arriba y abajo: desde la primera fila, arriba lleva a la casilla Todo, y desde la casilla, arriba lleva a la última fila.
+  - Triángulo sigue buscando. El botón de volver quita primero la búsqueda, y sin búsqueda sale del modo y descarta lo marcado.
+  - L, R y SELECT no hacen nada mientras dura el modo. La leyenda cambia a las acciones del modo.
+- **La casilla Todo actúa solo sobre lo visible.** Si todas las filas visibles están marcadas, las desmarca; si no, las marca todas. Las marcas que la búsqueda oculta no se tocan.
+- **Cuadrado en modo selección** abre un menú con la acción sobre lo marcado:
+  - Fuera de una playlist: **Añadir a playlist…**, con el mismo selector de `add-playlists`, incluida "Nueva playlist…".
+  - Dentro de una playlist: **Quitar de la playlist**, que pide confirmación con cancelar marcado al abrirse.
+  - Sin nada marcado, la acción aparece deshabilitada.
+- **Lo marcado pertenece a la lista en que se marcó.** Cambiar el término de búsqueda conserva las marcas, también las de filas que el filtro oculta, y las acciones actúan sobre todas ellas. Salir del modo, cambiar de pantalla con el nav rail o terminar una acción descarta las marcas.
+- **El orden de lo añadido es el de la lista completa**, sin filtro, no el orden en que se marcaron las filas. Varios álbumes o artistas aportan sus pistas grupo por grupo, cada uno en su orden interno. Las canciones que ya estaban en la playlist se omiten, y el aviso lo dice, igual que en `add-playlists`.
 - **El reconocedor táctil gana el toque mantenido.** Es lógica pura, con su test en PC.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `library/multi-select`: el modo selección de las listas de la biblioteca, cómo se entra y se sale, qué se puede marcar, cómo se relaciona con la búsqueda y las acciones disponibles sobre lo marcado.
+- `library/multi-select`: el modo selección de las listas de la biblioteca. Define dónde está disponible, cómo se entra y se sale, el encabezado con la casilla Todo, qué hacen los botones y el toque, cómo se relaciona con la búsqueda y su leyenda.
 
 ### Modified Capabilities
 
-- `library/views`: el menú de Cuadrado suma "Seleccionar". L y R no cambian de pestaña durante el modo selección.
-- `library/playlists`: añadir y quitar aceptan varias canciones en una sola acción, con un único aviso.
-- `ui/list-navigation`: mantener el dedo sobre una fila de la biblioteca es un gesto propio, distinto de tocar y de arrastrar.
-- `ui/nav-shell`: la leyenda del modo selección.
+- `library/views`: el menú de Cuadrado suma "Seleccionar", y en modo selección ofrece solo la acción sobre lo marcado.
+- `library/playlists`: añadir acepta lo marcado (varias canciones, álbumes o artistas) en una sola acción, con un único aviso. Quitar acepta varias canciones a la vez, con confirmación.
+- `ui/list-navigation`: mantener el dedo sobre una fila de la biblioteca es un gesto propio, distinto de tocar y de arrastrar. En modo selección, tocar una fila la marca en vez de activarla, y el recorrido de arriba y abajo incluye el encabezado.
 
 ## Impact
 
 - `source/gesture.c` e `include/gesture.h`: evento de toque mantenido, con su umbral de tiempo, y su test en `tests/test_gesture.c`.
-- `source/touch_list.c`: entrega el toque mantenido a la pantalla.
+- `source/touch_list.c`: entrega el toque mantenido a la pantalla que lo pide. Carpetas y Ajustes no lo piden y no cambian.
+- Módulo puro nuevo con el conjunto de marcas sobre posiciones de la lista completa: marcar, desmarcar, estado de la casilla Todo sobre lo visible, contar y recorrer en orden. Lleva tests en PC.
+- `source/playlist.c`: `Playlist_Append` ya recibe varias entradas. Se agrega quitar varias de una vez, con su test.
 - `source/menus/menu_library.c`:
   - estado del modo y casillas en las filas;
-  - barra superior con el contador y menú de Cuadrado del modo;
-  - leyenda nueva y bloqueo de L y R.
-- Módulo puro nuevo para el conjunto de marcas sobre índices de la vista completa: marcar, desmarcar, marcar todos los visibles, contar y recorrer en orden. Lleva tests en PC.
-- `source/playlist.c`: sin cambios de contrato. `Playlist_Append` ya recibe varias entradas. Se agrega quitar varias de una vez, con su test.
-- `include/lang_strings.h`: textos del modo, del contador y de las acciones.
+  - encabezado con contador y casilla Todo, dentro del recorrido de arriba y abajo;
+  - menú de Cuadrado del modo y confirmación de quitar varias;
+  - leyenda nueva, y L, R y SELECT bloqueados.
+- `include/lang_strings.h`: textos del modo, del contador, de la confirmación y de los avisos.
 - No se agregan dependencias de terceros.
 
 ## Fuera de alcance
 
 - Una "canasta" que conserve lo marcado al cambiar de pestaña, al entrar en un grupo o al salir de él.
+- Selección múltiple en la pestaña Playlists, por ejemplo para borrar varias playlists.
 - Selección múltiple en Carpetas.
 - Seleccionar un rango entre dos filas manteniendo un botón.
 - Mover varias canciones a la vez dentro de una playlist.
@@ -63,9 +66,9 @@ Depende de `add-playlists`: se apoya en su menú de Cuadrado contextual, en su s
 
 ## Notas de version
 
-Versión objetivo: **v4.1.0** (minor: funcionalidad nueva), la siguiente a `add-playlists` (v4.0.0). Supone que no sale otra versión entre medio. Se ajusta al cerrar el cambio.
+Versión objetivo: **v4.1.0** (minor: funcionalidad nueva), la siguiente a v4.0.0.
 
 - Select several songs at once: choose "Select" from the Square menu, or touch and hold a row.
 - Add all selected songs, albums or artists to a playlist in one go.
 - Remove several songs from a playlist at once.
-- "Select all" picks every row in view, so you can search and then add all the results.
+- The "All" checkbox at the top selects every row in view, so you can search and then add all the results. Search again to keep adding to the same selection.

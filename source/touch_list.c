@@ -101,6 +101,7 @@ int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y) {
 			}
 			break;
 
+		case GESTURE_HOLD:
 		case GESTURE_NONE:
 			break;
 	}

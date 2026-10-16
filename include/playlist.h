@@ -77,6 +77,19 @@ Playlist_Result Playlist_Serialize(const Playlist *pl, char **out, size_t *len);
 // PLAYLIST_OK, or PLAYLIST_NOMEM with the playlist as it was.
 Playlist_Result Playlist_Append(Playlist *pl, const Playlist_Entry *src, int n, int *added, int *skipped, int *full);
 
+// Writes the entry `i` of what is being added into `out`: 1, or 0 when there is
+// no such entry and adding stops there.
+typedef int (*Playlist_Source)(int i, Playlist_Entry *out, void *ctx);
+
+// The same for many entries at once, asked of `next` one at a time, 0 to
+// `n` - 1, so they never sit in a second array. Paths already in the playlist
+// are found through a sorted index instead of walking it. Repeated paths
+// within the `n` are not looked for: the caller hands over distinct tracks,
+// as every Library view has. The counters work as in Playlist_Append.
+//
+// PLAYLIST_OK, or PLAYLIST_NOMEM with the playlist as it was.
+Playlist_Result Playlist_AppendFrom(Playlist *pl, int n, Playlist_Source next, void *ctx, int *added, int *skipped, int *full);
+
 // Takes out the entry `index`; the ones after it move up. 0, or -1 when
 // `index` is out of range.
 int Playlist_Remove(Playlist *pl, int index);

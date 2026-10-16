@@ -17,7 +17,7 @@
   - arrastrar después del `HOLD` da `DRAG`.
 
   Los casos que ya existían deben seguir pasando sin cambios. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile.
-- [ ] 1.4 Agregar `Playlist_AppendFrom` (Decisión 6) en `playlist.c`: reserva única, `PathIndex` sobre las entradas previas, fuente por callback y liberación del índice en todos los caminos. Agregar `path_index.c` al test de playlist en `tests/Makefile`. Ampliar `test_playlist`:
+- [x] 1.4 Agregar `Playlist_AppendFrom` (Decisión 6) en `playlist.c`: reserva única, `PathIndex` sobre las entradas previas, fuente por callback y liberación del índice en todos los caminos. Agregar `path_index.c` al test de playlist en `tests/Makefile`. Ampliar `test_playlist`:
   - orden, omitidas y conteos;
   - 3998 + 5 llena;
   - fuente que corta antes de `n`;

@@ -81,4 +81,5 @@ templates/
 /tests/test_playlist
 /tests/test_path_index
 /tests/test_cover_mosaic
+/tests/test_selection
 /tests/.cflags

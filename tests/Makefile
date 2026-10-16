@@ -86,8 +86,8 @@ test_gesture: test_gesture.c ../source/gesture.c ../include/gesture.h
 test_list_scroll: test_list_scroll.c ../source/list_scroll.c ../include/list_scroll.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_list_scroll.c ../source/list_scroll.c -lm
 
-test_playlist: test_playlist.c ../source/playlist.c ../include/playlist.h ../source/text_fold.c ../include/text_fold.h ../source/text_encoding.c ../include/text_encoding.h
-	$(CC) $(CFLAGS) $(INCLUDE) -DPLAYLIST_TEST_ALLOC -o $@ test_playlist.c ../source/playlist.c ../source/text_fold.c ../source/text_encoding.c
+test_playlist: test_playlist.c ../source/playlist.c ../include/playlist.h ../source/path_index.c ../include/path_index.h ../source/text_fold.c ../include/text_fold.h ../source/text_encoding.c ../include/text_encoding.h
+	$(CC) $(CFLAGS) $(INCLUDE) -DPLAYLIST_TEST_ALLOC -DPATH_INDEX_TEST_ALLOC -o $@ test_playlist.c ../source/playlist.c ../source/path_index.c ../source/text_fold.c ../source/text_encoding.c
 
 test_path_index: test_path_index.c ../source/path_index.c ../include/path_index.h
 	$(CC) $(CFLAGS) $(INCLUDE) -DPATH_INDEX_TEST_ALLOC -o $@ test_path_index.c ../source/path_index.c

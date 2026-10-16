@@ -43,6 +43,19 @@ static void fail_reset(int at) {
 	alloc_calls = 0;
 }
 
+// path_index.c se compila con -DPATH_INDEX_TEST_ALLOC: con index_fail, la
+// proxima reserva del indice por ruta devuelve NULL.
+static int index_fail = 0;
+
+void *PathIndex_TestMalloc(size_t size) {
+	if (index_fail) {
+		index_fail = 0;
+		return NULL;
+	}
+
+	return malloc(size);
+}
+
 // --- ayudas ----------------------------------------------------------------
 
 static Playlist_Result parse_str(const char *text, Playlist *pl) {
@@ -355,6 +368,123 @@ static void test_append_nomem(void) {
 	const int expect[] = { 0, 1, 2 };
 	CHECK(order_is(&pl, "p", expect, 3) && pl.cap == 3, "sin memoria la playlist cambio");
 	CHECK(added == -1, "sin memoria escribio los contadores");
+
+	Playlist_Free(&pl);
+	Playlist_Free(&more);
+}
+
+// La fuente de AppendFrom: las entradas `ids` de `src`, y corta en `stop`.
+typedef struct {
+	const Playlist *src;
+	const int *ids;
+	int stop;
+	int asked;
+} Source;
+
+static int from_ids(int i, Playlist_Entry *out, void *ctx) {
+	Source *s = ctx;
+
+	s->asked++;
+	if (i >= s->stop)
+		return 0;
+
+	*out = s->src->entries[s->ids[i]];
+	return 1;
+}
+
+static void test_append_from(void) {
+	// "Viaje" ya tiene la 2, la 5 y la 9 de diez canciones.
+	Playlist viaje, songs;
+	make_playlist(&viaje, "Viaje", "d", 0);
+	make_playlist(&songs, "", "d", 10);
+	Playlist_Append(&viaje, &songs.entries[2], 1, NULL, NULL, NULL);
+	Playlist_Append(&viaje, &songs.entries[5], 1, NULL, NULL, NULL);
+	Playlist_Append(&viaje, &songs.entries[9], 1, NULL, NULL, NULL);
+
+	const int ids[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	Source s = { &songs, ids, 10, 0 };
+	int added = -1, skipped = -1, full = -1;
+	CHECK(Playlist_AppendFrom(&viaje, 10, from_ids, &s, &added, &skipped, &full) == PLAYLIST_OK, "AppendFrom fallo");
+	CHECK(added == 7 && skipped == 3 && full == 0, "AppendFrom: %d anadidas, %d omitidas, llena %d", added, skipped, full);
+	CHECK(s.asked == 10, "pidio %d entradas y no 10", s.asked);
+
+	const int expect[] = { 2, 5, 9, 0, 1, 3, 4, 6, 7, 8 };
+	CHECK(order_is(&viaje, "d", expect, 10), "AppendFrom no dejo el orden de la fuente al final");
+
+	// A una vacia, y en el orden que da la fuente.
+	Playlist other;
+	make_playlist(&other, "O", "d", 0);
+	const int some[] = { 8, 1, 4 };
+	Source t = { &songs, some, 3, 0 };
+	CHECK(Playlist_AppendFrom(&other, 3, from_ids, &t, &added, &skipped, NULL) == PLAYLIST_OK && added == 3 && skipped == 0,
+		"a una vacia: %d anadidas, %d omitidas", added, skipped);
+	CHECK(order_is(&other, "d", some, 3), "a una vacia no quedo el orden de la fuente");
+
+	// Una fuente que corta antes de n: entra lo que dio, y no se le pide mas.
+	Source u = { &songs, ids, 2, 0 };
+	Playlist cut;
+	make_playlist(&cut, "C", "d", 0);
+	CHECK(Playlist_AppendFrom(&cut, 6, from_ids, &u, &added, &skipped, &full) == PLAYLIST_OK, "la fuente corta fallo");
+	CHECK(added == 2 && skipped == 0 && full == 0 && cut.count == 2, "la fuente corta dejo %d", cut.count);
+	CHECK(u.asked == 3, "despues de cortar se pidieron %d", u.asked);
+
+	// Nada que anadir y contadores en NULL.
+	CHECK(Playlist_AppendFrom(&cut, 0, from_ids, &u, NULL, NULL, NULL) == PLAYLIST_OK && cut.count == 2, "anadir 0 cambio algo");
+
+	Playlist_Free(&cut);
+	Playlist_Free(&other);
+	Playlist_Free(&viaje);
+	Playlist_Free(&songs);
+}
+
+static void test_append_from_full(void) {
+	Playlist pl, more;
+	make_playlist(&pl, "Casi llena", "f", 3998);
+	make_playlist(&more, "", "g", 5);
+
+	const int ids[] = { 0, 1, 2, 3, 4 };
+	Source s = { &more, ids, 5, 0 };
+	int added = -1, skipped = -1, full = -1;
+	CHECK(Playlist_AppendFrom(&pl, 5, from_ids, &s, &added, &skipped, &full) == PLAYLIST_OK, "AppendFrom a una casi llena fallo");
+	CHECK(pl.count == PLAYLIST_MAX_ENTRIES && pl.cap == PLAYLIST_MAX_ENTRIES, "quedaron %d (cap %d) y no 4000", pl.count, pl.cap);
+	CHECK(added == 2 && skipped == 0 && full == 1, "%d anadidas, %d omitidas, llena %d", added, skipped, full);
+	CHECK(strcmp(pl.entries[3998].path, "ux0:music/g0.flac") == 0 && strcmp(pl.entries[3999].path, "ux0:music/g1.flac") == 0,
+		"no entraron las primeras que cabian, en orden");
+
+	// Llena del todo: las que ya estaban se siguen contando.
+	CHECK(Playlist_AppendFrom(&pl, 5, from_ids, &s, &added, &skipped, &full) == PLAYLIST_OK, "AppendFrom a una llena fallo");
+	CHECK(added == 0 && skipped == 2 && full == 1, "a una llena: %d anadidas, %d omitidas, llena %d", added, skipped, full);
+
+	Playlist_Free(&pl);
+	Playlist_Free(&more);
+}
+
+static void test_append_from_nomem(void) {
+	Playlist pl, more;
+	make_playlist(&pl, "P", "p", 3);
+	make_playlist(&more, "", "q", 4);
+	const int ids[] = { 0, 1, 2, 3 };
+	const int expect[] = { 0, 1, 2 };
+	int added = -1;
+
+	// Falla la reserva de las entradas.
+	Source s = { &more, ids, 4, 0 };
+	fail_reset(0);
+	CHECK(Playlist_AppendFrom(&pl, 4, from_ids, &s, &added, NULL, NULL) == PLAYLIST_NOMEM, "sin memoria para las entradas no dio NOMEM");
+	fail_reset(-1);
+	CHECK(order_is(&pl, "p", expect, 3) && pl.cap == 3, "sin memoria para las entradas la playlist cambio");
+	CHECK(added == -1 && s.asked == 0, "sin memoria escribio los contadores o pidio entradas");
+
+	// Falla la reserva del indice: se devuelve lo reservado de mas.
+	index_fail = 1;
+	CHECK(Playlist_AppendFrom(&pl, 4, from_ids, &s, &added, NULL, NULL) == PLAYLIST_NOMEM, "sin memoria para el indice no dio NOMEM");
+	CHECK(index_fail == 0, "el indice no llego a reservar");
+	CHECK(order_is(&pl, "p", expect, 3) && pl.cap == 3, "sin memoria para el indice la playlist cambio (cap %d)", pl.cap);
+	CHECK(added == -1 && s.asked == 0, "sin memoria para el indice escribio los contadores o pidio entradas");
+
+	// Despues de los fallos sigue funcionando.
+	CHECK(Playlist_AppendFrom(&pl, 4, from_ids, &s, &added, NULL, NULL) == PLAYLIST_OK && added == 4 && pl.count == 7,
+		"despues de los fallos no anadio");
 
 	Playlist_Free(&pl);
 	Playlist_Free(&more);
@@ -711,6 +841,9 @@ int main(void) {
 	test_append_duplicates();
 	test_append_full();
 	test_append_nomem();
+	test_append_from();
+	test_append_from_full();
+	test_append_from_nomem();
 	test_remove();
 	test_move();
 	test_name_valid();

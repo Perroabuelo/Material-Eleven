@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include "key_repeat.h"
 #include "list_filter.h"
 
 // The rows marked in the Library's selection mode, as positions of the full
@@ -51,5 +52,17 @@ void Selection_ToggleAll(Selection *s, const ListFilter *f);
 
 // The first marked position at or after `from`, or -1 when there is none.
 int Selection_Next(const Selection *s, int from);
+
+// Up and Down in selection mode, over `count` + 1 positions: 0 is the "All"
+// checkbox and 1..count are the visible rows. The rule of KeyRepeat_Move, with
+// the checkbox in the loop:
+//
+// - A new press moves one position and wraps around through the checkbox:
+//   up from row 1 reaches it, and up from it reaches the last row.
+// - A repeated step moves one row, or `page` rows if it is a page step, and
+//   stops at row 1 or at the last row without entering the checkbox. One
+//   that starts on the checkbox stays there.
+// - With `count` <= 0 the checkbox is disabled and `pos` does not change.
+int Selection_Step(int pos, int count, KeyRepeat_Step step, int page);
 
 #endif

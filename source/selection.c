@@ -81,3 +81,37 @@ int Selection_Next(const Selection *s, int from) {
 
 	return -1;
 }
+
+int Selection_Step(int pos, int count, KeyRepeat_Step step, int page) {
+	if (count <= 0 || step.dir == 0)
+		return pos;
+
+	if (pos < 0)
+		pos = 0;
+	else if (pos > count)
+		pos = count;
+
+	if (step.repeat) {
+		if (pos == 0)
+			return 0;
+
+		int rows = (step.page && page > 1) ? page : 1;
+		pos += step.dir * rows;
+
+		if (pos < 1)
+			pos = 1;
+		else if (pos > count)
+			pos = count;
+
+		return pos;
+	}
+
+	pos += step.dir;
+
+	if (pos > count)
+		pos = 0;
+	else if (pos < 0)
+		pos = count;
+
+	return pos;
+}

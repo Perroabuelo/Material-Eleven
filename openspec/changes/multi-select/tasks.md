@@ -7,7 +7,7 @@
   - `Next` en orden.
 
   Agregar el test a `BIN` y a las reglas de `tests/Makefile`, y el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
-- [ ] 1.2 Agregar `Selection_Step` (Decisión 4): recorrido sobre la casilla y las filas visibles, con vuelta por la casilla en pulsación nueva y detención en `1` y `count` en pasos repetidos. Ampliar `test_selection` con los dos bordes en pulsación nueva y repetida, la vuelta completa y `count == 0`. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 1.2 Agregar `Selection_Step` (Decisión 4): recorrido sobre la casilla y las filas visibles, con vuelta por la casilla en pulsación nueva y detención en `1` y `count` en pasos repetidos. Ampliar `test_selection` con los dos bordes en pulsación nueva y repetida, la vuelta completa y `count == 0`. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 1.3 Toque mantenido en `gesture.c` (Decisión 2): `hold_ms` en `Gesture_Input`, `held_ms` en el estado, `GESTURE_HOLD` único que marca `caught`, y `GESTURE_HOLD_MS` = 500. Ampliar `tests/test_gesture.c`:
   - mantener por encima del umbral da un `HOLD` y luego `RELEASE`;
   - levantar antes da `TAP`;

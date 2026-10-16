@@ -95,7 +95,7 @@ test_path_index: test_path_index.c ../source/path_index.c ../include/path_index.
 test_cover_mosaic: test_cover_mosaic.c ../source/cover_mosaic.c ../include/cover_mosaic.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_cover_mosaic.c ../source/cover_mosaic.c
 
-test_selection: test_selection.c ../source/selection.c ../include/selection.h ../source/list_filter.c ../include/list_filter.h
+test_selection: test_selection.c ../source/selection.c ../include/selection.h ../source/list_filter.c ../include/list_filter.h ../include/key_repeat.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_selection.c ../source/selection.c ../source/list_filter.c
 
 clean:

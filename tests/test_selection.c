@@ -162,11 +162,62 @@ static void test_next(void) {
 	CHECK(Selection_Next(&s, 4000) == -1, "Next fuera de rango no da -1");
 }
 
+static const KeyRepeat_Step none = { 0, 0, 0 };
+static const KeyRepeat_Step up = { -1, 0, 0 };
+static const KeyRepeat_Step down = { 1, 0, 0 };
+static const KeyRepeat_Step held_up = { -1, 1, 0 };
+static const KeyRepeat_Step held_down = { 1, 1, 0 };
+static const KeyRepeat_Step page_up = { -1, 1, 1 };
+static const KeyRepeat_Step page_down = { 1, 1, 1 };
+
+// Posiciones: 0 es la casilla Todo y 1..count las filas visibles.
+static void test_step(void) {
+	// Pulsacion nueva en los dos bordes: pasa por la casilla.
+	CHECK(Selection_Step(1, 10, up, 8) == 0, "arriba desde la primera no lleva a la casilla");
+	CHECK(Selection_Step(0, 10, up, 8) == 10, "arriba desde la casilla no lleva a la ultima");
+	CHECK(Selection_Step(10, 10, down, 8) == 0, "abajo desde la ultima no lleva a la casilla");
+	CHECK(Selection_Step(0, 10, down, 8) == 1, "abajo desde la casilla no lleva a la primera");
+	CHECK(Selection_Step(5, 10, up, 8) == 4 && Selection_Step(5, 10, down, 8) == 6, "en el medio no mueve una");
+
+	// La vuelta completa hacia abajo y hacia arriba.
+	int pos = 1;
+	for (int i = 0; i < 11; i++)
+		pos = Selection_Step(pos, 10, down, 8);
+	CHECK(pos == 1, "11 pulsaciones abajo no dieron la vuelta: %d", pos);
+	for (int i = 0; i < 11; i++)
+		pos = Selection_Step(pos, 10, up, 8);
+	CHECK(pos == 1, "11 pulsaciones arriba no dieron la vuelta: %d", pos);
+
+	// Pasos repetidos: se detienen en 1 y en count, sin entrar en la casilla.
+	CHECK(Selection_Step(1, 10, held_up, 8) == 1, "mantener arriba en la primera entro en la casilla");
+	CHECK(Selection_Step(10, 10, held_down, 8) == 10, "mantener abajo en la ultima dio la vuelta");
+	CHECK(Selection_Step(3, 10, page_up, 8) == 1, "pagina arriba no se detuvo en la primera");
+	CHECK(Selection_Step(5, 10, page_down, 8) == 10, "pagina abajo no se detuvo en la ultima");
+	CHECK(Selection_Step(1, 20, page_down, 8) == 9, "pagina abajo no salto 8");
+	CHECK(Selection_Step(0, 10, held_up, 8) == 0 && Selection_Step(0, 10, held_down, 8) == 0, "mantener desde la casilla salio de ella");
+
+	// La decima fila, arriba mantenido 3 s: termina en la primera, no en la casilla.
+	pos = Selection_Step(10, 10, up, 8);
+	for (int i = 0; i < 40; i++)
+		pos = Selection_Step(pos, 10, i < 30 ? held_up : page_up, 8);
+	CHECK(pos == 1, "mantener arriba desde la decima termino en %d", pos);
+	CHECK(Selection_Step(pos, 10, up, 8) == 0, "una pulsacion nueva despues no llevo a la casilla");
+
+	// Sin paso no cambia; una fila sola alterna con la casilla.
+	CHECK(Selection_Step(4, 10, none, 8) == 4, "sin paso cambio la posicion");
+	CHECK(Selection_Step(1, 1, down, 8) == 0 && Selection_Step(0, 1, down, 8) == 1, "con una fila no alterna con la casilla");
+
+	// count == 0: la casilla esta deshabilitada y la posicion no cambia.
+	CHECK(Selection_Step(0, 0, up, 8) == 0 && Selection_Step(0, 0, down, 8) == 0, "count 0 movio la posicion");
+	CHECK(Selection_Step(0, 0, held_down, 8) == 0, "count 0 con paso repetido movio la posicion");
+}
+
 int main(void) {
 	test_mark_and_count();
 	test_all_state();
 	test_toggle_all();
 	test_next();
+	test_step();
 
 	if (failures == 0)
 		printf("test_selection: todo bien\n");

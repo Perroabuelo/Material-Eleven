@@ -74,5 +74,5 @@
 
 - [ ] 5.1 Memoria y tiempo en la consola (estrategia de pruebas, pasos 6 y 7). Anotar el HEAP del overlay de debug, repetir 10 veces marcar todo en Canciones, añadirlo a una playlist nueva y borrarla, y anotar el HEAP de nuevo; debe quedar igual. Medir lo que tarda añadir todo a una playlist que ya tiene la mitad. Anotar los resultados en esta tarea. Listo cuando el HEAP no crezca y añadir no deje la pantalla congelada más de un segundo; si la deja, pausar y revisar con el usuario el riesgo de design.md.
 - [ ] 5.2 Recorrer en la consola todos los escenarios de consola de las specs del cambio que no cubrieron 3.x y 4.x, y anotar fecha y resultado en esta tarea. Listo cuando todos pasen, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
-- [ ] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.00"` a `"04.10"`. Listo cuando `scripts/build.sh` compile y el `.vpk` muestre `04.10`.
+- [x] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.00"` a `"04.10"`. Listo cuando `scripts/build.sh` compile y el `.vpk` muestre `04.10`.
 - [ ] 5.4 Abrir el PR de `change/multi-select` contra `main`. Listo cuando el CI esté en verde.

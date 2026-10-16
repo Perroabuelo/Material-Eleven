@@ -8,6 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Select several songs at once: choose "Select" from the Square menu, or touch and hold a row.
+- Add all selected songs, albums or artists to a playlist in one go.
+- Remove several songs from a playlist at once.
+- The "All" checkbox at the top selects every row in view, so you can search and then add all the results. Search again to keep adding to the same selection.
+
 ## [4.0.0] - 2026-10-14
 
 ### Added

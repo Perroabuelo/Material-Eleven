@@ -176,6 +176,9 @@ static Menu_LibraryOption options[OPTIONS_MAX];
 static int option_count = 0;
 static SceBool options_open = SCE_FALSE;
 static int options_index = 0;
+// En el modo seleccion sin nada marcado la unica accion se ve apagada y no hace
+// nada.
+static SceBool options_disabled = SCE_FALSE;
 
 // El selector de "Añadir a playlist…": "Nueva playlist…" y despues las
 // playlists, en el orden de la pestaña. Es otro estado del mismo lazo, en el
@@ -1101,7 +1104,8 @@ static void Menu_DrawLibraryOptions(void) {
 			UI_DrawRowHighlight(x + OPTIONS_PAD, y, OPTIONS_W - 2 * OPTIONS_PAD, OPTIONS_ITEM_H);
 
 		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + OPTIONS_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, y, OPTIONS_ITEM_H),
-			OPTIONS_W - 2 * OPTIONS_PAD - 32, UI_COLOR_TEXT_PRIMARY, Lang_Get(option_label[options[i]]));
+			OPTIONS_W - 2 * OPTIONS_PAD - 32, options_disabled ? UI_COLOR_TEXT_SECONDARY : UI_COLOR_TEXT_PRIMARY,
+			Lang_Get(option_label[options[i]]));
 	}
 }
 
@@ -1591,9 +1595,19 @@ static SceBool Menu_HandleLibraryTouchControls(Menu_LibraryState state) {
 
 // Arma el menu para la fila marcada y lo abre con la marca en la primera
 // opcion. Sin filas - una pestaña Playlists o una playlist vacias, o una
-// busqueda sin resultados - solo quedan reescanear y elegir carpeta.
+// busqueda sin resultados - solo quedan reescanear y elegir carpeta. En el modo
+// seleccion tiene solo la accion sobre lo marcado, apagada si no hay nada.
 static void Menu_LibraryOpenOptions(Menu_LibraryState state) {
 	option_count = 0;
+	options_disabled = SCE_FALSE;
+
+	if (selecting) {
+		options[option_count++] = Menu_LibraryInPlaylist() ? OPTION_REMOVE_FROM_PLAYLIST : OPTION_ADD_TO_PLAYLIST;
+		options_disabled = (Selection_Count(&marks) == 0);
+		options_open = SCE_TRUE;
+		options_index = 0;
+		return;
+	}
 
 	if (state == LIBRARY_STATE_READY && Menu_LibraryBuild() > 0) {
 		if (Menu_LibraryInPlaylist()) {
@@ -1710,6 +1724,109 @@ static void Menu_HandleLibrarySelect(Menu_LibraryState state) {
 
 // --- añadir a una playlist -------------------------------------------------
 
+static void Menu_LibraryFillEntry(Playlist_Entry *e, const Library_Track *t) {
+	snprintf(e->path, sizeof(e->path), "%s", t->path);
+	snprintf(e->title, sizeof(e->title), "%s", t->title);
+	snprintf(e->artist, sizeof(e->artist), "%s", t->artist);
+	snprintf(e->album, sizeof(e->album), "%s", t->album);
+}
+
+// Lo que se añade a una playlist, pedido de a una entrada por
+// Playlist_AppendFrom: `n` entradas que da `next`.
+typedef struct {
+	int n;
+	Playlist_Source next;
+	void *ctx;
+} Menu_LibraryAdding;
+
+static int Menu_LibraryArrayEntry(int i, Playlist_Entry *out, void *ctx) {
+	*out = ((const Playlist_Entry *)ctx)[i];
+	return 1;
+}
+
+// Por donde va el recorrido de las marcas: la marca vigente y, en Artistas y
+// Albumes, la pista del grupo vigente. La fuente empieza de nuevo al pedirle
+// la entrada 0.
+typedef struct {
+	int mark;
+	int track;
+	int tracks;
+} Menu_LibraryMarkCursor;
+
+// Una cancion marcada por entrada, en el orden de la lista completa.
+static int Menu_LibraryMarkedTrack(int i, Playlist_Entry *out, void *ctx) {
+	Menu_LibraryMarkCursor *c = ctx;
+
+	if (i == 0)
+		c->mark = -1;
+
+	c->mark = Selection_Next(&marks, c->mark + 1);
+
+	const Library_Track *t = (c->mark >= 0) ? Library_ViewTrack(c->mark) : NULL;
+
+	if (t == NULL)
+		return 0;
+
+	Menu_LibraryFillEntry(out, t);
+	return 1;
+}
+
+// Las pistas de cada artista o album marcado, grupo por grupo en el orden de la
+// lista y cada uno en el orden en que se ve al entrar en el. Cada grupo se
+// construye sobre el arreglo de pistas, que la lista de nombres no usa.
+static int Menu_LibraryMarkedGroupTrack(int i, Playlist_Entry *out, void *ctx) {
+	Menu_LibraryMarkCursor *c = ctx;
+
+	if (i == 0) {
+		c->mark = -1;
+		c->track = c->tracks = 0;
+	}
+
+	while (c->track >= c->tracks) {
+		c->mark = Selection_Next(&marks, c->mark + 1);
+
+		if (c->mark < 0)
+			return 0;
+
+		const char *name = Library_NameAt(c->mark);
+
+		c->track = 0;
+		c->tracks = (name != NULL) ? Library_BuildFieldTracks(Menu_LibraryField(), name, Library_NameIsUnknown(c->mark)) : 0;
+	}
+
+	const Library_Track *t = Library_ViewTrack(c->track++);
+
+	if (t == NULL)
+		return 0;
+
+	Menu_LibraryFillEntry(out, t);
+	return 1;
+}
+
+// Lo marcado en el modo seleccion. AppendFrom necesita saber cuantas antes de
+// empezar, asi que en Artistas y Albumes una primera pasada suma los grupos y
+// la fuente los vuelve a construir al entregarlos.
+static void Menu_LibraryMarked(Menu_LibraryAdding *a, Menu_LibraryMarkCursor *c) {
+	Menu_LibraryBuild();
+	a->ctx = c;
+
+	if (!Menu_LibraryShowsNames()) {
+		a->n = Selection_Count(&marks);
+		a->next = Menu_LibraryMarkedTrack;
+		return;
+	}
+
+	a->n = 0;
+	a->next = Menu_LibraryMarkedGroupTrack;
+
+	for (int g = Selection_Next(&marks, 0); g >= 0; g = Selection_Next(&marks, g + 1)) {
+		const char *name = Library_NameAt(g);
+
+		if (name != NULL)
+			a->n += Library_BuildFieldTracks(Menu_LibraryField(), name, Library_NameIsUnknown(g));
+	}
+}
+
 // Lo que se añade desde la fila marcada, en `*out`, que el llamador libera: la
 // cancion, o todas las pistas del artista o del album en el orden en que se ven
 // al entrar en el. Devuelve cuantas, 0 si no hay nada o falta memoria.
@@ -1751,10 +1868,7 @@ static int Menu_LibraryCollect(Playlist_Entry **out) {
 			break;
 		}
 
-		snprintf(entries[i].path, sizeof(entries[i].path), "%s", t->path);
-		snprintf(entries[i].title, sizeof(entries[i].title), "%s", t->title);
-		snprintf(entries[i].artist, sizeof(entries[i].artist), "%s", t->artist);
-		snprintf(entries[i].album, sizeof(entries[i].album), "%s", t->album);
+		Menu_LibraryFillEntry(&entries[i], t);
 	}
 
 	*out = entries;
@@ -1785,7 +1899,7 @@ static void Menu_LibraryNoticeAdded(const char *name, int added, int skipped, in
 
 // Carga la playlist, le añade, la guarda y la suelta: no queda en RAM.
 // SCE_TRUE si la playlist se escribio.
-static SceBool Menu_LibraryAddToExisting(const char *file, const Playlist_Entry *entries, int n) {
+static SceBool Menu_LibraryAddToExisting(const char *file, const Menu_LibraryAdding *a) {
 	Playlist pl;
 	int added = 0, skipped = 0, full = 0;
 	SceBool wrote = SCE_FALSE;
@@ -1795,7 +1909,7 @@ static SceBool Menu_LibraryAddToExisting(const char *file, const Playlist_Entry 
 		return SCE_FALSE;
 	}
 
-	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Save(file, &pl) < 0) {
+	if (Playlist_AppendFrom(&pl, a->n, a->next, a->ctx, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Save(file, &pl) < 0) {
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
 	}
 	else {
@@ -1810,7 +1924,7 @@ static SceBool Menu_LibraryAddToExisting(const char *file, const Playlist_Entry 
 // "Nueva playlist…": pide el nombre y crea la playlist con lo que se añade, en
 // un solo paso. Descartar, un nombre vacio o uno repetido no crean nada.
 // SCE_TRUE si la playlist se escribio.
-static SceBool Menu_LibraryAddToNew(const Playlist_Entry *entries, int n) {
+static SceBool Menu_LibraryAddToNew(const Menu_LibraryAdding *a) {
 	char name[PLAYLIST_NAME_MAX];
 
 	if (SearchDialog_Prompt(Lang_Get(STR_PLAYLIST_NAME), "", name, sizeof(name),
@@ -1833,7 +1947,7 @@ static SceBool Menu_LibraryAddToNew(const Playlist_Entry *entries, int n) {
 	memset(&pl, 0, sizeof(pl));
 	snprintf(pl.name, sizeof(pl.name), "%s", name);
 
-	if (Playlist_Append(&pl, entries, n, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Create(&pl, file) < 0) {
+	if (Playlist_AppendFrom(&pl, a->n, a->next, a->ctx, &added, &skipped, &full) != PLAYLIST_OK || PlaylistStore_Create(&pl, file) < 0) {
 		Menu_LibraryNotice(STR_NOTICE_PLAYLIST_SAVE_FAILED);
 	}
 	else {
@@ -1861,9 +1975,23 @@ static void Menu_LibraryClosePicker(void) {
 		Menu_LibraryFreePlaylists();
 }
 
+// Añade lo marcado en el modo seleccion, o si no la fila marcada. Una accion
+// que escribio la playlist sale del modo; cerrar el dialogo del nombre o uno
+// vacio o repetido lo dejan con las mismas marcas.
 static void Menu_LibraryRunPicker(int item) {
 	Playlist_Entry *entries = NULL;
-	int n = Menu_LibraryCollect(&entries);
+	Menu_LibraryAdding adding;
+	Menu_LibraryMarkCursor cursor;
+
+	if (selecting) {
+		Menu_LibraryMarked(&adding, &cursor);
+	}
+	else {
+		adding.n = Menu_LibraryCollect(&entries);
+		adding.next = Menu_LibraryArrayEntry;
+		adding.ctx = entries;
+	}
+
 	char file[PLAYLIST_FILE_MAX] = "";
 	const PlaylistSummary *s = Menu_LibraryPlaylistAt(item - 1);
 
@@ -1876,15 +2004,17 @@ static void Menu_LibraryRunPicker(int item) {
 
 	SceBool wrote = SCE_FALSE;
 
-	if (n > 0 && item == 0)
-		wrote = Menu_LibraryAddToNew(entries, n);
-	else if (n > 0 && file[0] != '\0')
-		wrote = Menu_LibraryAddToExisting(file, entries, n);
+	if (adding.n > 0 && item == 0)
+		wrote = Menu_LibraryAddToNew(&adding);
+	else if (adding.n > 0 && file[0] != '\0')
+		wrote = Menu_LibraryAddToExisting(file, &adding);
 
 	free(entries);
 
-	if (wrote)
+	if (wrote) {
 		Menu_LibraryReloadPlaylists();
+		Menu_LibraryEndSelect();
+	}
 
 	Menu_LibraryClosePicker();
 }
@@ -2110,6 +2240,10 @@ static void Menu_HandleLibraryConfirm(void) {
 // Reescanear y elegir carpeta ya quitan la busqueda y salen del grupo: elegir
 // carpeta vuelve a Canciones, y reescanear a la misma pestaña desde arriba.
 static void Menu_LibraryRunOption(int i) {
+	// La accion apagada no hace nada, y el menu sigue abierto.
+	if (options_disabled)
+		return;
+
 	options_open = SCE_FALSE;
 
 	switch (options[i]) {
@@ -2117,7 +2251,8 @@ static void Menu_LibraryRunOption(int i) {
 			Menu_LibraryOpenPicker();
 			break;
 		case OPTION_REMOVE_FROM_PLAYLIST:
-			Menu_LibraryRemoveSelected();
+			if (!selecting)
+				Menu_LibraryRemoveSelected();
 			break;
 		case OPTION_MOVE:
 			Menu_LibraryStartMove();

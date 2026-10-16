@@ -596,6 +596,7 @@ static void Menu_LibrarySetTerm(const char *term) {
 
 	int kept = (term[0] == '\0' && full >= 0) ? ListFilter_ToVisible(Menu_LibraryFilter(), full) : -1;
 	selection = (kept >= 0) ? kept : 0;
+	header_focus = SCE_FALSE;
 	TouchList_Reset(&library_list);
 	TouchList_Follow(&library_list);
 }
@@ -701,17 +702,119 @@ static float Menu_LibraryTabX(int i, float *out_w) {
 // La franja de la barra en que se escriben el titulo y las pestañas.
 #define TABS_BOX_H (TOPBAR_H - 18)
 
+// Las casillas del modo seleccion: la de cada fila, a la izquierda de la
+// caratula, y la de Todo en el encabezado, donde estaban las pestañas.
+#define CHECK_SIZE   24
+#define CHECK_GAP    14
+#define HEADER_EXIT  24   // el aspa de salir
+#define HEADER_GAP   16
+#define HEADER_RIGHT 22   // margen derecho de la casilla Todo
+#define HEADER_LABEL_GAP 10
+
+// Una casilla de `size` en (x, y). `state` dice si esta vacia, parcial o llena;
+// SELECTION_ALL_DISABLED la dibuja apagada.
+static void Menu_DrawLibraryCheck(float x, float y, float size, Selection_All state) {
+	float t = 2.0f;
+
+	if (state == SELECTION_ALL_SOME || state == SELECTION_ALL_ALL) {
+		UI_DrawRoundedRect(x, y, size, size, 6, ui_color_accent);
+
+		if (state == SELECTION_ALL_ALL) {
+			UI_DrawStroke(x + size * 0.24f, y + size * 0.52f, x + size * 0.43f, y + size * 0.70f, 3.0f, UI_COLOR_BG);
+			UI_DrawStroke(x + size * 0.43f, y + size * 0.70f, x + size * 0.76f, y + size * 0.32f, 3.0f, UI_COLOR_BG);
+		}
+		else {
+			UI_DrawStroke(x + size * 0.28f, y + size * 0.5f, x + size * 0.72f, y + size * 0.5f, 3.0f, UI_COLOR_BG);
+		}
+
+		return;
+	}
+
+	unsigned int color = (state == SELECTION_ALL_DISABLED) ? UI_COLOR_TEXT_MUTED : UI_COLOR_TEXT_SECONDARY;
+	float l = x + t / 2, r = x + size - t / 2, top = y + t / 2, bottom = y + size - t / 2;
+
+	UI_DrawStroke(l, top, r, top, t, color);
+	UI_DrawStroke(r, top, r, bottom, t, color);
+	UI_DrawStroke(r, bottom, l, bottom, t, color);
+	UI_DrawStroke(l, bottom, l, top, t, color);
+}
+
+// Lo que se puede tocar en el encabezado: el aspa de salir a la izquierda y la
+// casilla Todo, con su etiqueta, a la derecha. Lo comparten el dibujado y el
+// toque.
+static float Menu_LibraryHeaderExitX(void) { return CONTENT_X + 22; }
+static float Menu_LibraryHeaderCheckX(void) { return 960 - HEADER_RIGHT - CHECK_SIZE; }
+
+static float Menu_LibraryHeaderAllX(void) {
+	return Menu_LibraryHeaderCheckX() - HEADER_LABEL_GAP - (float)UI_TextWidth(UI_FACE_UI, UI_TS_LABEL, Lang_Get(STR_SELECT_ALL));
+}
+
 // La caja de busqueda, a la izquierda de las pestañas. La comparten el
 // dibujado y el toque.
 static float Menu_LibrarySearchBoxX(void) { return Menu_LibraryTabsLeft() - SEARCH_TAB_GAP - SEARCH_W; }
 static float Menu_LibrarySearchBoxY(void) { return (TOPBAR_H - SEARCH_H) / 2.0f; }
 
+// La caja de busqueda, igual dentro y fuera del modo seleccion.
+static void Menu_DrawLibrarySearchBox(void) {
+	if (Menu_LibraryGetState() != LIBRARY_STATE_READY)
+		return;
+
+	float sx = Menu_LibrarySearchBoxX(), sy = Menu_LibrarySearchBoxY();
+	SceBool has_term = Menu_LibraryHasTerm();
+
+	UI_DrawPill(sx, sy, SEARCH_W, SEARCH_H, UI_COLOR_SURFACE);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, sx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, sy, SEARCH_H),
+		SEARCH_W - 28, has_term ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED,
+		has_term ? Menu_LibrarySearchNow()->term : Lang_Get(STR_SEARCH_LIBRARY));
+}
+
+// En el modo seleccion la barra es un encabezado fijo: el aspa de salir, el
+// contador de marcadas - tambien las que la busqueda oculta -, la caja de
+// busqueda en su lugar y la casilla Todo, que mira solo lo visible. Las
+// pestañas no se dibujan.
+static void Menu_DrawLibraryHeader(void) {
+	float cy = TOPBAR_H / 2.0f;
+	float ex = Menu_LibraryHeaderExitX(), e = HEADER_EXIT * 0.36f;
+	float ecx = ex + HEADER_EXIT / 2.0f;
+
+	UI_DrawStroke(ecx - e, cy - e, ecx + e, cy + e, 3.0f, UI_COLOR_TEXT_PRIMARY);
+	UI_DrawStroke(ecx - e, cy + e, ecx + e, cy - e, 3.0f, UI_COLOR_TEXT_PRIMARY);
+
+	int n = Selection_Count(&marks);
+	LangString format = Menu_LibraryShowsNames() ? ((n == 1) ? STR_SELECTED_GROUPS_ONE : STR_SELECTED_GROUPS_MANY)
+		: ((n == 1) ? STR_SELECTED_SONGS_ONE : STR_SELECTED_SONGS_MANY);
+	char counter[48];
+	float x = ex + HEADER_EXIT + HEADER_GAP;
+
+	snprintf(counter, sizeof(counter), Lang_Get(format), n);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_TITLE, x, UI_TextBaselineY(UI_FACE_UI, UI_TS_TITLE, 0, TOPBAR_H),
+		Menu_LibrarySearchBoxX() - 16 - x, UI_COLOR_TEXT_PRIMARY, counter);
+
+	Menu_DrawLibrarySearchBox();
+
+	Selection_All all = Selection_AllState(&marks, Menu_LibraryFilter());
+	float cx = Menu_LibraryHeaderCheckX(), lx = Menu_LibraryHeaderAllX();
+
+	// Marcada con el resalte de las filas cuando es la posicion actual.
+	if (header_focus)
+		UI_DrawRowHighlight(lx - 12, (TOPBAR_H - 44) / 2.0f, 960 - HEADER_RIGHT + 10 - (lx - 12), 44);
+
+	UI_DrawText(UI_FACE_UI, UI_TS_LABEL, lx, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, 0, TOPBAR_H),
+		(all == SELECTION_ALL_DISABLED) ? UI_COLOR_TEXT_MUTED : UI_COLOR_TEXT_PRIMARY, Lang_Get(STR_SELECT_ALL));
+	Menu_DrawLibraryCheck(cx, (TOPBAR_H - CHECK_SIZE) / 2.0f, CHECK_SIZE, all);
+}
+
 static void Menu_DrawLibraryTopBar(void) {
 	vita2d_draw_rectangle(CONTENT_X, 0, 960 - CONTENT_X, TOPBAR_H, UI_COLOR_BG_ELEVATED);
 	vita2d_draw_rectangle(CONTENT_X, TOPBAR_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 
+	if (selecting) {
+		Menu_DrawLibraryHeader();
+		return;
+	}
+
 	float x = CONTENT_X + 22;
-	float sx = Menu_LibrarySearchBoxX(), sy = Menu_LibrarySearchBoxY();
+	float sx = Menu_LibrarySearchBoxX();
 	// El titulo y la ruta se recortan antes de la caja en vez de pasarle por
 	// debajo: dentro de un album el titulo es su nombre, y puede ser largo.
 	float text_w = sx - 16 - x;
@@ -742,14 +845,7 @@ static void Menu_DrawLibraryTopBar(void) {
 
 	// La caja solo se ofrece cuando hay algo en que buscar. Muestra el termino
 	// de la lista que se ve, o la invitacion a buscar.
-	if (Menu_LibraryGetState() == LIBRARY_STATE_READY) {
-		SceBool has_term = Menu_LibraryHasTerm();
-
-		UI_DrawPill(sx, sy, SEARCH_W, SEARCH_H, UI_COLOR_SURFACE);
-		UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, sx + 14, UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, sy, SEARCH_H),
-			SEARCH_W - 28, has_term ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TEXT_MUTED,
-			has_term ? Menu_LibrarySearchNow()->term : Lang_Get(STR_SEARCH_LIBRARY));
-	}
+	Menu_DrawLibrarySearchBox();
 }
 
 // Un estado vacio que dice cual de los cuatro es y que hacer, en vez de una
@@ -779,7 +875,8 @@ static void Menu_DrawLibraryPlaceholder(const char *line, const char *action) {
 // `dimmed` es una cancion de playlist que la biblioteca ya no tiene.
 static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char *secondary,
 		vita2d_texture *art, const char *ext, SceBool dimmed) {
-	if (i == selection)
+	// Con la casilla Todo como posicion actual, ninguna fila se ve marcada.
+	if (i == selection && !header_focus)
 		UI_DrawRowHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
 	else if (i == TouchList_PressedRow(&library_list))
 		UI_DrawRowPressHighlight(CONTENT_X, y, 960 - CONTENT_X, ROW_H);
@@ -789,6 +886,14 @@ static void Menu_DrawLibraryRow(int i, float y, const char *primary, const char 
 		vita2d_draw_rectangle(CONTENT_X, y, 4, ROW_H, ui_color_accent);
 
 	float art_x = CONTENT_X + 22, art_y = y + (ROW_H - ROW_ART) / 2.0f;
+
+	// En el modo seleccion la casilla va antes de la caratula, y la fila se
+	// corre su ancho: el texto y el badge se recortan como siempre.
+	if (selecting) {
+		Menu_DrawLibraryCheck(art_x, y + (ROW_H - CHECK_SIZE) / 2.0f, CHECK_SIZE,
+			Selection_Has(&marks, Menu_LibraryFull(i)) ? SELECTION_ALL_ALL : SELECTION_ALL_NONE);
+		art_x += CHECK_SIZE + CHECK_GAP;
+	}
 
 	if (art != NULL && dimmed) {
 		vita2d_draw_texture_tint_scale(art, art_x, art_y, ROW_ART / (float)COVER_SIZE, ROW_ART / (float)COVER_SIZE,
@@ -1383,14 +1488,22 @@ static void Menu_LibraryConfirm(void) {
 		Menu_LibraryPlaySelected();
 }
 
-// Tocar una fila es seleccionarla y confirmar. `row` es la fila tocada este
-// fotograma, o -1.
+// Tocar una fila es seleccionarla y confirmar; en el modo seleccion, marcarla o
+// desmarcarla. `row` es la fila tocada este fotograma, o -1.
 static SceBool Menu_HandleLibraryTap(Menu_LibraryState state, int row) {
 	if (state != LIBRARY_STATE_READY || row < 0 || row >= Menu_LibraryBuild())
 		return SCE_FALSE;
 
 	selection = row;
-	Menu_LibraryConfirm();
+
+	if (selecting) {
+		header_focus = SCE_FALSE;
+		Selection_Toggle(&marks, Menu_LibraryFull(row));
+	}
+	else {
+		Menu_LibraryConfirm();
+	}
+
 	return SCE_TRUE;
 }
 
@@ -1429,6 +1542,25 @@ static void Menu_LibraryEmptyAction(Menu_LibraryState state) {
 static SceBool Menu_HandleLibraryTouchControls(Menu_LibraryState state) {
 	if (!Touch_CheckPressed())
 		return SCE_FALSE;
+
+	// En el encabezado del modo no hay pestañas: el aspa sale, como volver sin
+	// busqueda, y la casilla Todo actua sobre lo visible si hay algo visible.
+	if (state == LIBRARY_STATE_READY && selecting) {
+		if (UI_TouchTarget(Menu_LibraryHeaderExitX(), 0, HEADER_EXIT, TOPBAR_H)) {
+			Menu_LibraryEndSelect();
+			return SCE_TRUE;
+		}
+
+		float ax = Menu_LibraryHeaderAllX();
+
+		if (UI_TouchTarget(ax, 0, 960 - HEADER_RIGHT - ax, TOPBAR_H)) {
+			Menu_LibraryBuild();
+			Selection_ToggleAll(&marks, Menu_LibraryFilter());
+			return SCE_TRUE;
+		}
+
+		return SCE_FALSE;
+	}
 
 	if (state == LIBRARY_STATE_READY) {
 		for (int i = 0; i < VIEW_COUNT; i++) {
@@ -1526,6 +1658,51 @@ static void Menu_HandleLibraryControls(Menu_LibraryState state) {
 
 	// Triangulo busca, y solo donde hay en que buscar.
 	if ((state == LIBRARY_STATE_READY) && (pressed & SCE_CTRL_TRIANGLE))
+		Menu_LibraryPromptSearch();
+	else if (pressed & SCE_CTRL_SQUARE)
+		Menu_LibraryOpenOptions(state);
+}
+
+// Los botones del modo seleccion. Arriba y abajo recorren la casilla Todo y las
+// filas, confirmar marca la fila o activa la casilla, volver quita la busqueda
+// o sale del modo, Triangulo busca y Cuadrado abre las acciones. L, R y SELECT
+// no hacen nada.
+static void Menu_HandleLibrarySelect(Menu_LibraryState state) {
+	int count = Menu_LibraryBuild();
+
+	// Sin filas visibles la casilla no se alcanza: la posicion es una fila.
+	if (count == 0)
+		header_focus = SCE_FALSE;
+
+	if (count > 0) {
+		int before = header_focus ? 0 : selection + 1;
+		int pos = Selection_Step(before, count, Utils_GetListStep(), ROWS_PER_PAGE);
+
+		if (pressed & SCE_CTRL_LEFT)
+			pos = 1;
+		else if (pressed & SCE_CTRL_RIGHT)
+			pos = count;
+
+		header_focus = (pos == 0);
+
+		if (pos > 0)
+			selection = pos - 1;
+
+		if (pos != before || (pressed & (SCE_CTRL_UP | SCE_CTRL_DOWN | SCE_CTRL_LEFT | SCE_CTRL_RIGHT)))
+			TouchList_Follow(&library_list);
+
+		if (pressed & SCE_CTRL_ENTER) {
+			if (header_focus)
+				Selection_ToggleAll(&marks, Menu_LibraryFilter());
+			else
+				Selection_Toggle(&marks, Menu_LibraryFull(selection));
+		}
+	}
+
+	if (pressed & SCE_CTRL_CANCEL)
+		Menu_LibraryBack();
+
+	if (pressed & SCE_CTRL_TRIANGLE)
 		Menu_LibraryPromptSearch();
 	else if (pressed & SCE_CTRL_SQUARE)
 		Menu_LibraryOpenOptions(state);
@@ -2063,10 +2240,21 @@ UI_Screen Menu_DisplayLibrary(void) {
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
 
+		// En el modo seleccion, las acciones del modo y sin L ni R.
+		const NavRail_Hint select_hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_MARK) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(Menu_LibraryHasTerm() ? STR_HINT_CLEAR_FILTER : STR_HINT_EXIT) },
+			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SEARCH) },
+			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_ACTIONS) },
+			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
+		};
+
 		if (moving)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, move_hints, 4);
 		else if (options_open || picker_open || confirm_open)
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, option_hints, 3);
+		else if (selecting)
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, select_hints, 5);
 		else
 			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, 6);
 
@@ -2139,15 +2327,20 @@ UI_Screen Menu_DisplayLibrary(void) {
 		if (Menu_HandleLibraryTouchControls(state))
 			continue;
 
-		if (!Menu_HandleLibraryHold(state, held_row) && !Menu_HandleLibraryTap(state, tapped_row))
-			Menu_HandleLibraryControls(state);
+		if (!Menu_HandleLibraryHold(state, held_row) && !Menu_HandleLibraryTap(state, tapped_row)) {
+			if (selecting)
+				Menu_HandleLibrarySelect(state);
+			else
+				Menu_HandleLibraryControls(state);
+		}
 
 		// Reproducir una pista no entra a Reproduciendo: lo pide.
 		UI_Screen requested = NavRequest_Take();
 		if (requested != UI_SCREEN_NONE)
 			return Menu_LibraryExit(requested);
 
-		if (pressed & SCE_CTRL_SELECT)
+		// SELECT no lleva a Ajustes durante el modo seleccion.
+		if ((pressed & SCE_CTRL_SELECT) && !selecting)
 			return Menu_LibraryExit(UI_SCREEN_SETTINGS);
 	}
 }

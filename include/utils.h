@@ -1,6 +1,8 @@
 #ifndef _ELEVENMPV_UTILS_H_
 #define _ELEVENMPV_UTILS_H_
 
+#include "key_repeat.h"
+
 void Utils_SetMax(int *set, int value, int max);
 void Utils_SetMin(int *set, int value, int min);
 int Utils_ReadControls(void);
@@ -12,6 +14,9 @@ SceUInt32 Utils_HeldButtons(void);
 // and wraps around; holding repeats the step, one row and later `page` rows at
 // a time, and stops at either end. Only lists call it; `pressed` never repeats.
 void Utils_ListStep(int *sel, int count, int page);
+// This frame's Up/Down step itself, for a list that moves by its own rule
+// (the Library's selection mode, which has the "All" checkbox in the loop).
+KeyRepeat_Step Utils_GetListStep(void);
 // START apaga la pantalla en cada Utils_ReadControls y se quita de `pressed`;
 // la consola la vuelve a encender con el boton PS. Se deshabilita mientras un
 // dialogo del sistema tiene la entrada, donde START significa otra cosa.

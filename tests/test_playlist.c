@@ -512,6 +512,54 @@ static void test_remove(void) {
 	Playlist_Free(&pl);
 }
 
+// Para RemoveIf: si la entrada `index` esta en la tabla `ctx` de 10.
+static int doomed_in(int index, void *ctx) {
+	return ((const int *)ctx)[index];
+}
+
+// Quita de una playlist de 10 las marcadas en `doomed` y compara con `expect`.
+static void check_remove_if(const int doomed[10], const int *expect, int n_expect, int want_first) {
+	Playlist pl;
+	make_playlist(&pl, "R", "r", 10);
+
+	int first = -2;
+	int removed = Playlist_RemoveIf(&pl, doomed_in, (void *)doomed, &first);
+	CHECK(removed == 10 - n_expect, "RemoveIf quito %d y no %d", removed, 10 - n_expect);
+	CHECK(order_is(&pl, "r", expect, n_expect), "RemoveIf dejo otro orden (%d entradas)", pl.count);
+	CHECK(first == want_first, "RemoveIf dio first %d y no %d", first, want_first);
+	Playlist_Free(&pl);
+}
+
+static void test_remove_if(void) {
+	const int none[10] = { 0 };
+	const int all_ids[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+	check_remove_if(none, all_ids, 10, -1);
+
+	const int head[10] = { 1 };
+	check_remove_if(head, all_ids + 1, 9, 0);
+
+	const int odd[10] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 };
+	const int evens[] = { 0, 2, 4, 6, 8 };
+	check_remove_if(odd, evens, 5, 1);
+
+	const int tail[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	check_remove_if(tail, all_ids, 9, 9);
+
+	const int every[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+	check_remove_if(every, NULL, 0, 0);
+
+	// La segunda, la cuarta y la quinta de 10 (spec "Quitar varias canciones").
+	const int three[10] = { 0, 1, 0, 1, 1 };
+	const int left[] = { 0, 2, 5, 6, 7, 8, 9 };
+	check_remove_if(three, left, 7, 1);
+
+	// first puede ser NULL, y una playlist vacia no quita nada.
+	Playlist empty;
+	make_playlist(&empty, "V", "v", 0);
+	CHECK(Playlist_RemoveIf(&empty, doomed_in, (void *)every, NULL) == 0 && empty.count == 0, "RemoveIf en una vacia quito algo");
+	Playlist_Free(&empty);
+}
+
 static void test_move(void) {
 	Playlist pl;
 	make_playlist(&pl, "M", "m", 6);
@@ -845,6 +893,7 @@ int main(void) {
 	test_append_from_full();
 	test_append_from_nomem();
 	test_remove();
+	test_remove_if();
 	test_move();
 	test_name_valid();
 	test_names_equal();

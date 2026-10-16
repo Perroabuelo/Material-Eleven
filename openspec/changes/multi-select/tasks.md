@@ -24,7 +24,7 @@
   - fallo inyectado en la reserva de entradas y en la del índice, que dejan la playlist igual y sin fugas.
 
   Listo cuando `make -C tests` pase con sanitizers.
-- [ ] 1.5 Agregar `Playlist_RemoveIf` (Decisión 7). Ampliar `test_playlist` con ninguna, la primera, alternadas, la última y todas, comprobando el orden que queda, el conteo y `*first`. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 1.5 Agregar `Playlist_RemoveIf` (Decisión 7). Ampliar `test_playlist` con ninguna, la primera, alternadas, la última y todas, comprobando el orden que queda, el conteo y `*first`. Listo cuando `make -C tests` pase con sanitizers.
 
 ## 2. Táctil
 

@@ -94,6 +94,11 @@ Playlist_Result Playlist_AppendFrom(Playlist *pl, int n, Playlist_Source next, v
 // `index` is out of range.
 int Playlist_Remove(Playlist *pl, int index);
 
+// Takes out every entry for which `doomed` is true, in one pass; the rest keep
+// their order. Returns how many went, and `*first` (may be NULL) gets the
+// position the first of them had, or -1 when none went.
+int Playlist_RemoveIf(Playlist *pl, int (*doomed)(int index, void *ctx), void *ctx, int *first);
+
 // Moves the entry `from` to position `to`; the ones in between shift by one.
 // 0, or -1 when either is out of range, and then nothing moves.
 int Playlist_Move(Playlist *pl, int from, int to);

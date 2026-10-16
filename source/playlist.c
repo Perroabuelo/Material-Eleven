@@ -372,6 +372,31 @@ int Playlist_Remove(Playlist *pl, int index) {
 	return 0;
 }
 
+int Playlist_RemoveIf(Playlist *pl, int (*doomed)(int index, void *ctx), void *ctx, int *first) {
+	int kept = 0;
+	int gone_first = -1;
+
+	for (int i = 0; i < pl->count; i++) {
+		if (doomed(i, ctx)) {
+			if (gone_first < 0)
+				gone_first = i;
+			continue;
+		}
+
+		if (kept != i)
+			pl->entries[kept] = pl->entries[i];
+		kept++;
+	}
+
+	int removed = pl->count - kept;
+	pl->count = kept;
+
+	if (first != NULL)
+		*first = gone_first;
+
+	return removed;
+}
+
 int Playlist_Move(Playlist *pl, int from, int to) {
 	if (from < 0 || from >= pl->count || to < 0 || to >= pl->count)
 		return -1;

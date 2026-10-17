@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-10-17
+
 ### Added
 
 - Developer log, off by default: create an empty file named `debug` in `ux0:data/ElevenMPV/` and the app records screens, input and playback events to `ux0:data/ElevenMPV/debug.log`. The previous session is kept as `debug.prev.log`.

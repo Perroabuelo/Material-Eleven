@@ -70,5 +70,14 @@
   Resultados (2026-10-17), en Ajustes con el overlay abierto. La suite abre el overlay con `press L+R+SELECT` porque el combo físico la abortaría; el combo también abre Ajustes desde Carpetas, con la suite y sin ella, como antes de este cambio:
   - HEAP con una suite en curso: 1463 KB. Después de abortarla con R (`script event=abort reason=user`): 1415 KB. Sin suite, en un arranque nuevo: 1411 KB. Al abortar se liberan los ~48 KB del `Script`, y queda una diferencia de 4 KB con el arranque sin suite. OK.
   - `heap_kb` de la primera línea `screen` de los trece escenarios de `dev-console-scripts.txt` (corrida de 3.3): 1417 en todos. OK.
-- [ ] 5.2 Correr las tres suites de `tests/console/` seguidas y los escenarios manuales que no cubrieron 3.x, y anotar fecha y resultado en esta tarea. Listo cuando todo pase, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
-- [ ] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.20"` a `"04.30"`. Listo cuando `scripts/build.sh` compile y la línea `start` del log diga `version=04.30`.
+- [x] 5.2 Correr las tres suites de `tests/console/` seguidas y los escenarios manuales que no cubrieron 3.x, y anotar fecha y resultado en esta tarea. Listo cuando todo pase, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
+
+  Resultados (2026-10-17), con la build 04.30 instalada desde el .vpk y una suite detrás de otra:
+  - `dev-console-scripts.txt`: `script event=end pass=12 fail=1 interrupted=0`; el único `fail` es "Timeout", a propósito. Las dos tandas de "Semilla 42" abren 01, 05, 03, 02 y 04 en ese orden, el `heap_kb` de la primera `screen` es 1418 en los trece escenarios, y `config.cfg` y `lastdir.txt` quedaron con el MD5 de antes. OK.
+  - `dev-console-scripts-error.txt`: `script event=error line=3 reason="unknown command \"presss\""`, ninguna línea `step`, `suite.done.txt`, y la app respondió a los botones. OK.
+  - `dev-debug-log.txt`: `script event=end pass=4 fail=0 interrupted=0`. OK.
+  - Los escenarios manuales ("Suite sin marcador", "Abortar con un botón", "Cerrar con PS a mitad de la suite" e "Indicador visible") pasaron en 3.1, 3.2 y 3.3.
+  - `make -C tests` pasa (23 tests) y `scripts/build.sh` compila sin warnings de código (solo los avisos de siempre de CMake y del linker por `crtn.o`).
+- [x] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.20"` a `"04.30"`. Listo cuando `scripts/build.sh` compile y la línea `start` del log diga `version=04.30`.
+
+  Resultados (2026-10-17): compila, y las líneas `start` de las corridas de 5.2 dicen `version=04.30`. OK.

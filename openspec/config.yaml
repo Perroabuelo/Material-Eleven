@@ -48,6 +48,10 @@ rules:
       Si el cambio tiene escenarios de consola, indicar que lineas de debug.log verifican
       cada uno, y agregar al log los campos que falten, sin renombrar ni quitar los que ya
       define dev/debug-log
+    - >-
+      Si el cambio tiene escenarios de consola, indicar cuales se automatizan en una suite de
+      tests/console/ (y en cual) y cuales quedan manuales, con el motivo (imagen, fluidez,
+      audio, o algo que el guion no puede hacer)
   specs:
     - Cada requirement debe tener al menos un scenario verificable por un test o por una prueba en consola descrita paso a paso
   tasks:

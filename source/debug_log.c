@@ -282,6 +282,26 @@ void DebugLog_Buttons(LogLine *line, const char *key, unsigned int mask) {
 	LogLine_Buttons(line, key, mask, button_names, (int)(sizeof(button_names) / sizeof(button_names[0])));
 }
 
+void DebugLog_Input(unsigned int down, unsigned int up) {
+	if (!debug_log_on)
+		return;
+
+	unsigned int named = 0;
+	for (unsigned int i = 0; i < sizeof(button_names) / sizeof(button_names[0]); i++)
+		named |= button_names[i].mask;
+
+	down &= named;
+	up &= named;
+	if (!down && !up)
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "input");
+	DebugLog_Buttons(&line, "down", down);
+	DebugLog_Buttons(&line, "up", up);
+	DebugLog_Commit(&line);
+}
+
 DebugLog_Status DebugLog_GetStatus(void) {
 	DebugLog_Status status = { mode, fail_reason, 0, 0 };
 

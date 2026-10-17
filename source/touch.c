@@ -9,6 +9,7 @@
 #include <psp2/touch.h>
 #include <string.h>
 
+#include "debug_log.h"
 #include "touch.h"
 
 #define lerp(value, from_max, to_max) ((((value * 10) * (to_max * 10)) / (from_max * 10)) / 10)
@@ -28,6 +29,22 @@ typedef struct {
 // Static so the touch layer neither holds nor leaves any allocation.
 static touchStateData touchStateStorage;
 static touchStateData *const touchState = &touchStateStorage;
+
+// Whether the log saw the finger come down. Kept apart from touchState: a
+// screen jump resets that one with the finger still on the panel, which must
+// not log a second "down", and its first frame reports a release that never
+// had a press.
+static int log_touching = 0;
+
+static void Touch_Log(const char *event) {
+	LogLine line;
+
+	DebugLog_Begin(&line, "touch");
+	LogLine_Str(&line, "event", event);
+	LogLine_Int(&line, "x", touchState->posX);
+	LogLine_Int(&line, "y", touchState->posY);
+	DebugLog_Commit(&line);
+}
 
 void Touch_Reset(void) {
 	memset(touchState, 0, sizeof(*touchState));
@@ -91,5 +108,18 @@ void Touch_Update(void) {
 		}
 		else 
 			touchState->released = 0;
+	}
+
+	if (DebugLog_On()) {
+		if (touchState->pressed && !log_touching) {
+			log_touching = 1;
+			Touch_Log("down");
+		}
+		else if (touchState->released && log_touching) {
+			// The last position the finger had, since the panel no longer
+			// reports one.
+			log_touching = 0;
+			Touch_Log("up");
+		}
 	}
 }

@@ -135,6 +135,10 @@ int main(int argc, char *argv[]) {
 		Touch_Reset();
 		NavRequest_Take();
 
+		// Now Playing without a track is not opened, so it is not logged.
+		if (next != UI_SCREEN_NOW_PLAYING || Audio_HasTrack())
+			DebugLog_Screen(next);
+
 		switch (next) {
 			case UI_SCREEN_FOLDERS:
 				next = Menu_DisplayFiles();

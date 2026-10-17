@@ -9,6 +9,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "debug_log.h"
 #include "key_repeat.h"
 #include "menu_audioplayer.h"
 #include "screen_off.h"
@@ -43,6 +44,11 @@ int Utils_ReadControls(void) {
 	sceCtrlPeekBufferPositive(0, &pad, 1);
 
 	pressed = pad.buttons & ~old_pad.buttons;
+
+	// What the user pressed, before the screen-off rule decides what the app
+	// gets to see.
+	if (DebugLog_On())
+		DebugLog_Input(pressed, old_pad.buttons & ~pad.buttons);
 
 	ScreenOff_Action action = SCREEN_OFF_KEEP;
 	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &action);

@@ -84,6 +84,11 @@ void DebugLog_Screen(UI_Screen to);
 // (CROSS, CIRCLE, ..., SELECT). Nothing when none of them is in the mask.
 void DebugLog_Buttons(LogLine *line, const char *key, unsigned int mask);
 
+// Logs "input down=... up=..." for the buttons pressed and released this
+// frame. Only the buttons the log names count: a frame where nothing else
+// changed writes nothing.
+void DebugLog_Input(unsigned int down, unsigned int up);
+
 DebugLog_Status DebugLog_GetStatus(void);
 
 #endif

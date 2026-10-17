@@ -33,7 +33,7 @@ Si el usuario mantiene ↑ o ↓ en una de esas listas durante más de unos 2 s 
 - **THEN** la selección avanza exactamente una fila
 
 ### Requirement: La repetición se detiene en el borde y solo una pulsación nueva da la vuelta
-Una pulsación nueva de ↑ sobre la primera fila SHALL llevar a la última, y una de ↓ sobre la última SHALL llevar a la primera, como hasta ahora. Los pasos repetidos por mantener el botón, en cambio, SHALL detenerse en la primera o en la última fila y SHALL NOT dar la vuelta. Un salto de página que se pasaría del borde SHALL dejar la selección en esa fila del borde.
+Una pulsación nueva de ↑ sobre la primera fila SHALL llevar a la última, y una de ↓ sobre la última SHALL llevar a la primera, como hasta ahora. En el modo selección de la biblioteca, esa vuelta SHALL pasar por la casilla Todo del encabezado, como define `library/multi-select`. Los pasos repetidos por mantener el botón, en cambio, SHALL detenerse en la primera o en la última fila y SHALL NOT dar la vuelta ni pasar por la casilla Todo. Un salto de página que se pasaría del borde SHALL dejar la selección en esa fila del borde.
 
 #### Scenario: Mantener ↓ se detiene en la última fila
 - **WHEN** el usuario mantiene ↓ en una lista de 12 entradas de Carpetas hasta pasado el final y sigue manteniéndolo 2 s más
@@ -46,6 +46,10 @@ Una pulsación nueva de ↑ sobre la primera fila SHALL llevar a la última, y u
 #### Scenario: El salto de página no se pasa del borde
 - **WHEN** el usuario mantiene ↓ en la vista Canciones hasta que la lista salta por páginas y la última página tiene menos filas que una página completa
 - **THEN** la selección termina en la última canción, sin dar la vuelta
+
+#### Scenario: Mantener ↑ en modo selección no sube al encabezado
+- **WHEN** el usuario, en modo selección en la vista Canciones con la décima fila como actual, mantiene ↑ durante 3 s
+- **THEN** la fila actual queda en la primera canción, y no en la casilla Todo; y una pulsación nueva de ↑ lleva a la casilla Todo
 
 ### Requirement: La repetición solo afecta a ↑ y ↓ en las listas
 El sistema SHALL NOT repetir ninguna otra acción por mantener un botón: ←, →, L, R, confirmar, volver, △, □, SELECT y START SHALL actuar una sola vez por pulsación, en todas las pantallas. Fuera de las listas, ↑ y ↓ SHALL actuar una sola vez por pulsación; en Reproduciendo, mantener ↑ SHALL alternar la vista de letras una sola vez.
@@ -101,7 +105,7 @@ Cuando el usuario levanta el dedo mientras la lista se desplaza con velocidad, l
 - **THEN** la velocidad disminuye en cada fotograma, el desplazamiento se detiene en un número finito de fotogramas y nunca sale del rango de la lista
 
 ### Requirement: Un toque sobre una fila la elige
-Al apoyar el dedo sobre una fila de una lista, esa fila SHALL mostrarse resaltada. Al levantar el dedo, si no llegó a arrastrar, la fila SHALL quedar seleccionada y SHALL activarse de inmediato, con el mismo efecto que seleccionarla y pulsar Confirmar: reproducir una pista, entrar en un artista, un álbum o una carpeta, abrir una categoría de Ajustes o cambiar una opción. Si el dedo se mueve lo suficiente para considerarse un arrastre, el resaltado del toque SHALL desaparecer y la fila SHALL NOT activarse. Un toque que empieza en una fila y termina fuera del área de la lista SHALL NOT activar nada.
+Al apoyar el dedo sobre una fila de una lista, esa fila SHALL mostrarse resaltada. Al levantar el dedo, si no llegó a arrastrar, la fila SHALL quedar seleccionada y SHALL activarse de inmediato, con el mismo efecto que seleccionarla y pulsar Confirmar: reproducir una pista, entrar en un artista, un álbum o una carpeta, abrir una categoría de Ajustes o cambiar una opción. En el modo selección de la biblioteca, el toque SHALL marcar o desmarcar la fila, como define `library/multi-select`, en vez de activarla. Si el dedo se mueve lo suficiente para considerarse un arrastre, el resaltado del toque SHALL desaparecer y la fila SHALL NOT activarse. Un toque que empieza en una fila y termina fuera del área de la lista SHALL NOT activar nada.
 
 #### Scenario: Tocar una pista la reproduce
 - **WHEN** el usuario, en la vista Álbumes, entra en un álbum y toca la tercera pista
@@ -130,6 +134,10 @@ Al apoyar el dedo sobre una fila de una lista, esa fila SHALL mostrarse resaltad
 #### Scenario: Toque y arrastre distinguidos en PC
 - **WHEN** un test en PC alimenta el reconocedor de gestos con un toque que se mueve menos que el umbral y se levanta, y con otro que lo supera
 - **THEN** el primero se informa como toque en su posición de inicio y el segundo como arrastre, sin informar toque
+
+#### Scenario: Tocar en modo selección marca
+- **WHEN** el usuario, en modo selección en la vista Álbumes, toca un álbum
+- **THEN** el álbum queda marcado y la pantalla sigue mostrando la vista Álbumes
 
 ### Requirement: Los controles de las pantallas se pueden tocar
 Todo control que hoy se acciona con un botón en Biblioteca, Carpetas y Ajustes y que se dibuja en pantalla SHALL poder accionarse también con un toque, con un área activa que cumpla el mínimo táctil de `ui/rendering`. Esto incluye: las pestañas de vista de la Biblioteca, las acciones de sus estados vacíos (elegir carpeta, escanear, elegir otra carpeta), la caja de búsqueda y las entradas del menú de carpeta de la Biblioteca, la caja de búsqueda de Carpetas, y las categorías y opciones de Ajustes. Cada toque SHALL tener el mismo efecto que la acción equivalente con botones.
@@ -191,3 +199,36 @@ Un toque SHALL pertenecer al elemento sobre el que empezó: el nav rail, el mini
 #### Scenario: Arrastrar desde el rail no mueve la lista
 - **WHEN** el usuario apoya el dedo sobre el nav rail y lo arrastra en vertical hacia la lista
 - **THEN** la lista no se desplaza
+
+### Requirement: Mantener el dedo sobre una fila de la biblioteca
+En las listas de la biblioteca donde `library/multi-select` ofrece el modo selección, mantener el dedo quieto sobre una fila, sin llegar a arrastrar, durante entre 400 y 700 ms SHALL contar como un toque mantenido, distinto de tocar y de arrastrar. El toque mantenido SHALL actuar en cuanto se cumple el tiempo, con el dedo todavía apoyado: fuera del modo selección, entra en él con esa fila marcada; dentro del modo, marca o desmarca esa fila. Levantar el dedo después SHALL NOT activar la fila ni repetir la acción, y arrastrar después SHALL desplazar la lista como cualquier arrastre.
+
+Un toque que se convierte en arrastre antes de cumplirse el tiempo SHALL NOT contar como toque mantenido. El toque que detiene una lista en movimiento SHALL NOT contar como toque mantenido aunque el dedo siga apoyado. En la pestaña Playlists, mantener el dedo sobre una fila SHALL NOT hacer nada, y levantarlo después SHALL NOT activarla. En Carpetas, en elegir carpeta y en Ajustes, mantener el dedo SHALL comportarse como hasta ahora: levantarlo sin haber arrastrado activa la fila.
+
+#### Scenario: Mantener el dedo entra en el modo
+- **WHEN** el usuario, en la vista Canciones, apoya el dedo sobre la segunda fila visible y lo mantiene quieto un segundo
+- **THEN** antes de levantar el dedo la vista ya está en modo selección con esa canción marcada; y al levantarlo no empieza a sonar nada
+
+#### Scenario: Mantener el dedo dentro del modo
+- **WHEN** en modo selección el usuario mantiene el dedo un segundo sobre una fila marcada y lo levanta
+- **THEN** la fila queda desmarcada una sola vez
+
+#### Scenario: Un arrastre lento no es un toque mantenido
+- **WHEN** el usuario apoya el dedo sobre una fila y, antes de 400 ms, lo arrastra más allá del umbral de arrastre y lo sigue moviendo
+- **THEN** la lista se desplaza y la vista no entra en modo selección
+
+#### Scenario: Detener una lista en movimiento
+- **WHEN** la lista se mueve después de un deslizamiento y el usuario apoya el dedo sobre ella y lo mantiene quieto un segundo
+- **THEN** la lista se detiene y la vista no entra en modo selección
+
+#### Scenario: Mantener el dedo en la pestaña Playlists
+- **WHEN** el usuario mantiene el dedo un segundo sobre una playlist en la pestaña Playlists y lo levanta
+- **THEN** no se entra en la playlist ni en ningún modo
+
+#### Scenario: Carpetas no cambia
+- **WHEN** el usuario mantiene el dedo un segundo sobre una carpeta en Carpetas y lo levanta sin arrastrar
+- **THEN** la pantalla entra en esa carpeta, como antes de este cambio
+
+#### Scenario: Toque mantenido probado en PC
+- **WHEN** un test en PC alimenta el reconocedor de gestos con un dedo quieto durante más tiempo que el umbral y luego lo levanta, con otro que se levanta antes del umbral y con otro que arrastra antes del umbral
+- **THEN** el primero informa un toque mantenido una sola vez y ningún toque al levantarse, el segundo informa un toque y el tercero informa arrastre sin toque mantenido

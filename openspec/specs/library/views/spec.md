@@ -114,13 +114,15 @@ El sistema SHALL distinguir en la pantalla de biblioteca los estados en que pued
 ### Requirement: Reescanear y cambiar de carpeta se piden desde la biblioteca
 El sistema SHALL ofrecer desde la propia pantalla de biblioteca las acciones de reescanear la carpeta vigente y de elegir una carpeta distinta, sin que el usuario tenga que buscarlas en otra pantalla. Las dos acciones SHALL reunirse en un menú que se abre con el botón Cuadrado. El menú SHALL recorrerse con arriba y abajo, SHALL ejecutar la opción marcada con el botón de confirmar o al tocarla, y SHALL cerrarse sin hacer nada con el botón de volver o al tocar fuera de él. Mientras el menú está abierto, la lista de debajo SHALL NOT recibir los botones. Reescanear o elegir otra carpeta SHALL quitar cualquier búsqueda aplicada en la biblioteca.
 
-El menú SHALL depender de la fila marcada cuando se abre. Antes de reescanear y elegir carpeta, SHALL ofrecer las acciones que esa fila admite según `library/playlists`:
-- Sobre una canción fuera de una playlist: "Añadir a playlist…".
-- Sobre un artista o un álbum: añadir sus pistas a una playlist.
-- Sobre una canción dentro de una playlist: "Quitar de la playlist" y "Mover".
+El menú SHALL depender de la fila marcada cuando se abre. Antes de reescanear y elegir carpeta, SHALL ofrecer las acciones que esa fila admite según `library/playlists`, seguidas de "Seleccionar" donde `library/multi-select` ofrece el modo selección:
+- Sobre una canción fuera de una playlist: "Añadir a playlist…" y "Seleccionar".
+- Sobre un artista o un álbum: añadir sus pistas a una playlist y "Seleccionar".
+- Sobre una canción dentro de una playlist: "Quitar de la playlist", "Mover" y "Seleccionar".
 - Sobre una playlist en la pestaña Playlists: "Renombrar" y "Borrar".
 
 Al abrirse, la marca del menú SHALL estar en la primera opción. Con la pestaña Playlists vacía, o dentro de una playlist vacía, el menú SHALL ofrecer solo reescanear y elegir carpeta.
+
+En modo selección, el menú SHALL ofrecer solo la acción sobre lo marcado: "Añadir a playlist…" fuera de una playlist y "Quitar de la playlist" dentro de una. SHALL NOT ofrecer reescanear ni elegir carpeta. Sin ninguna fila marcada, la acción SHALL mostrarse deshabilitada y SHALL NOT ejecutarse.
 
 En los estados sin contenido (sin carpeta, sin escanear, carpeta sin música), el botón de confirmar SHALL seguir ejecutando directamente la acción que corresponde a ese estado.
 
@@ -150,7 +152,11 @@ En los estados sin contenido (sin carpeta, sin escanear, carpeta sin música), e
 
 #### Scenario: El menú sobre una canción
 - **WHEN** el usuario marca una canción en la vista Canciones y pulsa Cuadrado
-- **THEN** el menú muestra "Añadir a playlist…" marcada en primer lugar, y debajo "Reescanear" y "Elegir carpeta"
+- **THEN** el menú muestra "Añadir a playlist…" marcada en primer lugar, luego "Seleccionar", y debajo "Reescanear" y "Elegir carpeta"
+
+#### Scenario: El menú sobre una canción de una playlist
+- **WHEN** el usuario está dentro de una playlist, marca una canción y pulsa Cuadrado
+- **THEN** el menú muestra "Quitar de la playlist", "Mover", "Seleccionar", "Reescanear" y "Elegir carpeta", en ese orden
 
 #### Scenario: El menú sobre una playlist
 - **WHEN** el usuario marca una playlist en la pestaña Playlists y pulsa Cuadrado
@@ -159,6 +165,14 @@ En los estados sin contenido (sin carpeta, sin escanear, carpeta sin música), e
 #### Scenario: El menú en la pestaña Playlists vacía
 - **WHEN** no hay playlists, el usuario está en la pestaña Playlists y pulsa Cuadrado
 - **THEN** el menú muestra solo "Reescanear" y "Elegir carpeta"
+
+#### Scenario: El menú en modo selección
+- **WHEN** el usuario está en modo selección en la vista Álbumes con dos álbumes marcados y pulsa Cuadrado
+- **THEN** el menú muestra solo "Añadir a playlist…", y no ofrece reescanear ni elegir carpeta
+
+#### Scenario: Acción deshabilitada sin marcas
+- **WHEN** el usuario está en modo selección sin ninguna fila marcada, pulsa Cuadrado y pulsa confirmar sobre "Añadir a playlist…"
+- **THEN** la opción se ve deshabilitada, no se abre el selector de playlists y el menú sigue abierto
 
 ### Requirement: La biblioteca no reemplaza al navegador de carpetas
 El sistema SHALL conservar el navegador de carpetas como camino independiente y completo hacia la reproducción, con el mismo comportamiento que tenía antes de existir la biblioteca. El uso de uno SHALL NOT condicionar ni limitar el uso del otro.

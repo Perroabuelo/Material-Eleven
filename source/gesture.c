@@ -89,6 +89,16 @@ Gesture_Result Gesture_Update(Gesture_State *state, const Gesture_Input *in) {
 			// is reported with the first drag frame instead.
 			state->last_x = in->x;
 			state->last_y = in->y;
+
+			if (in->hold_ms > 0.0f && !state->caught) {
+				state->held_ms += in->dt_ms;
+
+				if (state->held_ms >= in->hold_ms) {
+					state->caught = 1;
+					res.type = GESTURE_HOLD;
+				}
+			}
+
 			return res;
 		}
 

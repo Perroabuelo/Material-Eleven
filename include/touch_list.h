@@ -28,10 +28,15 @@ typedef struct {
 	SceBool owned;
 	SceBool follow;
 	SceUInt64 last_us;
+	// How long a still finger takes to count as a hold on this list, or 0
+	// (the default) for a list that takes no holds: lifting it taps.
+	float hold_ms;
+	SceBool held;       // a hold came this frame, on `held_row`
+	int held_row;
 } TouchList;
 
 // Drops the finger and the inertia and goes back to the top. For a new list:
-// another view, another folder, another screen.
+// another view, another folder, another screen. `hold_ms` stays.
 void TouchList_Reset(TouchList *list);
 
 // The selection was moved by a button or the list changed under it: stop
@@ -55,6 +60,10 @@ int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y);
 
 // The row under a finger that is resting on it, or -1. Drawn pressed.
 int TouchList_PressedRow(const TouchList *list);
+
+// The row a finger has just held still on, this frame only, or -1. Only on a
+// list with `hold_ms` set; lifting that finger afterwards taps nothing.
+int TouchList_HeldRow(const TouchList *list);
 
 // The same as a y in the content, or -1.
 float TouchList_PressedY(const TouchList *list);

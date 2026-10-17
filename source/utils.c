@@ -59,6 +59,10 @@ void Utils_ListStep(int *sel, int count, int page) {
 	*sel = KeyRepeat_Move(*sel, count, list_step, page);
 }
 
+KeyRepeat_Step Utils_GetListStep(void) {
+	return list_step;
+}
+
 void Utils_SetScreenOffEnabled(SceBool enabled) {
 	screen_off.enabled = enabled ? 1 : 0;
 }

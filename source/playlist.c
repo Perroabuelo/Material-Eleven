@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "path_index.h"
 #include "playlist.h"
 #include "text_fold.h"
 
@@ -293,6 +294,75 @@ Playlist_Result Playlist_Append(Playlist *pl, const Playlist_Entry *src, int n, 
 	return PLAYLIST_OK;
 }
 
+static const char *EntryPath(int index, void *ctx) {
+	return ((const Playlist *)ctx)->entries[index].path;
+}
+
+Playlist_Result Playlist_AppendFrom(Playlist *pl, int n, Playlist_Source next, void *ctx, int *added, int *skipped, int *full) {
+	int n_added = 0, n_skipped = 0, n_full = 0;
+	int old_count = pl->count;
+	int old_cap = pl->cap;
+
+	if (n < 0)
+		n = 0;
+
+	// Room for all of it up front, as in Playlist_Append.
+	int want = pl->count + n;
+	if (want > PLAYLIST_MAX_ENTRIES)
+		want = PLAYLIST_MAX_ENTRIES;
+
+	if (want > pl->cap) {
+		Playlist_Entry *grown = playlist_realloc(pl->entries, (size_t)want * sizeof(Playlist_Entry));
+		if (grown == NULL)
+			return PLAYLIST_NOMEM;
+
+		pl->entries = grown;
+		pl->cap = want;
+	}
+
+	// Only over what was there before: what goes in stays past old_count, so
+	// the positions the index holds never move.
+	PathIndex idx;
+	if (PathIndex_Build(&idx, old_count, EntryPath, pl) < 0) {
+		// Give back the room taken above. The index only fails with entries
+		// in the playlist, so old_cap is not 0. A shrink that fails keeps the
+		// bigger block, which holds the same entries.
+		if (pl->cap > old_cap) {
+			Playlist_Entry *shrunk = playlist_realloc(pl->entries, (size_t)old_cap * sizeof(Playlist_Entry));
+			if (shrunk != NULL) {
+				pl->entries = shrunk;
+				pl->cap = old_cap;
+			}
+		}
+
+		return PLAYLIST_NOMEM;
+	}
+
+	Playlist_Entry e;
+
+	for (int i = 0; i < n && next(i, &e, ctx); i++) {
+		if (PathIndex_Find(&idx, e.path) >= 0) {
+			n_skipped++;
+		} else if (pl->count >= PLAYLIST_MAX_ENTRIES) {
+			n_full = 1;
+		} else {
+			pl->entries[pl->count++] = e;
+			n_added++;
+		}
+	}
+
+	PathIndex_Free(&idx);
+
+	if (added != NULL)
+		*added = n_added;
+	if (skipped != NULL)
+		*skipped = n_skipped;
+	if (full != NULL)
+		*full = n_full;
+
+	return PLAYLIST_OK;
+}
+
 int Playlist_Remove(Playlist *pl, int index) {
 	if (index < 0 || index >= pl->count)
 		return -1;
@@ -300,6 +370,31 @@ int Playlist_Remove(Playlist *pl, int index) {
 	memmove(&pl->entries[index], &pl->entries[index + 1], (size_t)(pl->count - index - 1) * sizeof(Playlist_Entry));
 	pl->count--;
 	return 0;
+}
+
+int Playlist_RemoveIf(Playlist *pl, int (*doomed)(int index, void *ctx), void *ctx, int *first) {
+	int kept = 0;
+	int gone_first = -1;
+
+	for (int i = 0; i < pl->count; i++) {
+		if (doomed(i, ctx)) {
+			if (gone_first < 0)
+				gone_first = i;
+			continue;
+		}
+
+		if (kept != i)
+			pl->entries[kept] = pl->entries[i];
+		kept++;
+	}
+
+	int removed = pl->count - kept;
+	pl->count = kept;
+
+	if (first != NULL)
+		*first = gone_first;
+
+	return removed;
 }
 
 int Playlist_Move(Playlist *pl, int from, int to) {

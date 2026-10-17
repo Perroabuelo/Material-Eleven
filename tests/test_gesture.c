@@ -228,6 +228,114 @@ static void test_reset_forgets(void) {
 	CHECK(r.type == GESTURE_NONE, "despues de Reset soltar no deberia dar nada, dio %d", r.type);
 }
 
+static Gesture_Result hold(Gesture_State *st, float x, float y) {
+	Gesture_Input in = { 1, x, y, FRAME_MS, GESTURE_HOLD_MS };
+	return Gesture_Update(st, &in);
+}
+
+// Apoya y deja el dedo quieto `ms` con el toque mantenido pedido; cuenta los HOLD.
+static int hold_still(Gesture_State *st, float ms) {
+	int holds = 0;
+
+	hold(st, 300.0f, 300.0f);
+	for (float t = 0.0f; t < ms; t += FRAME_MS)
+		holds += hold(st, 302.0f, 301.0f).type == GESTURE_HOLD;
+
+	return holds;
+}
+
+static void test_hold(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	// Un segundo quieto: un unico HOLD, en el apoyo, y levantar da RELEASE.
+	int holds = 0, first = -1;
+	Gesture_Result r = hold(&st, 300.0f, 300.0f);
+	for (int i = 0; i < 60; i++) {
+		r = hold(&st, 302.0f, 301.0f);
+		if (r.type == GESTURE_HOLD) {
+			holds++;
+			if (first < 0)
+				first = i + 1;
+			CHECK(NEAR(r.start_x, 300.0f) && NEAR(r.start_y, 300.0f), "HOLD deberia informar el apoyo");
+		}
+	}
+	CHECK(holds == 1, "un segundo quieto deberia dar un HOLD, dio %d", holds);
+	CHECK(first * FRAME_MS >= GESTURE_HOLD_MS && (first - 1) * FRAME_MS < GESTURE_HOLD_MS, "el HOLD llego en el fotograma %d", first);
+	CHECK(!Gesture_Pressing(&st), "despues del HOLD la fila no deberia verse apretada");
+	r = up(&st);
+	CHECK(r.type == GESTURE_RELEASE, "levantar despues del HOLD deberia dar RELEASE, dio %d", r.type);
+}
+
+static void test_hold_lift_before(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	CHECK(hold_still(&st, GESTURE_HOLD_MS - 3 * FRAME_MS) == 0, "levantar antes del umbral no deberia dar HOLD");
+	Gesture_Result r = up(&st);
+	CHECK(r.type == GESTURE_TAP, "levantar antes del umbral deberia dar TAP, dio %d", r.type);
+}
+
+static void test_hold_drag_before(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	// Arrastra a los 200 ms y sigue quieto despues: nunca es HOLD.
+	int holds = hold_still(&st, 200.0f);
+	Gesture_Result r = hold(&st, 300.0f, 340.0f);
+	CHECK(r.type == GESTURE_DRAG, "pasar el umbral deberia dar DRAG, dio %d", r.type);
+	for (int i = 0; i < 60; i++)
+		holds += hold(&st, 300.0f, 340.0f).type == GESTURE_HOLD;
+	CHECK(holds == 0, "un arrastre antes del umbral no deberia dar HOLD, dio %d", holds);
+	r = up(&st);
+	CHECK(r.type == GESTURE_RELEASE, "soltar el arrastre deberia dar RELEASE");
+}
+
+static void test_hold_off(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	// Sin hold_ms, como Carpetas y Ajustes: un segundo quieto sigue siendo TAP.
+	int holds = 0;
+	down(&st, 300.0f, 300.0f);
+	for (int i = 0; i < 60; i++)
+		holds += down(&st, 300.0f, 300.0f).type == GESTURE_HOLD;
+	CHECK(holds == 0, "con hold_ms 0 no deberia dar HOLD, dio %d", holds);
+	Gesture_Result r = up(&st);
+	CHECK(r.type == GESTURE_TAP, "con hold_ms 0 un segundo quieto deberia dar TAP, dio %d", r.type);
+}
+
+static void test_hold_caught(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	// El toque que detiene una lista en movimiento no es un toque mantenido.
+	hold(&st, 300.0f, 300.0f);
+	Gesture_Catch(&st);
+	int holds = 0;
+	for (int i = 0; i < 60; i++)
+		holds += hold(&st, 300.0f, 300.0f).type == GESTURE_HOLD;
+	CHECK(holds == 0, "un toque atrapado no deberia dar HOLD, dio %d", holds);
+	CHECK(up(&st).type == GESTURE_RELEASE, "un toque atrapado deberia dar RELEASE");
+}
+
+static void test_drag_after_hold(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	CHECK(hold_still(&st, 600.0f) == 1, "deberia haber un HOLD");
+	Gesture_Result r = hold(&st, 300.0f, 400.0f);
+	CHECK(r.type == GESTURE_DRAG, "arrastrar despues del HOLD deberia dar DRAG, dio %d", r.type);
+	r = hold(&st, 300.0f, 420.0f);
+	CHECK(r.type == GESTURE_DRAG && NEAR(r.dy, 20.0f), "el arrastre deberia seguir, dio %d", r.type);
+	r = up(&st);
+	CHECK(r.type == GESTURE_RELEASE, "soltar el arrastre deberia dar RELEASE");
+
+	// El toque siguiente empieza de cero.
+	CHECK(hold_still(&st, 200.0f) == 0, "el toque siguiente no deberia arrastrar el tiempo anterior");
+	CHECK(up(&st).type == GESTURE_TAP, "el toque siguiente deberia dar TAP");
+}
+
 int main(void) {
 	test_idle();
 	test_tap();
@@ -241,6 +349,12 @@ int main(void) {
 	test_caught();
 	test_zero_dt();
 	test_reset_forgets();
+	test_hold();
+	test_hold_lift_before();
+	test_hold_drag_before();
+	test_hold_off();
+	test_hold_caught();
+	test_drag_after_hold();
 
 	if (failures == 0)
 		printf("test_gesture: todo bien\n");

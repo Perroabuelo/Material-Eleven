@@ -11,8 +11,11 @@
 #define TOUCH_LIST_FRAME_MS  16.67f
 
 void TouchList_Reset(TouchList *list) {
+	float hold_ms = list->hold_ms;
+
 	memset(list, 0, sizeof(*list));
 	Gesture_Reset(&list->gesture);
+	list->hold_ms = hold_ms;
 }
 
 void TouchList_Follow(TouchList *list) {
@@ -67,9 +70,11 @@ int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y) {
 	if (Touch_CheckPressed())
 		list->owned = may_own && TouchList_Contains(list, x, y);
 
-	Gesture_Input in = { list->owned && Touch_CheckHeld(), x, y, dt };
+	Gesture_Input in = { list->owned && Touch_CheckHeld(), x, y, dt, list->hold_ms };
 	Gesture_Result res = Gesture_Update(&list->gesture, &in);
 	int tapped = -1;
+
+	list->held = SCE_FALSE;
 
 	if (out_tap_y != NULL)
 		*out_tap_y = -1.0f;
@@ -101,6 +106,11 @@ int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y) {
 			}
 			break;
 
+		case GESTURE_HOLD:
+			list->held = SCE_TRUE;
+			list->held_row = ListScroll_RowAt(&list->scroll, res.start_y - list->top);
+			break;
+
 		case GESTURE_NONE:
 			break;
 	}
@@ -118,6 +128,10 @@ int TouchList_PressedRow(const TouchList *list) {
 		return -1;
 
 	return ListScroll_RowAt(&list->scroll, list->gesture.start_y - list->top);
+}
+
+int TouchList_HeldRow(const TouchList *list) {
+	return list->held ? list->held_row : -1;
 }
 
 float TouchList_PressedY(const TouchList *list) {

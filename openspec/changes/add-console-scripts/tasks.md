@@ -61,7 +61,7 @@
   - "Fin de pista y avance de la cola": `track event=end` de `100% pure %s %d.wav`, `queue pos=1 count=3` y `track event=open` de `acción en vivo.flac` con `result=ok`. OK.
   - Las dos suites comparten ahora el fixture `lastdir.txt` en `ux0:/pruebas-eleven/`, y cada escenario baja desde ahí a la carpeta que usa. `dev-console-scripts.txt` se adaptó a eso y se vuelve a correr en 5.2.
 - [x] 4.2 Agregar a `rules.design` en `openspec/config.yaml` la regla de la Decisión 9. Listo cuando `openspec validate add-console-scripts` pase y `openspec instructions design --change add-console-scripts --json` muestre la regla nueva.
-- [ ] 4.3 Agregar al `README.md` la sección en inglés de la Decisión 10. Listo cuando explique `suite.txt`, el marcador, la salida automática, el aborto con un botón y dónde queda el resultado.
+- [x] 4.3 Agregar al `README.md` la sección en inglés de la Decisión 10. Listo cuando explique `suite.txt`, el marcador, la salida automática, el aborto con un botón y dónde queda el resultado.
 
 ## 5. Verificación y versión
 

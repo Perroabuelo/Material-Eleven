@@ -141,6 +141,15 @@ For bug reports and development, the app can keep a log of what it did: the scre
 
 **Privacy:** the log contains the paths and names of your music files and playlists. Read it before attaching it to a public issue, and remove anything you would rather not share.
 
+## Test suites:
+With the debug log on, the app can also run a suite of test scenarios by itself: it replays the button presses and touches of each scenario, checks the result in its own log, and moves on to the next one. The suites live in [tests/console](tests/console), where its README explains the format.
+
+- Copy a suite to `ux0:data/ElevenMPV/suite.txt` and open the app. Without the `debug` file, `suite.txt` is ignored.
+- Each scenario runs in a fresh start of the app, so the app closes and opens again between scenarios. Your settings and the folder the app opens in are put back as they were before every scenario and at the end.
+- When the last scenario ends, the app shows a summary for a few seconds and closes by itself.
+- Pressing any button or touching the screen stops the suite at once, and the app is yours again.
+- The result of every scenario, `pass` or `fail` with the reason, is in `debug.log`. The suite is renamed to `suite.done.txt`, so it does not run again.
+
 
 # License:
 Material-Eleven is distributed under the GNU General Public License, version 3 or (at your option) any later version. See [LICENSE](LICENSE).

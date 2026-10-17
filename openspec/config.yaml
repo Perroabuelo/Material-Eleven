@@ -44,6 +44,10 @@ rules:
     - >-
       Si el cambio reserva memoria, abre archivos o crea hilos, indicar quien libera cada
       recurso y en que momento, tambien cuando algo falla a mitad de camino
+    - >-
+      Si el cambio tiene escenarios de consola, indicar que lineas de debug.log verifican
+      cada uno, y agregar al log los campos que falten, sin renombrar ni quitar los que ya
+      define dev/debug-log
   specs:
     - Cada requirement debe tener al menos un scenario verificable por un test o por una prueba en consola descrita paso a paso
   tasks:

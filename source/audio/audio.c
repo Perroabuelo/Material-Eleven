@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "audio.h"
+#include "debug_log.h"
 #include "lyrics.h"
 #include "ui_theme.h"
 #include "vitaaudiolib.h"
@@ -57,6 +58,44 @@ static void Audio_Decode(void *buf, unsigned int length, void *userdata) {
 	}
 	else
 		(* decoder.decode)(buf, length, userdata);
+}
+
+static const char *Audio_FormatName(enum Audio_FileType type) {
+	switch (type) {
+		case FILE_TYPE_FLAC:
+			return "flac";
+		case FILE_TYPE_MP3:
+			return "mp3";
+		case FILE_TYPE_OGG:
+			return "ogg";
+		case FILE_TYPE_OPUS:
+			return "opus";
+		case FILE_TYPE_WAV:
+			return "wav";
+		case FILE_TYPE_XM:
+			return "xm";
+		default:
+			return "none";
+	}
+}
+
+// The track line of the debug log for an attempt to open `path`. The format,
+// rate and channels only when it opened, since a failed decoder has none.
+static void Audio_LogOpen(const char *path, SceBool ok) {
+	if (!DebugLog_On())
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "track");
+	LogLine_Str(&line, "event", "open");
+	LogLine_Str(&line, "file", path);
+	LogLine_Str(&line, "result", ok ? "ok" : "fail");
+	if (ok) {
+		LogLine_Str(&line, "format", Audio_FormatName(file_type));
+		LogLine_Int(&line, "rate", (* decoder.rate)());
+		LogLine_Int(&line, "channels", (* decoder.channels)());
+	}
+	DebugLog_Commit(&line);
 }
 
 int Audio_Init(const char *path) {
@@ -161,6 +200,7 @@ int Audio_Init(const char *path) {
 		metadata = empty_metadata;
 		file_type = FILE_TYPE_NONE;
 		track_loaded = SCE_FALSE;
+		Audio_LogOpen(path, SCE_FALSE);
 		return -1;
 	}
 
@@ -173,6 +213,7 @@ int Audio_Init(const char *path) {
 	vitaAudioInit((* decoder.rate)(), (* decoder.channels)() == 2? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO);
 	vitaAudioSetChannelCallback(0, Audio_Decode, NULL);
 	track_loaded = SCE_TRUE;
+	Audio_LogOpen(path, SCE_TRUE);
 	return 0;
 }
 

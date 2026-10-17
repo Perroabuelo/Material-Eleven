@@ -7,6 +7,7 @@
 #include "common.h"
 #include "config.h"
 #include "cover.h"
+#include "debug_log.h"
 #include "fs.h"
 #include "lang.h"
 #include "library.h"
@@ -2381,6 +2382,34 @@ static UI_Screen Menu_LibraryExit(UI_Screen next) {
 	return next;
 }
 
+static const char *const view_log_name[VIEW_COUNT] = { "songs", "artists", "albums", "recent", "playlists" };
+
+// The library line of the debug log, written only when it changes. Read
+// after drawing, so the view is already built and `count` is the visible
+// list's, search applied.
+static void Menu_LogLibraryState(Menu_LibraryState state) {
+	if (!DebugLog_On())
+		return;
+
+	const char *group = "-";
+	if (Menu_LibraryInPlaylist())
+		group = open_playlist.name;
+	else if (inside)
+		group = inside_unknown ? Lang_Get(STR_UNKNOWN) : inside_name;
+
+	int count = (state == LIBRARY_STATE_READY && !view_dirty) ? ListFilter_Count(Menu_LibraryFilter()) : 0;
+
+	LogLine line;
+	DebugLog_Begin(&line, "library");
+	LogLine_Str(&line, "view", view_log_name[view]);
+	LogLine_Str(&line, "group", group);
+	LogLine_Int(&line, "sel", selection);
+	LogLine_Int(&line, "count", count);
+	LogLine_Str(&line, "mode", moving ? "move" : (selecting ? "select" : "normal"));
+	LogLine_Str(&line, "menu", options_open ? "options" : (picker_open ? "picker" : (confirm_open ? "confirm" : "none")));
+	DebugLog_CommitState(&line, DEBUG_STATE_LIBRARY);
+}
+
 UI_Screen Menu_DisplayLibrary(void) {
 	vita2d_set_clear_color(UI_COLOR_BG);
 
@@ -2467,6 +2496,10 @@ UI_Screen Menu_DisplayLibrary(void) {
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+
+		// The state the frame just drawn shows, which is the one left by the
+		// last frame's input.
+		Menu_LogLibraryState(state);
 
 		Utils_ReadControls();
 		Touch_Update();

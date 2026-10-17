@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line
 
 .PHONY: all clean FORCE
 
@@ -97,6 +97,9 @@ test_cover_mosaic: test_cover_mosaic.c ../source/cover_mosaic.c ../include/cover
 
 test_selection: test_selection.c ../source/selection.c ../include/selection.h ../source/list_filter.c ../include/list_filter.h ../include/key_repeat.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_selection.c ../source/selection.c ../source/list_filter.c
+
+test_log_line: test_log_line.c ../source/log_line.c ../include/log_line.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_log_line.c ../source/log_line.c
 
 clean:
 	rm -f $(BIN) .cflags

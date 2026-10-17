@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "cover.h"
+#include "debug_log.h"
 #include "playlist.h"
 #include "playlist_store.h"
 
@@ -114,7 +115,7 @@ static int Store_WriteAll(const char *path, const char *text, size_t len) {
 	return ret < 0 ? ret : (closed < 0 ? closed : 0);
 }
 
-int PlaylistStore_Save(const char *file, const Playlist *pl) {
+static int Store_Save(const char *file, const Playlist *pl) {
 	char *text = NULL;
 	size_t len = 0;
 
@@ -163,6 +164,21 @@ int PlaylistStore_Save(const char *file, const Playlist *pl) {
 		sceIoRemove(bak_path);
 
 	return 0;
+}
+
+int PlaylistStore_Save(const char *file, const Playlist *pl) {
+	int ret = Store_Save(file, pl);
+
+	if (DebugLog_On()) {
+		LogLine line;
+		DebugLog_Begin(&line, "playlist");
+		LogLine_Str(&line, "name", pl->name);
+		LogLine_Int(&line, "entries", pl->count);
+		LogLine_Str(&line, "result", ret >= 0 ? "ok" : "fail");
+		DebugLog_Commit(&line);
+	}
+
+	return ret;
 }
 
 // Whether a file name is taken: by a playlist, or by the .bak that listing

@@ -3,6 +3,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include "debug_log.h"
 #include "dirbrowse.h"
 #include "lang.h"
 #include "menu_audioplayer.h"
@@ -246,6 +247,19 @@ SceBool Menu_PickFolder(char *out, int cap) {
 	return picked;
 }
 
+// The folders line of the debug log, written only when it changes.
+static void Menu_LogFoldersState(void) {
+	if (!DebugLog_On())
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "folders");
+	LogLine_Str(&line, "dir", cwd);
+	LogLine_Int(&line, "sel", position);
+	LogLine_Int(&line, "count", Dirbrowse_GetVisibleCount());
+	DebugLog_CommitState(&line, DEBUG_STATE_FOLDERS);
+}
+
 UI_Screen Menu_DisplayFiles(void) {
 	Dirbrowse_PopulateFiles(SCE_FALSE);
 	vita2d_set_clear_color(UI_COLOR_BG);
@@ -283,6 +297,10 @@ UI_Screen Menu_DisplayFiles(void) {
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+
+		// The state the frame just drawn shows, which is the one left by the
+		// last frame's input.
+		Menu_LogFoldersState();
 
 		Utils_ReadControls();
 		Touch_Update();

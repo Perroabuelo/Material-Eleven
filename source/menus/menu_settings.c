@@ -11,6 +11,7 @@
 #include "audio.h"
 #include "common.h"
 #include "config.h"
+#include "debug_log.h"
 #include "dirbrowse.h"
 #include "fs.h"
 #include "lang.h"
@@ -348,6 +349,18 @@ static void Menu_DrawSettingsDetail(int category_index, int item_index) {
 	TouchList_EndClip();
 }
 
+// The settings line of the debug log, written only when it changes.
+static void Menu_LogSettingsState(int category_index, int item_index) {
+	if (!DebugLog_On())
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "settings");
+	LogLine_Int(&line, "category", category_index);
+	LogLine_Int(&line, "item", item_index);
+	DebugLog_CommitState(&line, DEBUG_STATE_SETTINGS);
+}
+
 UI_Screen Menu_DisplaySettings(void) {
 	int category_index = 0, item_index = 0;
 
@@ -378,6 +391,10 @@ UI_Screen Menu_DisplaySettings(void) {
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+
+		// The state the frame just drawn shows, which is the one left by the
+		// last frame's input.
+		Menu_LogSettingsState(category_index, item_index);
 
 		Utils_ReadControls();
 		Touch_Update();

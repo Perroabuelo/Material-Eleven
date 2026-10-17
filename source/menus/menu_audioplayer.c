@@ -10,6 +10,7 @@
 #include "common.h"
 #include "config.h"
 #include "cover.h"
+#include "debug_log.h"
 #include "fs.h"
 #include "lang.h"
 #include "lyrics.h"
@@ -181,7 +182,18 @@ static int Music_AdvanceOpen(void *ctx, const char *path) {
 }
 
 static const char *Music_AdvanceStep(void *ctx, int forward) {
-	return Queue_Advance(forward ? SCE_TRUE : SCE_FALSE);
+	const char *path = Queue_Advance(forward ? SCE_TRUE : SCE_FALSE);
+
+	// After the move and before the open, so the log reads end, queue, open.
+	if (DebugLog_On() && path != NULL) {
+		LogLine line;
+		DebugLog_Begin(&line, "queue");
+		LogLine_Int(&line, "pos", Queue_PlanPosition());
+		LogLine_Int(&line, "count", Queue_Count());
+		DebugLog_Commit(&line);
+	}
+
+	return path;
 }
 
 static const char *Music_AdvanceCurrent(void *ctx) {
@@ -254,8 +266,20 @@ void Music_Next(void) {
 // Sin Audio_HasTrack, despues de que ninguna pista abriera se volveria a probar
 // la cola entera en cada fotograma.
 void Music_Update(void) {
-	if (Audio_HasTrack() && !playing && Queue_Count() != 0)
+	if (Audio_HasTrack() && !playing && Queue_Count() != 0) {
+		if (DebugLog_On()) {
+			const char *path = NULL;
+			Queue_PeekAhead(0, &path, NULL, NULL);
+
+			LogLine line;
+			DebugLog_Begin(&line, "track");
+			LogLine_Str(&line, "event", "end");
+			LogLine_Str(&line, "file", path ? path : "");
+			DebugLog_Commit(&line);
+		}
+
 		Music_HandleNext(SCE_TRUE, repeat);
+	}
 }
 
 // ---- Now Playing rendering ----
@@ -840,6 +864,21 @@ static void Menu_DrawPlayerView(void) {
 	Menu_DrawUpNext();
 }
 
+// The nowplaying line of the debug log, written only when it changes.
+static void Menu_LogNowPlayingState(void) {
+	if (!DebugLog_On())
+		return;
+
+	const char *path = NULL;
+	Queue_PeekAhead(0, &path, NULL, NULL);
+
+	LogLine line;
+	DebugLog_Begin(&line, "nowplaying");
+	LogLine_Str(&line, "file", path ? path : "");
+	LogLine_Int(&line, "paused", Audio_IsPaused() ? 1 : 0);
+	DebugLog_CommitState(&line, DEBUG_STATE_NOWPLAYING);
+}
+
 static UI_Screen Menu_RunNowPlayingLoop(void) {
 	track_failed = SCE_FALSE;
 	Menu_ResetSeekBars();
@@ -883,6 +922,10 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 
 		vita2d_end_drawing();
 		vita2d_swap_buffers();
+
+		// The state the frame just drawn shows, which is the one left by the
+		// last frame's input.
+		Menu_LogNowPlayingState();
 
 		// Utils_ReadControls atiende tambien el fin de la pista (Music_Update).
 		Utils_ReadControls();

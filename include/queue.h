@@ -52,6 +52,10 @@ SceBool Queue_SeekToPath(const char *path);
 // vacia.
 SceBool Queue_PeekAhead(int n, const char **path, const char **title, const char **album);
 
+// El puesto del plan que suena, desde 0. Solo para el log de desarrollo, que
+// lo anota en cada avance: para llegar a una pista se sigue hablando en rutas.
+int Queue_PlanPosition(void);
+
 // Productor de carpeta: vuelca en la cola los archivos reproducibles de esa
 // carpeta, en el mismo orden en que se reproducian antes de existir el modulo.
 int Queue_FillFromFolder(const char *dir);

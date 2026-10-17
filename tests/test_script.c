@@ -707,8 +707,70 @@ static void test_wait_group_overflow(void) {
 	Script_Free(script);
 }
 
+static void test_state(void) {
+	SuiteState in = { 3, 2, 1, 2, 1 }, out;
+	char buf[SUITE_STATE_MAX];
+
+	unsigned int len = SuiteState_Format(&in, buf, sizeof(buf));
+	CHECK(len > 0, "el estado deberia formatearse");
+	CHECK(SuiteState_Parse(buf, len, &out) && memcmp(&in, &out, sizeof(in)) == 0, "ida y vuelta del estado");
+
+	SuiteState none = { 0, -1, 0, 0, 0 };
+	len = SuiteState_Format(&none, buf, sizeof(buf));
+	CHECK(SuiteState_Parse(buf, len, &out) && out.current == -1 && out.next == 0, "ida y vuelta con current=-1");
+
+	SuiteState big = { SCRIPT_STEPS_MAX, SCRIPT_STEPS_MAX, 1, SCRIPT_STEPS_MAX, SCRIPT_STEPS_MAX };
+	len = SuiteState_Format(&big, buf, sizeof(buf));
+	CHECK(SuiteState_Parse(buf, len, &out) && memcmp(&big, &out, sizeof(big)) == 0, "ida y vuelta con los maximos");
+
+	CHECK(SuiteState_Format(&in, buf, 10) == 0, "un buffer chico deberia dar 0");
+
+	// Cortado en cualquier punto, incluso a mitad de un numero, es como si
+	// no existiera.
+	SuiteState wide = { 12, 11, 0, 10, 1 };
+	len = SuiteState_Format(&wide, buf, sizeof(buf));
+	for (unsigned int cut = 0; cut < len; cut++) {
+		char *copy = malloc(cut ? cut : 1);
+		memcpy(copy, buf, cut);
+		CHECK(!SuiteState_Parse(copy, cut, &out), "el estado cortado en %u bytes no deberia leerse", cut);
+		free(copy);
+	}
+
+	static const char *bad[] = {
+		"next=1\ncurrent=0\nrelaunch=0\npass=0\nfail=0\nend\nmas\n",
+		"next=1\ncurrent=0\nrelaunch=2\npass=0\nfail=0\nend\n",
+		"next=1\ncurrent=-2\nrelaunch=0\npass=0\nfail=0\nend\n",
+		"next=-1\ncurrent=0\nrelaunch=0\npass=0\nfail=0\nend\n",
+		"next=1\ncurrent=0\nrelaunch=0\npass=0\nfail=-1\nend\n",
+		"current=0\nnext=1\nrelaunch=0\npass=0\nfail=0\nend\n",
+		"next=1\r\ncurrent=0\r\nrelaunch=0\r\npass=0\r\nfail=0\r\nend\r\n",
+		"next=1025\ncurrent=0\nrelaunch=0\npass=0\nfail=0\nend\n",
+		"next=999999\ncurrent=0\nrelaunch=0\npass=0\nfail=0\nend\n",
+		"next=1\ncurrent=0\nrelaunch=0\npass=\nfail=0\nend\n",
+		"next=1\ncurrent=0\nrelaunch=0\npass=0x\nfail=0\nend\n",
+		"",
+	};
+	for (unsigned int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+		CHECK(!SuiteState_Parse(bad[i], (unsigned int)strlen(bad[i]), &out), "no deberia leer el estado %u", i);
+
+	// Basura.
+	char junk[SUITE_STATE_MAX];
+	srand(99);
+	for (int round = 0; round < 1000; round++) {
+		unsigned int n = (unsigned int)(rand() % (int)sizeof(junk)) + 1;
+		for (unsigned int i = 0; i < n; i++)
+			junk[i] = (char)(rand() & 0xFF);
+		CHECK(!SuiteState_Parse(junk, n, &out), "la basura no deberia leerse como estado");
+	}
+
+	char huge[SUITE_STATE_MAX + 1];
+	memset(huge, '\n', sizeof(huge));
+	CHECK(!SuiteState_Parse(huge, sizeof(huge), &out), "un estado de mas de %d bytes no deberia leerse", SUITE_STATE_MAX);
+}
+
 int main(void) {
 	test_valid();
+	test_state();
 	test_errors();
 	test_limits();
 	test_run_press();

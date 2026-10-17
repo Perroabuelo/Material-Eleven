@@ -797,3 +797,70 @@ void ScriptRun_Observe(ScriptRun *run, const char *text, unsigned int len) {
 		&& Script_WaitMatches(&run->steps[run->cur], &parsed))
 		run->current_met = 1;
 }
+
+static const char *const state_keys[] = { "next", "current", "relaunch", "pass", "fail" };
+#define STATE_KEYS ((int)(sizeof(state_keys) / sizeof(state_keys[0])))
+
+unsigned int SuiteState_Format(const SuiteState *state, char *buf, unsigned int size) {
+	int n = snprintf(buf, size, "next=%d\ncurrent=%d\nrelaunch=%d\npass=%d\nfail=%d\nend\n",
+		state->next, state->current, state->relaunch, state->pass, state->fail);
+
+	return (n > 0 && (unsigned int)n < size) ? (unsigned int)n : 0;
+}
+
+int SuiteState_Parse(const char *text, unsigned int len, SuiteState *state) {
+	int values[STATE_KEYS];
+	unsigned int pos = 0;
+
+	if (text == NULL || len > SUITE_STATE_MAX)
+		return 0;
+
+	for (int k = 0; k < STATE_KEYS; k++) {
+		unsigned int key_len = strlen(state_keys[k]);
+
+		if (pos + key_len + 1 > len || memcmp(text + pos, state_keys[k], key_len) != 0 || text[pos + key_len] != '=')
+			return 0;
+		pos += key_len + 1;
+
+		// Only `current` can be -1.
+		int negative = 0;
+		if (k == 1 && pos < len && text[pos] == '-') {
+			negative = 1;
+			pos++;
+		}
+
+		int value = 0, digits = 0;
+		while (pos < len && text[pos] >= '0' && text[pos] <= '9') {
+			value = value * 10 + (text[pos] - '0');
+			// No count in a suite gets near this.
+			if (++digits > 5)
+				return 0;
+			pos++;
+		}
+
+		if (digits == 0 || pos >= len || text[pos] != '\n')
+			return 0;
+		pos++;
+
+		if (negative) {
+			if (value != 1)
+				return 0;
+			value = -1;
+		}
+
+		values[k] = value;
+	}
+
+	if (len - pos != 4 || memcmp(text + pos, "end\n", 4) != 0)
+		return 0;
+
+	if (values[2] > 1 || values[0] > SCRIPT_STEPS_MAX || values[1] > SCRIPT_STEPS_MAX)
+		return 0;
+
+	state->next = values[0];
+	state->current = values[1];
+	state->relaunch = values[2];
+	state->pass = values[3];
+	state->fail = values[4];
+	return 1;
+}

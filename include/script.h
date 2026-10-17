@@ -180,4 +180,25 @@ ScriptFrame ScriptRun_Tick(ScriptRun *run, uint64_t now_us);
 // no action yet.
 void ScriptRun_Observe(ScriptRun *run, const char *text, unsigned int len);
 
+// Where a suite is between processes: ux0:data/ElevenMPV/suite/state.
+typedef struct {
+	int next;       // the next scenario to run, from 0
+	int current;    // the one running, -1 when none is
+	int relaunch;   // 1: written right before relaunching, for the new process
+	int pass;
+	int fail;
+} SuiteState;
+
+// Longest state file SuiteState_Format writes.
+#define SUITE_STATE_MAX 128
+
+// Writes the state as "key=value" lines, always in the same order, and an
+// "end" line, so that a file cut anywhere does not parse. Returns its
+// length, or 0 if `size` is too small.
+unsigned int SuiteState_Format(const SuiteState *state, char *buf, unsigned int size);
+
+// Reads what SuiteState_Format wrote. Returns 0, for a file to take as
+// missing, when it is cut, has anything else, or a value out of range.
+int SuiteState_Parse(const char *text, unsigned int len, SuiteState *state);
+
 #endif

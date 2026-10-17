@@ -52,7 +52,14 @@
 
 ## 4. Suites, proceso y documentación
 
-- [ ] 4.1 Escribir `tests/console/README.md` y `tests/console/dev-debug-log.txt` (Decisión 9), con la cabecera de fixtures. Listo cuando `dev-debug-log.txt` pase entera en la consola, y cada línea que verifica sus escenarios coincida con la del spec de `dev/debug-log`.
+- [x] 4.1 Escribir `tests/console/README.md` y `tests/console/dev-debug-log.txt` (Decisión 9), con la cabecera de fixtures. Listo cuando `dev-debug-log.txt` pase entera en la consola, y cada línea que verifica sus escenarios coincida con la del spec de `dev/debug-log`.
+
+  Resultados (2026-10-17): `dev-debug-log.txt` pasó entera, con `script event=end pass=4 fail=0 interrupted=0`:
+  - "Recorrido corto por la Biblioteca": `screen to=library heap_kb=1451`, dos pares `input down=DOWN` / `up=DOWN`, `library view=songs ... sel=1` y `sel=2`, `input down=SQUARE` y `library ... menu=options`, en ese orden. OK.
+  - "Toque en la pantalla": `touch event=down x=480 y=272` y `touch event=up x=480 y=272`. OK.
+  - "Pista que no abre": `track event=open file="ux0:/pruebas-eleven/danados/02 danado.mp3" result=fail`. OK.
+  - "Fin de pista y avance de la cola": `track event=end` de `100% pure %s %d.wav`, `queue pos=1 count=3` y `track event=open` de `acción en vivo.flac` con `result=ok`. OK.
+  - Las dos suites comparten ahora el fixture `lastdir.txt` en `ux0:/pruebas-eleven/`, y cada escenario baja desde ahí a la carpeta que usa. `dev-console-scripts.txt` se adaptó a eso y se vuelve a correr en 5.2.
 - [ ] 4.2 Agregar a `rules.design` en `openspec/config.yaml` la regla de la Decisión 9. Listo cuando `openspec validate add-console-scripts` pase y `openspec instructions design --change add-console-scripts --json` muestre la regla nueva.
 - [ ] 4.3 Agregar al `README.md` la sección en inglés de la Decisión 10. Listo cuando explique `suite.txt`, el marcador, la salida automática, el aborto con un botón y dónde queda el resultado.
 

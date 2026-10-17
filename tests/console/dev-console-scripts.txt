@@ -3,9 +3,9 @@
 #
 # fixtures:
 #   - biblioteca de "ux0:/Mis cosas" escaneada (291 canciones);
-#   - lastdir.txt en "ux0:/pruebas-eleven/formatos-estereo/" (cinco pistas,
-#     "01 estereo.flac" a "05 estereo.wav", generadas con tools/; la lista
-#     tiene seis filas con la que sube a la carpeta de arriba);
+#   - lastdir.txt en "ux0:/pruebas-eleven/", con las carpetas que genera
+#     tools/ (formatos-estereo/ con cinco pistas, "01 estereo.flac" a
+#     "05 estereo.wav");
 #   - en Ajustes, idioma English (language = 1 en config.cfg);
 #   - el boton de confirmar en Cruz.
 #
@@ -60,6 +60,10 @@ press SELECT
 wait settings lang=english
 
 scenario Reproducir una pista
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
 wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
 press DOWN                      # la fila 0 sube a la carpeta de arriba
 wait folders sel=1
@@ -72,6 +76,10 @@ sleep 1s
 
 scenario Semilla 42 (a)
 seed 42
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
 wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
 press DOWN                      # la fila 0 sube a la carpeta de arriba
 wait folders sel=1
@@ -90,6 +98,10 @@ wait queue pos=4 count=5
 
 scenario Semilla 42 (b)
 seed 42
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
 wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
 press DOWN                      # la fila 0 sube a la carpeta de arriba
 wait folders sel=1

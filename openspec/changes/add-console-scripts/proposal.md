@@ -24,7 +24,7 @@ Rama: `change/add-console-scripts`
 
 ### Modified Capabilities
 
-- `dev/debug-log`: el arranque no rota `debug.log` cuando la app se relanza dentro de una suite, y la tabla de eventos suma la categoría `script`.
+- `dev/debug-log`: el arranque no rota `debug.log` cuando la app se relanza dentro de una suite, y la tabla de eventos suma la categoría `script` y el campo `lang` en la línea `settings`.
 
 ## Impact
 

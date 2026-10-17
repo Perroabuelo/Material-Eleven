@@ -358,6 +358,10 @@ static void Menu_LogSettingsState(int category_index, int item_index) {
 	DebugLog_Begin(&line, "settings");
 	LogLine_Int(&line, "category", category_index);
 	LogLine_Int(&line, "item", item_index);
+	// The setting a suite changes to check the next scenario starts from the
+	// one before it.
+	LogLine_Str(&line, "lang", config.language == LANG_PREF_ENGLISH ? "english"
+		: config.language == LANG_PREF_SPANISH ? "spanish" : "system");
 	DebugLog_CommitState(&line, DEBUG_STATE_SETTINGS);
 }
 

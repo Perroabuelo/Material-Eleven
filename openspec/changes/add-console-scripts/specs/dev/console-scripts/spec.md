@@ -84,7 +84,7 @@ Antes del primer escenario, la app SHALL guardar una copia de `config.cfg` y de 
 
 #### Scenario: Un ajuste no pasa al escenario siguiente
 - **WHEN** una suite tiene un escenario que cambia el idioma en Ajustes y un segundo escenario que abre Ajustes
-- **THEN** la línea `settings` del segundo escenario muestra el idioma de antes de la suite, y al terminar la suite `config.cfg` es igual byte a byte al de antes de empezar
+- **THEN** la línea `settings` del segundo escenario tiene en `lang` el idioma de antes de la suite, y al terminar la suite `config.cfg` es igual byte a byte al de antes de empezar
 
 #### Scenario: Una pista no sigue sonando
 - **WHEN** una suite tiene un escenario que reproduce una pista y un segundo escenario que hace `wait screen to=folders`

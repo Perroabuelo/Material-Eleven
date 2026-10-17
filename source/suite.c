@@ -1,5 +1,7 @@
+#include <psp2/appmgr.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,6 +17,9 @@
 
 #define STATE_FILE     SUITE_DIR "/state"
 #define STATE_TMP_FILE SUITE_DIR "/state.tmp"
+
+// How long the summary stays up before the app closes.
+#define SUMMARY_US (3 * 1000 * 1000)
 
 // What was there before the suite, and what is put back after each
 // scenario. A "no" marker means the file did not exist: putting it back is
@@ -38,6 +43,12 @@ static ScriptRun run;
 static SuiteState state;
 // What the scenario gives the frame being read.
 static ScriptFrame frame;
+// The scenario running, for the banner.
+static char banner[96];
+// After the last scenario: the summary is on screen until then, and the app
+// closes.
+static int ending = 0;
+static SceUInt64 ending_at = 0;
 
 static int Exists(const char *path) {
 	SceIoStat stat;
@@ -355,6 +366,8 @@ void Suite_Init(int relaunch) {
 	LogLine_Int(&line, "total", script->scenario_count);
 	DebugLog_Commit(&line);
 
+	snprintf(banner, sizeof(banner), "%d/%d  %s", state.current + 1, script->scenario_count, scenario->arg);
+
 	ScriptRun_Init(&run, script, state.current, LastState, NULL);
 	suite_running = 1;
 }
@@ -388,6 +401,27 @@ static void LogResult(const ScriptFrame *end) {
 	DebugLog_Commit(&line);
 }
 
+// The next scenario runs in a new process, so nothing this one left in
+// memory reaches it. Only returns if the relaunch failed.
+static void Relaunch(void) {
+	char reason[32];
+
+	state.next = state.current + 1;
+	state.relaunch = 1;
+	if (!WriteState(&state)) {
+		LogAbort("could not save the suite state");
+		Finish();
+		return;
+	}
+
+	DebugLog_Sync();
+	int ret = sceAppMgrLoadExec("app0:eboot.bin", NULL, NULL);
+
+	snprintf(reason, sizeof(reason), "relaunch 0x%08X", (unsigned int)ret);
+	LogAbort(reason);
+	Finish();
+}
+
 static void EndScenario(const ScriptFrame *end) {
 	LogResult(end);
 
@@ -396,7 +430,42 @@ static void EndScenario(const ScriptFrame *end) {
 	else
 		state.fail++;
 
+	// Whatever the scenario changed goes back before anything else, the same
+	// way whether the suite goes on or not.
+	Restore();
+
+	if (state.current + 1 < script->scenario_count) {
+		Relaunch();
+		return;
+	}
+
+	LogEnd(0);
 	Finish();
+
+	snprintf(banner, sizeof(banner), "Suite terminada: %d pass, %d fail  -  saliendo", state.pass, state.fail);
+	ending = 1;
+	ending_at = sceKernelGetProcessTimeWide() + SUMMARY_US;
+}
+
+void Suite_Ending(unsigned int pressed) {
+	if (!ending)
+		return;
+
+	if (!pressed && sceKernelGetProcessTimeWide() < ending_at)
+		return;
+
+	DebugLog_Sync();
+	sceKernelExitProcess(0);
+}
+
+const char *Suite_Banner(int *summary) {
+	*summary = ending;
+
+	if (ending)
+		return banner;
+	if (suite_running)
+		return banner;
+	return NULL;
 }
 
 unsigned int Suite_Tick(void) {

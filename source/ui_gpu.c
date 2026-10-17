@@ -32,6 +32,7 @@
 #define UI_DEBUG_STATS_PANEL_H (UI_DEBUG_PANEL_H + UI_DEBUG_LINE_H)
 #define UI_DEBUG_PANEL_PAD 12
 #define UI_DEBUG_LINE_H 20
+#define UI_DEBUG_BANNER_H 26
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
 
 static UI_DebugMode debug_mode = UI_DEBUG_OFF;
@@ -606,7 +607,7 @@ void UI_Debug_Free(void) {
 	UI_Capture_Leave();
 }
 
-void UI_Debug_Draw(void) {
+static void UI_Debug_DrawPanels(void) {
 	char line[64];
 	float x = UI_DEBUG_PANEL_X + UI_DEBUG_PANEL_PAD;
 	float y = UI_DEBUG_PANEL_Y + 6;
@@ -699,4 +700,30 @@ void UI_Debug_Draw(void) {
 	snprintf(line, sizeof(line), "L + R + SELECT  para la sonda de glifos");
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 		UI_COLOR_TEXT_MUTED, line);
+}
+
+// A strip on top of everything while a suite runs, so whoever looks at the
+// console knows it is not theirs yet, and then the summary before it closes.
+static void UI_Debug_DrawSuiteBanner(void) {
+	char line[128];
+	int summary = 0;
+	const char *text = Suite_Banner(&summary);
+
+	if (!text)
+		return;
+
+	if (summary)
+		snprintf(line, sizeof(line), "%s", text);
+	else
+		snprintf(line, sizeof(line), "SUITE  %s  -  cualquier boton la detiene", text);
+
+	vita2d_draw_rectangle(0, 0, 960, UI_DEBUG_BANNER_H, UI_DEBUG_PANEL_BG);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, UI_DEBUG_PANEL_PAD,
+		UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, UI_DEBUG_BANNER_H),
+		summary ? UI_COLOR_TEXT_PRIMARY : UI_COLOR_TRACKER, line);
+}
+
+void UI_Debug_Draw(void) {
+	UI_Debug_DrawPanels();
+	UI_Debug_DrawSuiteBanner();
 }

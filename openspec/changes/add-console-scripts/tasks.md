@@ -36,7 +36,19 @@
   - "Timeout": `script event=result ... result=fail reason="wait timeout" line=14 last="library view=songs group=- sel=27 count=291 mode=normal menu=none"`, 1,00 s después del paso. OK.
   - "Abortar con un botón": `script event=abort reason=user` y ninguna línea `script` después, `suite.done.txt` sin `suite/`, `config.cfg` con el MD5 de antes, y la app respondió a los botones. El Círculo que aborta también le llega a la app. OK.
   - También pasó "Cerrar con PS a mitad de la suite" con la suite válida de 3.1: `script event=result name="Suite con marcador" result=interrupted`, `event=end pass=0 fail=0 interrupted=1`, sin `suite/` y con `config.cfg` restaurado.
-- [ ] 3.3 Fin de escenario, relanzar y salir (Decisión 6), y el indicador (Decisión 7). Listo cuando `scripts/build.sh` compile y en la consola pasen "Suite con marcador", "Un ajuste no pasa al escenario siguiente" (MD5 de `config.cfg` antes y después desde la PC), "Una pista no sigue sonando", "Mismo orden con la misma semilla", "Suite completa", "Cerrar con PS a mitad de la suite", "Indicador visible" y "La suite queda en un solo archivo", con `tests/console/dev-console-scripts.txt` completa.
+- [x] 3.3 Fin de escenario, relanzar y salir (Decisión 6), y el indicador (Decisión 7). Listo cuando `scripts/build.sh` compile y en la consola pasen "Suite con marcador", "Un ajuste no pasa al escenario siguiente" (MD5 de `config.cfg` antes y después desde la PC), "Una pista no sigue sonando", "Mismo orden con la misma semilla", "Suite completa", "Cerrar con PS a mitad de la suite", "Indicador visible" y "La suite queda en un solo archivo", con `tests/console/dev-console-scripts.txt` completa.
+
+  Resultados (2026-10-17), con `dev-console-scripts.txt` (13 escenarios) y los fixtures de su cabecera:
+  - "Suite completa": la app se cerró sola después del resumen; trece `script event=result`, el de "Timeout" con `fail`, y como última `script event=end pass=12 fail=1 interrupted=0`. OK.
+  - "Suite con marcador": `script event=suite scenarios=13` y `result=pass`. OK.
+  - "Un ajuste no pasa al escenario siguiente": "Cambiar el idioma" termina con `settings ... lang=spanish` y el escenario siguiente empieza con `settings category=0 item=0 lang=english`; `config.cfg` y `lastdir.txt` con el mismo MD5 antes y después de la suite. OK. Para poder verificarlo desde el log, la línea `settings` suma el campo `lang`, anotado en los deltas de `dev/debug-log` y `dev/console-scripts`.
+  - "Una pista no sigue sonando": después de "Reproducir una pista" hay un `log event=start` y el escenario siguiente no tiene líneas `track`. OK.
+  - "Mismo orden con la misma semilla": las dos tandas abren `01 estereo.flac`, `05 estereo.wav`, `03 estereo.ogg`, `02 estereo.mp3` y `04 estereo.opus`, en ese orden. OK.
+  - "La suite queda en un solo archivo": trece `log event=start` en el mismo `debug.log`, que empieza con la línea `start` del primer proceso; `debug.prev.log` es la sesión anterior a la suite. OK.
+  - "Indicador visible": el usuario vio la franja con `N/13` y el nombre del escenario, y el resumen al final. OK.
+  - "Cerrar con PS a mitad de la suite", con una suite de dos escenarios y un `sleep 30s` en el segundo: el arranque siguiente registra `script event=result name="Segundo, cerrar con PS" result=interrupted` y `event=end pass=1 fail=0 interrupted=1`, con `suite.done.txt` y sin `suite/`. OK.
+  - `heap_kb` de la primera `screen` de cada escenario: 1417 en los trece.
+  - La primera corrida dio `pass=9 fail=4` por un error de la suite, no del código: la carpeta de las pistas tiene seis filas con la que sube a la carpeta de arriba, y los escenarios que reproducían esperaban cinco y abrían la fila 0. Se corrigió la suite.
 
 ## 4. Suites, proceso y documentación
 

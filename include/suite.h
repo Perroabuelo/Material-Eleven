@@ -42,4 +42,14 @@ int Suite_Touch(int *x, int *y);
 // card is left as before it and the app goes on with the real input.
 void Suite_Abort(void);
 
+// Once per frame from Utils_ReadControls, with the buttons the user just
+// pressed: after the last scenario, closes the app when the summary has
+// been up long enough or a button cuts it short.
+void Suite_Ending(unsigned int pressed);
+
+// What the banner on top of the screen says: the scenario running, or the
+// summary once the suite is over (`summary` set). NULL when there is
+// nothing to show.
+const char *Suite_Banner(int *summary);
+
 #endif

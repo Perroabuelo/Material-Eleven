@@ -58,6 +58,9 @@ int Utils_ReadControls(void) {
 		else
 			pad.buttons = Suite_Tick();
 	}
+	else {
+		Suite_Ending(physical & ~old_physical);
+	}
 	old_physical = physical;
 
 	pressed = pad.buttons & ~old_pad.buttons;

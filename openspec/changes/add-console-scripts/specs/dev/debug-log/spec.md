@@ -25,7 +25,7 @@ Con el log prendido, el sistema SHALL registrar al menos estos eventos, con al m
 | `touch` | al apoyar y al levantar el dedo del panel frontal | `event` (`down` o `up`), `x`, `y` (en píxeles de pantalla, 0 a 959 y 0 a 543) |
 | `folders` | cuando cambia su estado | `dir`, `sel`, `count` |
 | `library` | cuando cambia su estado | `view`, `group` (`-` fuera de un grupo), `sel`, `count`, `mode` (`normal`, `select` o `move`), `menu` (`none`, `options`, `picker` o `confirm`) |
-| `settings` | cuando cambia su estado | `category`, `item` |
+| `settings` | cuando cambia su estado | `category`, `item`, `lang` (el idioma elegido en Ajustes: `system`, `english` o `spanish`) |
 | `nowplaying` | cuando cambia su estado | `file`, `paused` (`0` o `1`) |
 | `track` | al intentar abrir una pista | `event=open`, `file`, `result` (`ok` o `fail`) y, si abrió, `format`, `rate`, `channels` |
 | `track` | al terminar una pista por llegar al final | `event=end`, `file` |

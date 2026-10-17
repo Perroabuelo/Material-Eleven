@@ -160,3 +160,96 @@ unsigned int LogLine_Finish(LogLine *line) {
 
 	return line->len;
 }
+
+void LogRing_Init(LogRing *ring, void *mem, unsigned int size) {
+	ring->data = mem;
+	ring->size = mem ? size : 0;
+	ring->head = 0;
+	ring->used = 0;
+	ring->pending = 0;
+	ring->accepted = 0;
+	ring->dropped = 0;
+}
+
+// Copies `len` bytes in after the unread ones, if they fit.
+static int RingWrite(LogRing *ring, const char *src, unsigned int len) {
+	if (len > ring->size - ring->used)
+		return 0;
+
+	unsigned int tail = (ring->head + ring->used) % ring->size;
+	unsigned int first = ring->size - tail;
+	if (first > len)
+		first = len;
+
+	memcpy(ring->data + tail, src, first);
+	memcpy(ring->data, src + first, len - first);
+	ring->used += len;
+	return 1;
+}
+
+int LogRing_Push(LogRing *ring, LogLine *line) {
+	unsigned int len = LogLine_Finish(line);
+
+	if (ring->size == 0) {
+		ring->pending++;
+		ring->dropped++;
+		return 0;
+	}
+
+	if (ring->pending > 0) {
+		LogLine note;
+		LogLine_Begin(&note, line->time_us, "log");
+		LogLine_Str(&note, "event", "dropped");
+		LogLine_Int(&note, "count", ring->pending);
+		unsigned int note_len = LogLine_Finish(&note);
+
+		if (!RingWrite(ring, note.text, note_len)) {
+			ring->pending++;
+			ring->dropped++;
+			return 0;
+		}
+
+		ring->pending = 0;
+	}
+
+	if (!RingWrite(ring, line->text, len)) {
+		ring->pending++;
+		ring->dropped++;
+		return 0;
+	}
+
+	ring->accepted++;
+	return 1;
+}
+
+unsigned int LogRing_Read(LogRing *ring, char *dst, unsigned int max) {
+	unsigned int len = ring->used < max ? ring->used : max;
+	if (len == 0)
+		return 0;
+
+	unsigned int first = ring->size - ring->head;
+	if (first > len)
+		first = len;
+
+	memcpy(dst, ring->data + ring->head, first);
+	memcpy(dst + first, ring->data, len - first);
+	ring->head = (ring->head + len) % ring->size;
+	ring->used -= len;
+	return len;
+}
+
+int LogState_Changed(LogState *state, LogLine *line) {
+	unsigned int end = LogLine_Finish(line);
+	unsigned int len = end - line->body;
+
+	if (state->len == len && memcmp(state->body, line->text + line->body, len) == 0)
+		return 0;
+
+	memcpy(state->body, line->text + line->body, len);
+	state->len = len;
+	return 1;
+}
+
+void LogState_Reset(LogState *state) {
+	state->len = 0;
+}

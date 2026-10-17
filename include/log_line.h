@@ -56,4 +56,48 @@ void LogLine_Buttons(LogLine *line, const char *key, unsigned int mask, const Lo
 // returns the same length.
 unsigned int LogLine_Finish(LogLine *line);
 
+// A ring of bytes over memory the caller owns, holding whole lines until the
+// writer thread takes them. Not thread-safe: the console side holds its lock
+// around every call.
+typedef struct {
+	char *data;
+	unsigned int size;
+	unsigned int head;      // where the oldest unread byte is
+	unsigned int used;      // unread bytes
+	unsigned int pending;   // lines dropped since the last "dropped" line
+	unsigned int accepted;  // lines taken this session
+	unsigned int dropped;   // lines dropped this session
+} LogRing;
+
+// `size` may be 0, or too small for any line: then every push is dropped and
+// counted, and nothing is written to `mem`.
+void LogRing_Init(LogRing *ring, void *mem, unsigned int size);
+
+// Takes a whole line (finishing it if needed), or drops it whole and counts
+// it when it does not fit. After a drop, the next push first tries to add
+// "<time> log event=dropped count=N", with the time of the new line; only if
+// that fits is the count cleared and the new line tried. Returns 1 when the
+// line was taken.
+int LogRing_Push(LogRing *ring, LogLine *line);
+
+// Moves up to `max` of the oldest bytes to `dst` and frees them. Returns how
+// many it moved. Reads do not stop at line ends: the bytes come out in the
+// order they went in, so writing them one block after another rebuilds the
+// lines.
+unsigned int LogRing_Read(LogRing *ring, char *dst, unsigned int max);
+
+// The last state line written by one screen, so that the same state is not
+// written frame after frame. Lines are compared without their time.
+typedef struct {
+	char body[LOG_LINE_MAX];
+	unsigned int len;  // 0: nothing written yet, the next line always goes
+} LogState;
+
+// 1 when `line` differs from the last one remembered by `state`, which then
+// remembers this one; 0 when it is the same.
+int LogState_Changed(LogState *state, LogLine *line);
+
+// Forgets the last line, so the next one is written whatever it says.
+void LogState_Reset(LogState *state);
+
 #endif

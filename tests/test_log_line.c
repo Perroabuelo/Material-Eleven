@@ -234,11 +234,175 @@ static void test_buttons(void) {
 	CHECK(strcmp(finish(&line, out), "0.000 input down=CROSS+UP+SELECT up=DOWN\n") == 0, "varios botones: '%s'", out);
 }
 
+// Arma una linea "<t> ev n=<n>" de largo fijo para un mismo numero de cifras.
+static void make_line(LogLine *line, unsigned long long time_us, int n) {
+	LogLine_Begin(line, time_us, "ev");
+	LogLine_Int(line, "n", n);
+}
+
+// Lee todo lo que queda en el buffer, de a `chunk` bytes, y lo deja en `out`.
+static unsigned int drain(LogRing *ring, char *out, unsigned int out_size, unsigned int chunk) {
+	unsigned int total = 0;
+	for (;;) {
+		unsigned int max = out_size - 1 - total < chunk ? out_size - 1 - total : chunk;
+		unsigned int got = LogRing_Read(ring, out + total, max);
+		if (got == 0)
+			break;
+		total += got;
+	}
+	out[total] = '\0';
+	return total;
+}
+
+static void test_ring_wraps(void) {
+	// "1.000 ev n=1\n" mide 13 bytes; caben 4 en 60.
+	char mem[60];
+	char out[256];
+	LogRing ring;
+	LogLine line;
+
+	LogRing_Init(&ring, mem, sizeof(mem));
+	for (int i = 1; i <= 4; i++) {
+		make_line(&line, 1000000, i);
+		CHECK(LogRing_Push(&ring, &line) == 1, "la linea %d deberia caber", i);
+	}
+
+	// Vaciar en parte: dos lineas y media.
+	unsigned int got = LogRing_Read(&ring, out, 32);
+	out[got] = '\0';
+	CHECK(got == 32 && strncmp(out, "1.000 ev n=1\n1.000 ev n=2\n1.000 ", 32) == 0, "lectura parcial: '%s'", out);
+
+	// Las siguientes dan la vuelta al final del bloque.
+	for (int i = 5; i <= 6; i++) {
+		make_line(&line, 2000000, i);
+		CHECK(LogRing_Push(&ring, &line) == 1, "la linea %d deberia caber al dar la vuelta", i);
+	}
+
+	drain(&ring, out, sizeof(out), 7);
+	CHECK(strcmp(out, "ev n=3\n1.000 ev n=4\n2.000 ev n=5\n2.000 ev n=6\n") == 0, "orden despues de la vuelta: '%s'", out);
+	CHECK(ring.used == 0 && LogRing_Read(&ring, out, 10) == 0, "el buffer deberia quedar vacio");
+	CHECK(ring.accepted == 6 && ring.dropped == 0, "totales: %u aceptadas, %u perdidas", ring.accepted, ring.dropped);
+}
+
+static void test_ring_drops(void) {
+	// Tres lineas de 13 bytes llenan 39 de 44.
+	char mem[44];
+	char out[256];
+	LogRing ring;
+	LogLine line;
+
+	LogRing_Init(&ring, mem, sizeof(mem));
+	for (int i = 1; i <= 3; i++) {
+		make_line(&line, 1000000, i);
+		LogRing_Push(&ring, &line);
+	}
+
+	make_line(&line, 1000000, 4);
+	CHECK(LogRing_Push(&ring, &line) == 0, "la cuarta no deberia caber");
+	make_line(&line, 1000000, 5);
+	CHECK(LogRing_Push(&ring, &line) == 0, "la quinta no deberia caber");
+	CHECK(ring.used == 39, "una linea rechazada no deberia dejar bytes (%u usados)", ring.used);
+	CHECK(ring.pending == 2 && ring.dropped == 2, "deberia contar dos perdidas (%u, %u)", ring.pending, ring.dropped);
+
+	// Con sitio para la linea pero no para la nota, que va primero ("5.000 log
+	// event=dropped count=2\n" mide 32 bytes): no entra ninguna y se sigue
+	// contando.
+	LogRing_Read(&ring, out, 13);
+	CHECK(LogRing_Push(&ring, &line) == 0, "sin sitio para la nota la linea no deberia entrar");
+	CHECK(ring.pending == 3 && ring.used == 26, "si la nota no cabe se sigue contando (%u, %u usados)", ring.pending, ring.used);
+
+	// Vacio: entra la nota con la cuenta correcta, pero la linea ya no cabe y
+	// la cuenta vuelve a 1.
+	LogRing_Read(&ring, out, sizeof(out));
+	make_line(&line, 5000000, 6);
+	CHECK(LogRing_Push(&ring, &line) == 0, "la nota (32) y la linea (13) no caben juntas en 44");
+	CHECK(ring.pending == 1, "la nota entro: la cuenta deberia ser 1 por la linea nueva (%u)", ring.pending);
+	drain(&ring, out, sizeof(out), 100);
+	CHECK(strcmp(out, "5.000 log event=dropped count=3\n") == 0, "la nota: '%s'", out);
+
+	// La nota va antes que la siguiente linea, con el tiempo de esa linea.
+	LogLine_Begin(&line, 6000000, "x");
+	CHECK(LogRing_Push(&ring, &line) == 1, "con sitio la linea deberia entrar despues de la nota");
+	drain(&ring, out, sizeof(out), 100);
+	CHECK(strcmp(out, "6.000 log event=dropped count=1\n6.000 x\n") == 0, "nota y linea: '%s'", out);
+	CHECK(ring.pending == 0, "la cuenta deberia quedar en 0");
+	CHECK(ring.accepted == 4 && ring.dropped == 4, "totales: %u aceptadas, %u perdidas", ring.accepted, ring.dropped);
+}
+
+static void test_ring_too_small(void) {
+	// Un buffer de tamano 0 y otro menor que una linea, rodeados de bytes
+	// testigo: nada se escribe fuera y todo se cuenta.
+	char mem[16];
+	LogRing ring;
+	LogLine line;
+
+	memset(mem, 0x5A, sizeof(mem));
+	LogRing_Init(&ring, mem + 4, 0);
+	make_line(&line, 0, 1);
+	CHECK(LogRing_Push(&ring, &line) == 0 && LogRing_Push(&ring, &line) == 0, "un buffer vacio no deberia aceptar nada");
+	CHECK(ring.dropped == 2, "deberia contar las dos (%u)", ring.dropped);
+
+	LogRing_Init(&ring, NULL, 100);
+	CHECK(LogRing_Push(&ring, &line) == 0, "sin memoria no deberia aceptar nada");
+
+	LogRing_Init(&ring, mem + 4, 8);
+	CHECK(LogRing_Push(&ring, &line) == 0 && LogRing_Push(&ring, &line) == 0, "un buffer de 8 bytes no deberia aceptar lineas de 13");
+	CHECK(ring.dropped == 2 && ring.used == 0, "deberia contar y no guardar nada");
+
+	int intact = 1;
+	for (unsigned int i = 0; i < sizeof(mem); i++)
+		intact &= (unsigned char)mem[i] == 0x5A;
+	CHECK(intact, "no deberia escribirse ningun byte");
+
+	char out[8];
+	CHECK(LogRing_Read(&ring, out, sizeof(out)) == 0, "leer un buffer vacio deberia dar 0");
+}
+
+static void state_line(LogLine *line, unsigned long long time_us, int sel) {
+	LogLine_Begin(line, time_us, "library");
+	LogLine_Str(line, "view", "songs");
+	LogLine_Int(line, "sel", sel);
+}
+
+static void test_state(void) {
+	LogState state;
+	LogLine line;
+	int written = 0;
+
+	LogState_Reset(&state);
+
+	// El escenario "Estado repetido": la misma dos veces (con distinto
+	// tiempo), una distinta y la primera otra vez.
+	state_line(&line, 1000000, 1);
+	written += LogState_Changed(&state, &line);
+	state_line(&line, 1016000, 1);
+	CHECK(LogState_Changed(&state, &line) == 0, "la misma linea con otro tiempo no deberia escribirse");
+	state_line(&line, 1032000, 2);
+	written += LogState_Changed(&state, &line);
+	state_line(&line, 1048000, 1);
+	written += LogState_Changed(&state, &line);
+	CHECK(written == 3, "deberian escribirse 3 lineas, se escribieron %d", written);
+
+	// Tras vaciar el canal, la misma linea se escribe.
+	LogState_Reset(&state);
+	state_line(&line, 2000000, 1);
+	CHECK(LogState_Changed(&state, &line) == 1, "tras LogState_Reset la siguiente deberia escribirse");
+
+	// Un campo de mas tambien es un cambio.
+	state_line(&line, 2016000, 1);
+	LogLine_Str(&line, "mode", "normal");
+	CHECK(LogState_Changed(&state, &line) == 1, "una linea mas larga deberia contar como distinta");
+}
+
 int main(void) {
 	test_time();
 	test_values();
 	test_cut();
 	test_buttons();
+	test_ring_wraps();
+	test_ring_drops();
+	test_ring_too_small();
+	test_state();
 
 	if (failures == 0)
 		printf("test_log_line: todo bien\n");

@@ -7,7 +7,7 @@
   - botones: ninguno, uno y varios, en el orden de la tabla.
 
   Agregar el test a `BIN` y a las reglas de `tests/Makefile`, y el fuente a `CMakeLists.txt`. Listo cuando `make -C tests` pase con sanitizers y `scripts/build.sh` compile sin warnings.
-- [ ] 1.2 Agregar a `log_line.c` el buffer circular de la Decisión 5 (`LogRing_Init` sobre memoria del llamador, `Push` de líneas enteras, `Read` por bloques, totales de aceptadas y descartadas, y la línea `log event=dropped count=N` antes de la siguiente). Agregar también el descarte de estados de la Decisión 6 (`LogState_Changed` por canal y `LogState_Reset`). Ampliar `test_log_line`:
+- [x] 1.2 Agregar a `log_line.c` el buffer circular de la Decisión 5 (`LogRing_Init` sobre memoria del llamador, `Push` de líneas enteras, `Read` por bloques, totales de aceptadas y descartadas, y la línea `log event=dropped count=N` antes de la siguiente). Agregar también el descarte de estados de la Decisión 6 (`LogState_Changed` por canal y `LogState_Reset`). Ampliar `test_log_line`:
   - llenar, vaciar en parte, dar la vuelta al final del bloque y leer en orden;
   - rechazar y contar una línea que no cabe;
   - la línea `dropped` entra antes que la siguiente con el contador correcto, y si no cabe se sigue contando;

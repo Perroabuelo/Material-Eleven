@@ -65,6 +65,10 @@
 
 ## 5. Verificación y versión
 
-- [ ] 5.1 Memoria (estrategia de pruebas, paso 4): anotar el HEAP del overlay en Carpetas sin suite, con una suite en curso y después de abortarla, y el `heap_kb` de la primera línea `screen` de cada escenario de `dev-console-scripts.txt`. Anotar los resultados en esta tarea. Listo cuando el HEAP después de abortar vuelva al de sin suite, con una diferencia de no más de unos pocos KB, y los `heap_kb` de los escenarios coincidan. Si no, pausar y revisar con el usuario.
+- [x] 5.1 Memoria (estrategia de pruebas, paso 4): anotar el HEAP del overlay en Carpetas sin suite, con una suite en curso y después de abortarla, y el `heap_kb` de la primera línea `screen` de cada escenario de `dev-console-scripts.txt`. Anotar los resultados en esta tarea. Listo cuando el HEAP después de abortar vuelva al de sin suite, con una diferencia de no más de unos pocos KB, y los `heap_kb` de los escenarios coincidan. Si no, pausar y revisar con el usuario.
+
+  Resultados (2026-10-17), en Ajustes con el overlay abierto. La suite abre el overlay con `press L+R+SELECT` porque el combo físico la abortaría; el combo también abre Ajustes desde Carpetas, con la suite y sin ella, como antes de este cambio:
+  - HEAP con una suite en curso: 1463 KB. Después de abortarla con R (`script event=abort reason=user`): 1415 KB. Sin suite, en un arranque nuevo: 1411 KB. Al abortar se liberan los ~48 KB del `Script`, y queda una diferencia de 4 KB con el arranque sin suite. OK.
+  - `heap_kb` de la primera línea `screen` de los trece escenarios de `dev-console-scripts.txt` (corrida de 3.3): 1417 en todos. OK.
 - [ ] 5.2 Correr las tres suites de `tests/console/` seguidas y los escenarios manuales que no cubrieron 3.x, y anotar fecha y resultado en esta tarea. Listo cuando todo pase, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
 - [ ] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.20"` a `"04.30"`. Listo cuando `scripts/build.sh` compile y la línea `start` del log diga `version=04.30`.

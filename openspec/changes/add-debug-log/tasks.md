@@ -1,6 +1,6 @@
 ## 1. Lógica pura
 
-- [ ] 1.1 Crear `source/log_line.c` e `include/log_line.h`, sin SCE ni vita2d, con el armado de líneas de la Decisión 2: `LogLine_Begin` (tiempo en µs y categoría), `LogLine_Str`, `LogLine_Int` y `LogLine_Buttons` (máscara y tabla de nombres). Incluye el escape de valores y el recorte de UTF-8 con `cut=1` del requirement "Formato de las líneas". Crear `tests/test_log_line.c` con:
+- [x] 1.1 Crear `source/log_line.c` e `include/log_line.h`, sin SCE ni vita2d, con el armado de líneas de la Decisión 2: `LogLine_Begin` (tiempo en µs y categoría), `LogLine_Str`, `LogLine_Int` y `LogLine_Buttons` (máscara y tabla de nombres). Incluye el escape de valores y el recorte de UTF-8 con `cut=1` del requirement "Formato de las líneas". Crear `tests/test_log_line.c` con:
   - tiempo en 0, 999 µs, 3 500 000 µs y más de una hora;
   - valores sin comillas, con espacio, con `"`, con `\`, con salto de línea y vacío;
   - recorte de un valor ASCII de 2000 bytes y de otro con caracteres de 2 y 3 bytes cortado en medio de uno: máximo 512 bytes, termina en `cut=1\n`, UTF-8 válido;

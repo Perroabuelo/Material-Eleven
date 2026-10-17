@@ -17,10 +17,15 @@
 
 ## 3. Módulo de consola
 
-- [ ] 3.1 Crear `source/suite.c` e `include/suite.h` con `Suite_IsRelaunch` y `Suite_Init` (Decisión 2), la copia y la restauración de `config.cfg` y `lastdir.txt` (Decisión 4) y las líneas `script` de `event=suite`, `scenario` y `error`. Cambiar `DebugLog_Init` para que reciba `relaunch` y no rote en ese caso, y agregar `DebugLog_Sync`, `DebugLog_LastState` y la llamada a `Suite_Observe` con la comprobación de hilo (Decisión 5 y Riesgos). Ordenar el arranque en `main.c` como en la Decisión 2. Listo cuando `scripts/build.sh` compile sin warnings y en la consola:
+- [x] 3.1 Crear `source/suite.c` e `include/suite.h` con `Suite_IsRelaunch` y `Suite_Init` (Decisión 2), la copia y la restauración de `config.cfg` y `lastdir.txt` (Decisión 4) y las líneas `script` de `event=suite`, `scenario` y `error`. Cambiar `DebugLog_Init` para que reciba `relaunch` y no rote en ese caso, y agregar `DebugLog_Sync`, `DebugLog_LastState` y la llamada a `Suite_Observe` con la comprobación de hilo (Decisión 5 y Riesgos). Ordenar el arranque en `main.c` como en la Decisión 2. Listo cuando `scripts/build.sh` compile sin warnings y en la consola:
   - el escenario "Suite sin marcador" pase;
   - el escenario "Error en la consola" pase con `tests/console/dev-console-scripts-error.txt`, escrito en esta tarea;
   - una suite válida registre `event=suite` y `event=scenario` y cree `suite/` con la copia de `config.cfg`.
+
+  Resultados (2026-10-17):
+  - "Suite sin marcador": sin `debug.log`, `suite.txt` con el mismo MD5 y sin `suite/`; la app respondió a los botones. OK.
+  - "Error en la consola": `script event=error line=3 reason="unknown command \"presss\""`, ninguna línea `step`, `suite.done.txt` sin `suite.txt`, y la app respondió a los botones. OK.
+  - Suite válida: `script event=suite scenarios=1` y `script event=scenario name="Suite con marcador" index=1 total=1`; `suite/` con `config.cfg` (mismo MD5 que el original), `lastdir.txt` y `state` con `current=0`. OK. El `heap_kb` de la primera `screen` pasa de 1362 a 1412 con la suite cargada: el bloque del `Script`, con sus 1024 pasos fijos.
 - [ ] 3.2 Inyección en `Utils_ReadControls`, `Touch_Update` y `UI_Debug_Update` (Decisión 3), con `Suite_Tick` y `Suite_Abort`, y `Music_SetSeed` (Decisión 8). Listo cuando `scripts/build.sh` compile y en la consola, con una suite de un solo escenario, pasen "Bajar dos filas", "Mantener abajo", "Toque inyectado", "El estado actual ya cumple", "Timeout" y "Abortar con un botón", comparando con las líneas de la tabla de la estrategia de pruebas.
 - [ ] 3.3 Fin de escenario, relanzar y salir (Decisión 6), y el indicador (Decisión 7). Listo cuando `scripts/build.sh` compile y en la consola pasen "Suite con marcador", "Un ajuste no pasa al escenario siguiente" (MD5 de `config.cfg` antes y después desde la PC), "Una pista no sigue sonando", "Mismo orden con la misma semilla", "Suite completa", "Cerrar con PS a mitad de la suite", "Indicador visible" y "La suite queda en un solo archivo", con `tests/console/dev-console-scripts.txt` completa.
 

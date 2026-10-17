@@ -1,0 +1,4 @@
+# fixtures: ninguno. Guion con un error de sintaxis en la linea 3 (dev/console-scripts, "Error en la consola").
+scenario Error de sintaxis
+presss CROSS
+wait screen to=folders

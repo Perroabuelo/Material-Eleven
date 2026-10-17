@@ -19,21 +19,21 @@
 
 ## 2. Módulo de consola
 
-- [ ] 2.1 Crear `source/debug_log.c` e `include/debug_log.h` con `DebugLog_Init` siguiendo los pasos de la Decisión 3 y la API de la Decisión 2 (`DebugLog_On`, `Begin`, `Commit`, `CommitState`, `Screen`, `GetStatus`). Incluye el hilo de la Decisión 4, `DebugLog_Shutdown` y la tabla de botones. Cada paso fallido de `Init` deshace los anteriores, como dice la tabla de Recursos. Pasar `APP_VERSION` desde `VITA_VERSION` con `target_compile_definitions` en `CMakeLists.txt`. Llamar a `DebugLog_Init` en `main.c` después de `sceIoMkdir`, y a `DebugLog_Shutdown` antes de `UI_Debug_Free`. Listo cuando `scripts/build.sh` compile sin warnings y en la consola:
+- [x] 2.1 Crear `source/debug_log.c` e `include/debug_log.h` con `DebugLog_Init` siguiendo los pasos de la Decisión 3 y la API de la Decisión 2 (`DebugLog_On`, `Begin`, `Commit`, `CommitState`, `Screen`, `GetStatus`). Incluye el hilo de la Decisión 4, `DebugLog_Shutdown` y la tabla de botones. Cada paso fallido de `Init` deshace los anteriores, como dice la tabla de Recursos. Pasar `APP_VERSION` desde `VITA_VERSION` con `target_compile_definitions` en `CMakeLists.txt`. Llamar a `DebugLog_Init` en `main.c` después de `sceIoMkdir`, y a `DebugLog_Shutdown` antes de `UI_Debug_Free`. Listo cuando `scripts/build.sh` compile sin warnings y en la consola:
   - sin el marcador no aparecen `debug.log` ni `debug.prev.log` (escenario "Sin marcador no hay log");
   - con el marcador, `debug.log` empieza con la línea `log event=start` con `version` y `time` (escenario "Con marcador el log empieza al arrancar");
   - abrir, cerrar con PS y reabrir deja la sesión anterior en `debug.prev.log` (escenario "Reabrir después de cerrar con PS", por ahora solo con la línea `start`);
   - crear el marcador con la app abierta no crea el log hasta reabrirla.
-- [ ] 2.2 Agregar la línea `LOG` a la página de estadísticas del overlay en `ui_gpu.c` (Decisión 9), leyendo `DebugLog_GetStatus`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Overlay con el log apagado" y "Overlay con el log prendido". Además, una build de prueba no versionada que fuerce la falla del `malloc` en `DebugLog_Init` tiene que mostrar `LOG fallo: sin memoria`, y la app tiene que funcionar normal; esa build no se commitea.
+- [x] 2.2 Agregar la línea `LOG` a la página de estadísticas del overlay en `ui_gpu.c` (Decisión 9), leyendo `DebugLog_GetStatus`. Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Overlay con el log apagado" y "Overlay con el log prendido". Además, una build de prueba no versionada que fuerce la falla del `malloc` en `DebugLog_Init` tiene que mostrar `LOG fallo: sin memoria`, y la app tiene que funcionar normal; esa build no se commitea.
 
 ## 3. Puntos de registro
 
-- [ ] 3.1 Registrar los saltos de pantalla con `DebugLog_Screen` en el bucle de `main.c`, con `heap_kb` de `mallinfo`. Registrar los botones en `Utils_ReadControls` y el tacto en `Touch_Update`, según la Decisión 7. Listo cuando `scripts/build.sh` compile y en la consola el log muestre:
+- [x] 3.1 Registrar los saltos de pantalla con `DebugLog_Screen` en el bucle de `main.c`, con `heap_kb` de `mallinfo`. Registrar los botones en `Utils_ReadControls` y el tacto en `Touch_Update`, según la Decisión 7. Listo cuando `scripts/build.sh` compile y en la consola el log muestre:
   - una línea `screen` por cada salto con el nav rail;
   - `input` con `down=`/`up=` al apretar y soltar, también al apretar dos botones a la vez;
   - el escenario "Toque en la pantalla".
-- [ ] 3.2 Agregar las funciones de estado de la Decisión 6 en `menu_displayfiles.c`, `menu_library.c`, `menu_settings.c` y `menu_audioplayer.c`, llamadas una vez por fotograma después del input. Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Recorrido corto por la Biblioteca" y "Sin input, sin líneas de estado". Además, en cada pantalla, moverse, entrar en un grupo, abrir el menú de Cuadrado, entrar en modo selección y pausar tienen que producir la línea de estado esperada, y solo una por cambio.
-- [ ] 3.3 Registrar `track event=open` en `Audio_Init`, `track event=end` en `Music_Update`, `queue` en `Music_HandleNext`, `playlist` en `PlaylistStore_Save` y `library event=scan` al terminar `Library_RunScan` (Decisión 8). Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Pista que no abre", "Fin de pista y avance de la cola" y "Guardar una playlist", y un reescaneo de la biblioteca deje su línea `library event=scan` con `tracks` igual al total que muestra la app.
+- [x] 3.2 Agregar las funciones de estado de la Decisión 6 en `menu_displayfiles.c`, `menu_library.c`, `menu_settings.c` y `menu_audioplayer.c`, llamadas una vez por fotograma después del input. Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Recorrido corto por la Biblioteca" y "Sin input, sin líneas de estado". Además, en cada pantalla, moverse, entrar en un grupo, abrir el menú de Cuadrado, entrar en modo selección y pausar tienen que producir la línea de estado esperada, y solo una por cambio.
+- [x] 3.3 Registrar `track event=open` en `Audio_Init`, `track event=end` en `Music_Update`, `queue` en `Music_HandleNext`, `playlist` en `PlaylistStore_Save` y `library event=scan` al terminar `Library_RunScan` (Decisión 8). Listo cuando `scripts/build.sh` compile y en la consola se cumplan los escenarios "Pista que no abre", "Fin de pista y avance de la cola" y "Guardar una playlist", y un reescaneo de la biblioteca deje su línea `library event=scan` con `tracks` igual al total que muestra la app.
 
 ## 4. Proceso y documentación
 
@@ -42,7 +42,7 @@
 
 ## 5. Verificación y versión
 
-- [ ] 5.1 Memoria y fluidez en la consola (estrategia de pruebas, pasos 3 y 4). Anotar los resultados en esta tarea. Listo cuando:
+- [x] 5.1 Memoria y fluidez en la consola (estrategia de pruebas, pasos 3 y 4). Anotar los resultados en esta tarea. Listo cuando:
   - el escenario "Diez vueltas por las pantallas" no muestre crecimiento del HEAP, comparando las líneas `screen` y el overlay;
   - la diferencia de HEAP entre el log prendido y apagado sea de unos 66 KB;
   - el HEAP sin marcador sea igual al de v4.1.0 (escenario "HEAP sin marcador");
@@ -51,5 +51,16 @@
   - el escenario "Las líneas llegan a la tarjeta con la app abierta" pase.
 
   Si algo de esto falla, pausar y revisar con el usuario el riesgo correspondiente de design.md.
-- [ ] 5.2 Recorrer en la consola todos los escenarios de `dev/debug-log` que no cubrieron 2.x, 3.x y 5.1, y anotar fecha y resultado en esta tarea. Listo cuando todos pasen, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
-- [ ] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.10"` a `"04.20"`. Listo cuando `scripts/build.sh` compile y la línea `start` del log diga `version=04.20`.
+
+  Resultados (2026-10-17):
+  - HEAP con el log prendido: 66 KB más que apagado. OK.
+  - Pila del overlay: 976 B como máximo, en la Biblioteca con una pista sonando. El `max` del overlay es el pico observado, no el límite; la pila del hilo principal es la de 256 KB por defecto. OK.
+  - Fluidez: igual que sin log y sin crashes en una sesión de 5 min con 24 pistas abiertas y 4 playlists guardadas.
+  - Abajo mantenido 21,6 s en la Biblioteca (291 canciones) con una pista sonando: sin `dropped`.
+  - Diez vueltas (fueron unas 25 con el nav rail por Biblioteca, Ajustes, Reproduciendo y Carpetas): `heap_kb` se queda en 1655 desde la segunda vuelta; lo que sube antes es la carga de la Biblioteca y de la primera pista. OK.
+  - HEAP sin marcador: igual que en v4.1.0. OK.
+  - Las líneas llegan a la tarjeta: tras entrar a la Biblioteca y cerrar con PS, `debug.log` tiene `screen to=library` y las líneas posteriores. OK.
+- [x] 5.2 Recorrer en la consola todos los escenarios de `dev/debug-log` que no cubrieron 2.x, 3.x y 5.1, y anotar fecha y resultado en esta tarea. Listo cuando todos pasen, `make -C tests` pase y `scripts/build.sh` compile sin warnings.
+
+  Resultados (2026-10-17): en seis sesiones en la consola pasaron "Overlay con el log apagado", "Overlay con el log prendido" y "Mantener abajo en una lista larga". Los demás escenarios de consola quedaron cubiertos en 2.x, 3.x y 5.1, y los de PC ("Valor con espacios y comillas", "Valor demasiado largo", "Tiempo con tres decimales", "Estado repetido") en `test_log_line`. Durante las pruebas apareció `touch event=up x=0 y=0` cuando el dedo se levantaba en el primer fotograma después de un cambio de pantalla, porque `Touch_Reset` borraba la posición. Se corrigió en `touch.c` guardando la última posición aparte, y una build de diagnóstico confirmó en unos 190 cambios de pantalla que el panel nunca entrega (0,0). `make -C tests` pasa y `scripts/build.sh` compila sin warnings de código (solo el aviso de siempre del linker por `crtn.o`).
+- [x] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.10"` a `"04.20"`. Listo cuando `scripts/build.sh` compile y la línea `start` del log diga `version=04.20`.

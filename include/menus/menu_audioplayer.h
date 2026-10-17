@@ -31,5 +31,8 @@ void Music_Next(void);
 // Atiende el fin de la pista en curso: la repite o avanza la cola. Una vez por
 // fotograma, entre fotogramas; la llama Utils_ReadControls.
 void Music_Update(void);
+// Seeds the shuffle with `seed` instead of the clock, for a suite that needs
+// the same order every time (dev/console-scripts, `seed`).
+void Music_SetSeed(unsigned int seed);
 
 #endif

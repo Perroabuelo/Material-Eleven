@@ -13,6 +13,7 @@
 #include "key_repeat.h"
 #include "menu_audioplayer.h"
 #include "screen_off.h"
+#include "suite.h"
 
 static SceCtrlData pad, old_pad;
 // START apaga la pantalla desde cualquier pantalla, porque todas leen el pad
@@ -23,6 +24,10 @@ static ScreenOff_State screen_off = { SCE_CTRL_START, SCE_CTRL_LTRIGGER, SCE_CTR
 // in key_repeat.c, which is tested on a PC.
 static KeyRepeat_State key_repeat = { SCE_CTRL_UP, SCE_CTRL_DOWN, 0, 0, 0 };
 static KeyRepeat_Step list_step;
+// The buttons the user really held last frame, while a suite feeds the app
+// its own: a new one stops the suite. All set at start, so one held since
+// before the app opened does not count until it is pressed again.
+static unsigned int old_physical = ~0u;
 
 void Utils_SetMax(int *set, int value, int max) {
 	if (*set > max)
@@ -42,6 +47,18 @@ int Utils_ReadControls(void) {
 
 	memset(&pad, 0, sizeof(SceCtrlData));
 	sceCtrlPeekBufferPositive(0, &pad, 1);
+
+	// Only the buttons the log names: PS sets a bit of its own, and closing
+	// the app in the middle of a suite has to leave it interrupted, not
+	// aborted.
+	unsigned int physical = pad.buttons & DebugLog_NamedButtons();
+	if (Suite_Running()) {
+		if (physical & ~old_physical)
+			Suite_Abort();
+		else
+			pad.buttons = Suite_Tick();
+	}
+	old_physical = physical;
 
 	pressed = pad.buttons & ~old_pad.buttons;
 

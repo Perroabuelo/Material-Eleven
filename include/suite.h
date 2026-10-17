@@ -30,4 +30,16 @@ void Suite_Init(int relaunch);
 // A line the log just took on the main thread, for the waits.
 void Suite_Observe(const char *text, unsigned int len);
 
+// Moves the scenario on by one frame and returns the buttons it holds in
+// it. Utils_ReadControls is the only caller, once per frame.
+unsigned int Suite_Tick(void);
+
+// Where the scenario has its finger this frame, set by the last Suite_Tick.
+// 0 when it has none on the panel.
+int Suite_Touch(int *x, int *y);
+
+// The user pressed a button or touched the panel: the suite stops here, the
+// card is left as before it and the app goes on with the real input.
+void Suite_Abort(void);
+
 #endif

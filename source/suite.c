@@ -3,7 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <psp2/kernel/processmgr.h>
+
 #include "debug_log.h"
+#include "menu_audioplayer.h"
 #include "script.h"
 #include "suite.h"
 
@@ -33,6 +36,8 @@ int suite_running = 0;
 static Script *script = NULL;
 static ScriptRun run;
 static SuiteState state;
+// What the scenario gives the frame being read.
+static ScriptFrame frame;
 
 static int Exists(const char *path) {
 	SceIoStat stat;
@@ -176,6 +181,7 @@ static void Finish(void) {
 	}
 
 	suite_running = 0;
+	memset(&frame, 0, sizeof(frame));
 	Script_Free(script);
 	script = NULL;
 }
@@ -356,4 +362,77 @@ void Suite_Init(int relaunch) {
 void Suite_Observe(const char *text, unsigned int len) {
 	if (suite_running)
 		ScriptRun_Observe(&run, text, len);
+}
+
+static void LogStep(const ScriptStep *step) {
+	LogLine line;
+	Log(&line, "step");
+	LogLine_Int(&line, "line", step->line);
+	LogLine_Str(&line, "cmd", step->text);
+	DebugLog_Commit(&line);
+}
+
+static void LogResult(const ScriptFrame *end) {
+	const ScriptStep *scenario = Script_Scenario(script, state.current, NULL);
+	LogLine line;
+
+	Log(&line, "result");
+	LogLine_Str(&line, "name", scenario->arg);
+	LogLine_Str(&line, "result", end->result == SCRIPT_PASS ? "pass" : "fail");
+	if (end->result == SCRIPT_FAIL) {
+		LogLine_Str(&line, "reason", end->reason);
+		LogLine_Int(&line, "line", end->line);
+		if (end->last)
+			LogLine_Str(&line, "last", end->last);
+	}
+	DebugLog_Commit(&line);
+}
+
+static void EndScenario(const ScriptFrame *end) {
+	LogResult(end);
+
+	if (end->result == SCRIPT_PASS)
+		state.pass++;
+	else
+		state.fail++;
+
+	Finish();
+}
+
+unsigned int Suite_Tick(void) {
+	if (!suite_running)
+		return 0;
+
+	frame = ScriptRun_Tick(&run, sceKernelGetProcessTimeWide());
+
+	if (frame.started) {
+		LogStep(frame.started);
+		if (frame.started->cmd == SCRIPT_SEED)
+			Music_SetSeed(frame.started->seed);
+	}
+
+	if (frame.result != SCRIPT_RUNNING) {
+		ScriptFrame end = frame;
+		EndScenario(&end);
+		return 0;
+	}
+
+	return frame.buttons;
+}
+
+int Suite_Touch(int *x, int *y) {
+	if (!suite_running || !frame.touching)
+		return 0;
+
+	*x = frame.x;
+	*y = frame.y;
+	return 1;
+}
+
+void Suite_Abort(void) {
+	if (!suite_running)
+		return;
+
+	LogAbort("user");
+	Finish();
 }

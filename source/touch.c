@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "debug_log.h"
+#include "suite.h"
 #include "touch.h"
 
 #define lerp(value, from_max, to_max) ((((value * 10) * (to_max * 10)) / (from_max * 10)) / 10)
@@ -37,6 +38,11 @@ static touchStateData *const touchState = &touchStateStorage;
 // the frame right after a jump, touchState only holds the zeros of the reset.
 static int log_touching = 0;
 static int log_x = 0, log_y = 0;
+
+// Whether the user really had a finger on the panel last frame, while a
+// suite touches for them: a new touch stops the suite. Set at start, like
+// the buttons in utils.c.
+static int old_physical = 1;
 
 static void Touch_Log(const char *event) {
 	LogLine line;
@@ -87,10 +93,27 @@ int Touch_CheckHeld(void) {
 void Touch_Update(void) {
 	sceTouchPeek(SCE_TOUCH_PORT_FRONT, &touch, 1);
 	
-	if (touch.reportNum > 0) {
+	int down = touch.reportNum > 0;
+	int x = 0, y = 0;
+	if (down) {
+		x = lerp(touch.report[0].x, 1919, 960);
+		y = lerp(touch.report[0].y, 1087, 544);
+	}
+
+	// The scenario's finger is already in screen pixels.
+	int physical = down;
+	if (Suite_Running()) {
+		if (physical && !old_physical)
+			Suite_Abort();
+		else
+			down = Suite_Touch(&x, &y);
+	}
+	old_physical = physical;
+
+	if (down) {
 		touchState->held = 1;
-		touchState->posX = (lerp(touch.report[0].x, 1919, 960));
-		touchState->posY = (lerp(touch.report[0].y, 1087, 544));
+		touchState->posX = x;
+		touchState->posY = y;
 		touchState->released = 0;
 		touchState->releasedPrev = 0;
 		if (touchState->pressedPrev == 0) {

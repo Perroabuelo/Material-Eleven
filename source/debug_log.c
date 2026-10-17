@@ -352,6 +352,13 @@ const LogButtonName *DebugLog_ButtonNames(int *count) {
 	return button_names;
 }
 
+unsigned int DebugLog_NamedButtons(void) {
+	unsigned int named = 0;
+	for (unsigned int i = 0; i < sizeof(button_names) / sizeof(button_names[0]); i++)
+		named |= button_names[i].mask;
+	return named;
+}
+
 void DebugLog_Buttons(LogLine *line, const char *key, unsigned int mask) {
 	LogLine_Buttons(line, key, mask, button_names, (int)(sizeof(button_names) / sizeof(button_names[0])));
 }
@@ -360,9 +367,7 @@ void DebugLog_Input(unsigned int down, unsigned int up) {
 	if (!debug_log_on)
 		return;
 
-	unsigned int named = 0;
-	for (unsigned int i = 0; i < sizeof(button_names) / sizeof(button_names[0]); i++)
-		named |= button_names[i].mask;
+	unsigned int named = DebugLog_NamedButtons();
 
 	down &= named;
 	up &= named;

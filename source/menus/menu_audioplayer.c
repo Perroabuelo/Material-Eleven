@@ -165,14 +165,19 @@ static SceBool track_failed = SCE_FALSE;
 // de cada tirada, como se hacia, lo ata al reloj: time() tiene resolucion de un
 // segundo, asi que dos sorteos dentro del mismo segundo daban el mismo numero, y
 // sorteos en segundos seguidos daban la primera salida de semillas consecutivas.
-static void Music_SeedOnce(void) {
-	static SceBool seeded = SCE_FALSE;
+static SceBool seeded = SCE_FALSE;
 
+static void Music_SeedOnce(void) {
 	if (seeded)
 		return;
 
 	time_t t;
 	srand((unsigned)time(&t));
+	seeded = SCE_TRUE;
+}
+
+void Music_SetSeed(unsigned int seed) {
+	srand(seed);
 	seeded = SCE_TRUE;
 }
 

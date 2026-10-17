@@ -13,8 +13,10 @@
 #include "capture_bmp.h"
 #include "common.h"
 #include "debug_log.h"
+#include "suite.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
+#include "utils.h"
 #include "vitaaudiolib.h"
 
 // Re-sampled every this many frames. Reading it is a syscall, and the numbers
@@ -549,7 +551,12 @@ void UI_Debug_Update(void) {
 	SceBool held;
 
 	memset(&pad, 0, sizeof(pad));
-	sceCtrlPeekBufferPositive(0, &pad, 1);
+	// A suite drives the overlay too: it sees the frame's buttons as
+	// Utils_ReadControls left them, never the user's own.
+	if (Suite_Running())
+		pad.buttons = Utils_HeldButtons();
+	else
+		sceCtrlPeekBufferPositive(0, &pad, 1);
 
 	// Rising edge of the whole combo, so holding it does not strobe the panel.
 	held = ((pad.buttons & UI_DEBUG_TOGGLE_COMBO) == UI_DEBUG_TOGGLE_COMBO);

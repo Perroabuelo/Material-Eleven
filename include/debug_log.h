@@ -106,6 +106,9 @@ const char *DebugLog_LastState(const char *category, unsigned int *len);
 // The names the log gives the buttons, in its order.
 const LogButtonName *DebugLog_ButtonNames(int *count);
 
+// The mask of every button the log names.
+unsigned int DebugLog_NamedButtons(void);
+
 DebugLog_Status DebugLog_GetStatus(void);
 
 #endif

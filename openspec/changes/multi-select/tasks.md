@@ -93,4 +93,6 @@
   Resultado (2026-10-16, Vita): se recorrieron todos los escenarios de consola de las specs del cambio y pasan. `make -C tests` pasa con sanitizers y `scripts/build.sh` compila sin warnings.
 
 - [x] 5.3 Agregar las notas de versión de `proposal.md` a `[Unreleased]` en `CHANGELOG.md` y llevar `VITA_VERSION` en `CMakeLists.txt` de `"04.00"` a `"04.10"`. Listo cuando `scripts/build.sh` compile y el `.vpk` muestre `04.10`.
-- [ ] 5.4 Abrir el PR de `change/multi-select` contra `main`. Listo cuando el CI esté en verde.
+- [x] 5.4 Abrir el PR de `change/multi-select` contra `main`. Listo cuando el CI esté en verde.
+
+  Resultado (2026-10-16): PR #47 abierto; el CI (`build` y `tests`) quedó en verde.

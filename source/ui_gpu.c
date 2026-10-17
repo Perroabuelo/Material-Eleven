@@ -12,6 +12,7 @@
 
 #include "capture_bmp.h"
 #include "common.h"
+#include "debug_log.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "vitaaudiolib.h"
@@ -25,6 +26,8 @@
 #define UI_DEBUG_PANEL_Y 10
 #define UI_DEBUG_PANEL_W 316
 #define UI_DEBUG_PANEL_H 172
+// The stats page has one line more than the capture page: the debug log.
+#define UI_DEBUG_STATS_PANEL_H (UI_DEBUG_PANEL_H + UI_DEBUG_LINE_H)
 #define UI_DEBUG_PANEL_PAD 12
 #define UI_DEBUG_LINE_H 20
 #define UI_DEBUG_PANEL_BG RGBA8(0x00, 0x00, 0x00, 220)
@@ -615,7 +618,7 @@ void UI_Debug_Draw(void) {
 	if (debug_mode != UI_DEBUG_STATS)
 		return;
 
-	UI_DrawRoundedRect(UI_DEBUG_PANEL_X, UI_DEBUG_PANEL_Y, UI_DEBUG_PANEL_W, UI_DEBUG_PANEL_H, UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
+	UI_DrawRoundedRect(UI_DEBUG_PANEL_X, UI_DEBUG_PANEL_Y, UI_DEBUG_PANEL_W, UI_DEBUG_STATS_PANEL_H, UI_RADIUS_SM, UI_DEBUG_PANEL_BG);
 
 	snprintf(line, sizeof(line), "LIBRE  user %d KB   cdram %d KB", free_user_kb, free_cdram_kb);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
@@ -630,6 +633,22 @@ void UI_Debug_Draw(void) {
 		// worth knowing it happened.
 		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
 			deferred ? UI_COLOR_TRACKER : UI_COLOR_TEXT_PRIMARY, line);
+	}
+	y += UI_DEBUG_LINE_H;
+
+	{
+		DebugLog_Status log = DebugLog_GetStatus();
+
+		if (log.mode == DEBUG_LOG_ACTIVE)
+			snprintf(line, sizeof(line), "LOG    activo  %u lineas  perdidas %u", log.lines, log.dropped);
+		else if (log.mode == DEBUG_LOG_FAILED)
+			snprintf(line, sizeof(line), "LOG    fallo: %s", log.reason ? log.reason : "?");
+		else
+			snprintf(line, sizeof(line), "LOG    apagado");
+		// Red when the log was asked for and is not whole: it failed to start,
+		// or it lost lines.
+		UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x, UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, y, UI_DEBUG_LINE_H),
+			(log.mode == DEBUG_LOG_FAILED || log.dropped) ? UI_COLOR_TRACKER : UI_COLOR_TEXT_PRIMARY, line);
 	}
 	y += UI_DEBUG_LINE_H;
 

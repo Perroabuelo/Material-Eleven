@@ -50,6 +50,7 @@ add_executable(${PROJECT_NAME}
   source/config.c
   source/cover.c
   source/cover_mosaic.c
+  source/debug_log.c
   source/dirbrowse.c
   source/fs.c
   source/gesture.c
@@ -99,6 +100,9 @@ add_executable(${PROJECT_NAME}
   source/menus/menu_library.c
   source/menus/menu_settings.c
 )
+
+# The debug log's start line says which build wrote it.
+target_compile_definitions(${PROJECT_NAME} PRIVATE APP_VERSION="${VITA_VERSION}")
 
 target_link_libraries(${PROJECT_NAME}
   vita2d

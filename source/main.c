@@ -13,6 +13,7 @@
 #include "audio.h"
 #include "common.h"
 #include "config.h"
+#include "debug_log.h"
 #include "dirbrowse.h"
 #include "fs.h"
 #include "lang.h"
@@ -86,6 +87,8 @@ int main(int argc, char *argv[]) {
 	UI_Theme_Load();
 
 	sceIoMkdir("ux0:data/ElevenMPV", 0777);
+	// Before the config, so that whatever loading it does is logged too.
+	DebugLog_Init();
 	Config_Load();
 	Config_GetLastDirectory();
 
@@ -170,6 +173,7 @@ int main(int argc, char *argv[]) {
 
 	Cover_Free();
 	Library_Free();
+	DebugLog_Shutdown();
 	UI_Debug_Free();
 	UI_Theme_Free();
 	vita2d_fini();

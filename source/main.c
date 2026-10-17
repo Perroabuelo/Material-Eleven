@@ -24,6 +24,7 @@
 #include "menu_library.h"
 #include "menu_settings.h"
 #include "nav_request.h"
+#include "suite.h"
 #include "touch.h"
 #include "ui_gpu.h"
 #include "ui_theme.h"
@@ -87,8 +88,13 @@ int main(int argc, char *argv[]) {
 	UI_Theme_Load();
 
 	sceIoMkdir("ux0:data/ElevenMPV", 0777);
+	// A suite that relaunched the app keeps writing the same log.
+	int relaunch = Suite_IsRelaunch();
 	// Before the config, so that whatever loading it does is logged too.
-	DebugLog_Init();
+	DebugLog_Init(relaunch);
+	// Before the config too: a scenario starts from the settings before the
+	// suite.
+	Suite_Init(relaunch);
 	Config_Load();
 	Config_GetLastDirectory();
 

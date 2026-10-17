@@ -83,4 +83,5 @@ templates/
 /tests/test_cover_mosaic
 /tests/test_selection
 /tests/test_log_line
+/tests/test_script
 /tests/.cflags

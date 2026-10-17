@@ -1,0 +1,53 @@
+# Suite de dev/debug-log: escenarios del log que se hacian a mano, ahora con
+# el guion.
+#
+# fixtures:
+#   - biblioteca de "ux0:/Mis cosas" escaneada (291 canciones);
+#   - lastdir.txt en "ux0:/pruebas-eleven/", con las carpetas que genera
+#     tools/testmedia (danados/ con "02 danado.mp3");
+#   - en nombre/, tres pistas: el "100% pure %s %d.wav" de 10 s que escribe
+#     el generador, y "acción en vivo.flac" y "Canción.flac", que hay que
+#     copiar aparte (cualquier pista sirve, con esos nombres);
+#   - el boton de confirmar en Cruz.
+
+scenario Recorrido corto por la Biblioteca
+wait screen to=folders
+tap 38 180                      # Biblioteca, en el nav rail
+wait screen to=library
+wait library view=songs sel=0
+press DOWN x2
+wait library view=songs sel=1
+wait library view=songs sel=2
+press SQUARE
+wait library menu=options
+
+scenario Toque en la pantalla
+wait screen to=folders
+tap 480 272
+wait touch event=down x=480 y=272
+wait touch event=up x=480 y=272
+
+scenario Pista que no abre
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS                     # danados/
+wait folders dir=ux0:/pruebas-eleven/danados/ sel=0 count=7
+press DOWN x2
+wait folders sel=2
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/danados/02 danado.mp3" result=fail
+
+scenario Fin de pista y avance de la cola
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x7
+wait folders sel=7
+press CROSS                     # nombre/
+wait folders dir=ux0:/pruebas-eleven/nombre/ sel=0 count=4
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/nombre/100% pure %s %d.wav" result=ok
+wait track event=end file="ux0:/pruebas-eleven/nombre/100% pure %s %d.wav" timeout=20s
+wait queue pos=1 count=3
+wait track event=open file="ux0:/pruebas-eleven/nombre/acción en vivo.flac" result=ok

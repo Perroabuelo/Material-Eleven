@@ -8,6 +8,7 @@
 // por cada falla.
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "log_line.h"
@@ -394,6 +395,172 @@ static void test_state(void) {
 	CHECK(LogState_Changed(&state, &line) == 1, "una linea mas larga deberia contar como distinta");
 }
 
+// Parsea `len` bytes copiados a un bloque de ese tamano exacto, sin NUL
+// detras, para que ASan vea cualquier lectura de mas.
+static int parse_exact(const char *text, unsigned int len, int with_time, LogParsed *out) {
+	char *copy = malloc(len ? len : 1);
+	memcpy(copy, text, len);
+	int ok = with_time ? LogLine_Parse(copy, len, out) : LogLine_ParseBody(copy, len, out);
+	free(copy);
+	return ok;
+}
+
+// Arma "track file=<value> n=7", lo parsea y compara el valor.
+static void check_round_trip(const char *value) {
+	LogLine line;
+	LogParsed parsed;
+
+	LogLine_Begin(&line, 12345000, "track");
+	LogLine_Str(&line, "file", value);
+	LogLine_Int(&line, "n", 7);
+	unsigned int len = LogLine_Finish(&line);
+
+	CHECK(parse_exact(line.text, len, 1, &parsed), "ida y vuelta de '%s': no parsea", value);
+	CHECK(parsed.time_us == 12345000, "ida y vuelta de '%s': tiempo %llu", value, (unsigned long long)parsed.time_us);
+	CHECK(strcmp(parsed.category, "track") == 0, "ida y vuelta de '%s': categoria '%s'", value, parsed.category);
+	CHECK(parsed.count == 2, "ida y vuelta de '%s': %d campos", value, parsed.count);
+
+	const char *file = LogParsed_Get(&parsed, "file");
+	CHECK(file && strcmp(file, value) == 0, "ida y vuelta de '%s': dio '%s'", value, file ? file : "(nada)");
+	const char *n = LogParsed_Get(&parsed, "n");
+	CHECK(n && strcmp(n, "7") == 0, "ida y vuelta de '%s': n='%s'", value, n ? n : "(nada)");
+}
+
+static void test_parse_round_trip(void) {
+	check_round_trip("song.mp3");
+	check_round_trip("ux0:/Mis cosas/una pista.flac");
+	check_round_trip("Say \"Hi\"");
+	check_round_trip("a\\b\\");
+	check_round_trip("uno\ndos\n");
+	check_round_trip("");
+	check_round_trip("canción ふかふか");
+	check_round_trip("k=v");
+
+	// Sin el salto de linea final tambien se lee.
+	LogParsed parsed;
+	const char *bare = "3.500 library view=songs group=- sel=2";
+	CHECK(parse_exact(bare, strlen(bare), 1, &parsed), "sin salto de linea deberia parsear");
+	CHECK(parsed.time_us == 3500000 && parsed.count == 3, "sin salto de linea: tiempo %llu, %d campos",
+		(unsigned long long)parsed.time_us, parsed.count);
+	CHECK(LogParsed_Get(&parsed, "mode") == NULL, "un campo que no esta deberia dar NULL");
+
+	// Una linea sin campos.
+	const char *lone = "0.000 log\n";
+	CHECK(parse_exact(lone, strlen(lone), 1, &parsed) && parsed.count == 0
+		&& strcmp(parsed.category, "log") == 0, "una linea sin campos deberia parsear");
+
+	// Sin tiempo, como la condicion de un wait.
+	const char *body = "library sel=2 name=\"a b\"";
+	CHECK(parse_exact(body, strlen(body), 0, &parsed), "el cuerpo deberia parsear");
+	CHECK(parsed.time_us == 0 && strcmp(parsed.category, "library") == 0 && parsed.count == 2,
+		"cuerpo: categoria '%s', %d campos", parsed.category, parsed.count);
+	const char *name = LogParsed_Get(&parsed, "name");
+	CHECK(name && strcmp(name, "a b") == 0, "cuerpo: name='%s'", name ? name : "(nada)");
+}
+
+static void test_parse_cut(void) {
+	char value[2000];
+	LogLine line;
+	LogParsed parsed;
+
+	// Con comillas (tiene espacios) y sin ellas: el valor recortado y cut=1
+	// llegan como campos.
+	for (int quoted = 0; quoted < 2; quoted++) {
+		memset(value, quoted ? ' ' : 'a', sizeof(value) - 1);
+		value[sizeof(value) - 1] = '\0';
+
+		LogLine_Begin(&line, 1000, "track");
+		LogLine_Str(&line, "file", value);
+		LogLine_Str(&line, "after", "x");
+		unsigned int len = LogLine_Finish(&line);
+
+		CHECK(parse_exact(line.text, len, 1, &parsed), "linea recortada (comillas=%d): no parsea", quoted);
+		const char *file = LogParsed_Get(&parsed, "file");
+		const char *cut = LogParsed_Get(&parsed, "cut");
+		CHECK(file && strlen(file) > 400 && strncmp(file, value, strlen(file)) == 0,
+			"linea recortada (comillas=%d): valor de %zu bytes", quoted, file ? strlen(file) : 0);
+		CHECK(cut && strcmp(cut, "1") == 0, "linea recortada (comillas=%d): falta cut=1", quoted);
+		CHECK(LogParsed_Get(&parsed, "after") == NULL, "linea recortada (comillas=%d): no deberia tener after", quoted);
+	}
+
+	// Recortada justo antes de un escape: el escape no queda a medias.
+	memset(value, '"', sizeof(value) - 1);
+	value[sizeof(value) - 1] = '\0';
+	LogLine_Begin(&line, 1000, "track");
+	LogLine_Str(&line, "file", value);
+	unsigned int len = LogLine_Finish(&line);
+	CHECK(parse_exact(line.text, len, 1, &parsed), "linea recortada entre escapes: no parsea");
+}
+
+static void test_parse_rejects(void) {
+	static const char *bad[] = {
+		"",
+		"\n",
+		"1.000",
+		"1.000\n",
+		"1.000 \n",              // sin categoria
+		"1.00 log",              // dos decimales
+		"1,000 log",
+		".000 log",
+		"x.000 log",
+		"1.000  log",            // dos espacios
+		"1.000 log ",            // espacio al final
+		"1.000 log  a=1",
+		"1.000 log a",           // sin '='
+		"1.000 log =1",          // sin clave
+		"1.000 log a=",          // valor vacio sin comillas
+		"1.000 log a=\"abc",     // comillas sin cerrar
+		"1.000 log a=\"abc\\\"", // la unica comilla de cierre esta escapada
+		"1.000 log a=\"ab\\",    // escape al final
+		"1.000 log a=\"a\\tb\"", // escape desconocido
+		"1.000 log a=b\"c",      // comilla en un valor sin comillas
+		"1.000 log a=b\\c",      // barra en un valor sin comillas
+		"1.000 log a=\"x\"y",    // algo pegado a la comilla de cierre
+		"1.000 log a\"=1",
+		"1.000 log a=1\n\n",
+		"1.000 log a=\"x\ny\"",  // salto de linea crudo dentro de comillas
+		"1234567890123.000 log", // tiempo con demasiadas cifras
+	};
+	LogParsed parsed;
+
+	for (unsigned int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++)
+		CHECK(!parse_exact(bad[i], strlen(bad[i]), 1, &parsed), "deberia rechazar '%s'", bad[i]);
+
+	// Un NUL en medio.
+	const char nul[] = "1.000 log a=b\0c";
+	CHECK(!parse_exact(nul, sizeof(nul) - 1, 1, &parsed), "deberia rechazar un NUL en medio");
+
+	// Mas de LOG_LINE_MAX bytes.
+	char longer[LOG_LINE_MAX + 2];
+	memcpy(longer, "1.000 log a=", 12);
+	memset(longer + 12, 'x', sizeof(longer) - 12);
+	CHECK(!parse_exact(longer, sizeof(longer), 1, &parsed), "deberia rechazar una linea de mas de %d bytes", LOG_LINE_MAX);
+
+	// Un campo mas que LOG_FIELDS_MAX.
+	char many[LOG_LINE_MAX];
+	unsigned int n = (unsigned int)snprintf(many, sizeof(many), "1.000 log");
+	for (int i = 0; i <= LOG_FIELDS_MAX; i++)
+		n += (unsigned int)snprintf(many + n, sizeof(many) - n, " a=%d", i);
+	CHECK(!parse_exact(many, n, 1, &parsed), "deberia rechazar %d campos", LOG_FIELDS_MAX + 1);
+	CHECK(parse_exact(many, n - 5, 1, &parsed) && parsed.count == LOG_FIELDS_MAX,
+		"deberia aceptar %d campos", LOG_FIELDS_MAX);
+
+	// Y la linea mas larga posible, llena de escapes, sin pasarse del buffer.
+	char full[LOG_LINE_MAX];
+	n = (unsigned int)snprintf(full, sizeof(full), "1.000 log a=\"");
+	while (n + 3 < LOG_LINE_MAX) {
+		full[n++] = '\\';
+		full[n++] = 'n';
+	}
+	full[n++] = '"';
+	full[n++] = '\n';
+	CHECK(parse_exact(full, n, 1, &parsed), "la linea mas larga deberia parsear");
+
+	// El cuerpo sin tiempo tambien rechaza.
+	CHECK(!parse_exact("", 0, 0, &parsed), "un cuerpo vacio deberia rechazarse");
+	CHECK(!parse_exact("library sel", 11, 0, &parsed), "un cuerpo sin '=' deberia rechazarse");
+}
+
 int main(void) {
 	test_time();
 	test_values();
@@ -403,6 +570,9 @@ int main(void) {
 	test_ring_drops();
 	test_ring_too_small();
 	test_state();
+	test_parse_round_trip();
+	test_parse_cut();
+	test_parse_rejects();
 
 	if (failures == 0)
 		printf("test_log_line: todo bien\n");

@@ -60,11 +60,18 @@ static inline int DebugLog_On(void) {
 // debug.prev.log, reserves the ring, and starts the writer thread. Any step
 // that fails undoes the ones before it and leaves the log off, with the
 // reason in DebugLog_GetStatus. Call once, after the data folder exists.
-void DebugLog_Init(void);
+//
+// With `relaunch` (a suite relaunched the app between two scenarios), the
+// log is not moved: the new process goes on at the end of debug.log.
+void DebugLog_Init(int relaunch);
 
 // Stops the writer, writes what is left and frees everything. Nothing to do
 // when the log never started.
 void DebugLog_Shutdown(void);
+
+// Writes every line taken so far to the card before returning, for a
+// process about to end or be replaced. The log goes on as before.
+void DebugLog_Sync(void);
 
 // Starts a line with the time since the app started.
 void DebugLog_Begin(LogLine *line, const char *category);
@@ -88,6 +95,19 @@ void DebugLog_Buttons(LogLine *line, const char *key, unsigned int mask);
 // frame. Only the buttons the log names count: a frame where nothing else
 // changed writes nothing.
 void DebugLog_Input(unsigned int down, unsigned int up);
+
+// The last state line of the screen named `category` (folders, library,
+// settings, nowplaying), from the category on, without the time and with
+// its newline, and its length in `len`. NULL for any other category, when
+// that screen has written nothing since the last screen line, or with the
+// log off. Main thread only.
+const char *DebugLog_LastState(const char *category, unsigned int *len);
+
+// The names the log gives the buttons, in its order.
+const LogButtonName *DebugLog_ButtonNames(int *count);
+
+// The mask of every button the log names.
+unsigned int DebugLog_NamedButtons(void);
 
 DebugLog_Status DebugLog_GetStatus(void);
 

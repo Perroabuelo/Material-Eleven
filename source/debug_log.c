@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "debug_log.h"
+#include "suite.h"
 
 #ifndef APP_VERSION
 #define APP_VERSION "?"
@@ -42,6 +43,9 @@ static LogRing ring;
 static SceKernelLwMutexWork lock;
 static SceUID writer = -1;
 static volatile int writer_quit = 0;
+// The suite only watches lines from here: it is not thread-safe, and every
+// event it waits for is logged from the main thread.
+static SceUID main_thread = -1;
 
 // The order the buttons are named in a line.
 static const LogButtonName button_names[] = {
@@ -122,6 +126,29 @@ static int Rotate(void) {
 	return sceIoRemove(DEBUG_LOG_FILE) >= 0;
 }
 
+static int StartWriter(void) {
+	writer_quit = 0;
+	writer = sceKernelCreateThread("debug_log_thread", DebugLog_Writer, DEBUG_LOG_PRIORITY, DEBUG_LOG_STACK_SIZE, 0, 0, NULL);
+	if (writer < 0 || sceKernelStartThread(writer, 0, NULL) < 0) {
+		if (writer >= 0)
+			sceKernelDeleteThread(writer);
+		writer = -1;
+		return 0;
+	}
+
+	return 1;
+}
+
+static void StopWriter(void) {
+	if (writer < 0)
+		return;
+
+	writer_quit = 1;
+	sceKernelWaitThreadEnd(writer, NULL, NULL);
+	sceKernelDeleteThread(writer);
+	writer = -1;
+}
+
 static int CreateEmptyLog(void) {
 	SceUID fd = sceIoOpen(DEBUG_LOG_FILE, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
 
@@ -155,7 +182,7 @@ static void LogStart(void) {
 	DebugLog_Commit(&line);
 }
 
-void DebugLog_Init(void) {
+void DebugLog_Init(int relaunch) {
 	SceIoStat stat;
 
 	if (sceIoGetstat(DEBUG_LOG_MARKER, &stat) < 0)
@@ -178,7 +205,8 @@ void DebugLog_Init(void) {
 		return;
 	}
 
-	if (!Rotate() || !CreateEmptyLog()) {
+	// A suite that relaunches the app goes on in the same file.
+	if (!relaunch && (!Rotate() || !CreateEmptyLog())) {
 		sceKernelDeleteLwMutex(&lock);
 		free(memory);
 		memory = NULL;
@@ -186,12 +214,7 @@ void DebugLog_Init(void) {
 		return;
 	}
 
-	writer_quit = 0;
-	writer = sceKernelCreateThread("debug_log_thread", DebugLog_Writer, DEBUG_LOG_PRIORITY, DEBUG_LOG_STACK_SIZE, 0, 0, NULL);
-	if (writer < 0 || sceKernelStartThread(writer, 0, NULL) < 0) {
-		if (writer >= 0)
-			sceKernelDeleteThread(writer);
-		writer = -1;
+	if (!StartWriter()) {
 		sceKernelDeleteLwMutex(&lock);
 		free(memory);
 		memory = NULL;
@@ -199,6 +222,7 @@ void DebugLog_Init(void) {
 		return;
 	}
 
+	main_thread = sceKernelGetThreadId();
 	mode = DEBUG_LOG_ACTIVE;
 	debug_log_on = 1;
 	LogStart();
@@ -209,10 +233,7 @@ void DebugLog_Shutdown(void) {
 		return;
 
 	debug_log_on = 0;
-	writer_quit = 1;
-	sceKernelWaitThreadEnd(writer, NULL, NULL);
-	sceKernelDeleteThread(writer);
-	writer = -1;
+	StopWriter();
 
 	// The writer is gone: whatever it had not taken yet goes from here.
 	Flush();
@@ -221,6 +242,26 @@ void DebugLog_Shutdown(void) {
 	free(memory);
 	memory = NULL;
 	mode = DEBUG_LOG_OFF;
+}
+
+void DebugLog_Sync(void) {
+	if (mode != DEBUG_LOG_ACTIVE)
+		return;
+
+	// Two flushes at once could append their blocks out of order, so the
+	// writer stops while this one runs.
+	StopWriter();
+	Flush();
+	StartWriter();
+}
+
+// The suite sees every line logged on the main thread, already finished.
+static void Observe(LogLine *line) {
+	if (!Suite_Running() || sceKernelGetThreadId() != main_thread)
+		return;
+
+	LogLine_Finish(line);
+	Suite_Observe(line->text, line->len);
 }
 
 void DebugLog_Begin(LogLine *line, const char *category) {
@@ -234,6 +275,8 @@ void DebugLog_Commit(LogLine *line) {
 	Lock();
 	LogRing_Push(&ring, line);
 	Unlock();
+
+	Observe(line);
 }
 
 void DebugLog_CommitState(LogLine *line, DebugLog_StateChannel channel) {
@@ -244,6 +287,30 @@ void DebugLog_CommitState(LogLine *line, DebugLog_StateChannel channel) {
 	if (LogState_Changed(&memory->states[channel], line))
 		LogRing_Push(&ring, line);
 	Unlock();
+
+	// A repeated state is not written, but it is still the screen's state.
+	Observe(line);
+}
+
+static const char *const state_names[DEBUG_STATE_COUNT] = { "folders", "library", "settings", "nowplaying" };
+
+const char *DebugLog_LastState(const char *category, unsigned int *len) {
+	if (!debug_log_on)
+		return NULL;
+
+	for (int i = 0; i < DEBUG_STATE_COUNT; i++) {
+		if (strcmp(category, state_names[i]) != 0)
+			continue;
+
+		// Only the main thread writes states, and only it asks.
+		if (memory->states[i].len == 0)
+			return NULL;
+
+		*len = memory->states[i].len;
+		return memory->states[i].body;
+	}
+
+	return NULL;
 }
 
 static const char *ScreenName(UI_Screen screen) {
@@ -276,6 +343,20 @@ void DebugLog_Screen(UI_Screen to) {
 		LogState_Reset(&memory->states[i]);
 	LogRing_Push(&ring, &line);
 	Unlock();
+
+	Observe(&line);
+}
+
+const LogButtonName *DebugLog_ButtonNames(int *count) {
+	*count = (int)(sizeof(button_names) / sizeof(button_names[0]));
+	return button_names;
+}
+
+unsigned int DebugLog_NamedButtons(void) {
+	unsigned int named = 0;
+	for (unsigned int i = 0; i < sizeof(button_names) / sizeof(button_names[0]); i++)
+		named |= button_names[i].mask;
+	return named;
 }
 
 void DebugLog_Buttons(LogLine *line, const char *key, unsigned int mask) {
@@ -286,9 +367,7 @@ void DebugLog_Input(unsigned int down, unsigned int up) {
 	if (!debug_log_on)
 		return;
 
-	unsigned int named = 0;
-	for (unsigned int i = 0; i < sizeof(button_names) / sizeof(button_names[0]); i++)
-		named |= button_names[i].mask;
+	unsigned int named = DebugLog_NamedButtons();
 
 	down &= named;
 	up &= named;

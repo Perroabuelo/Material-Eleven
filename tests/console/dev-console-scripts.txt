@@ -1,0 +1,122 @@
+# Suite de dev/console-scripts (add-console-scripts): los escenarios que el
+# guion puede verificar solo. Los demas estan en tests/console/README.md.
+#
+# fixtures:
+#   - biblioteca de "ux0:/Mis cosas" escaneada (291 canciones);
+#   - lastdir.txt en "ux0:/pruebas-eleven/", con las carpetas que genera
+#     tools/ (formatos-estereo/ con cinco pistas, "01 estereo.flac" a
+#     "05 estereo.wav");
+#   - en Ajustes, idioma English (language = 1 en config.cfg);
+#   - el boton de confirmar en Cruz.
+#
+# "Timeout" falla a proposito: el resultado esperado es end pass=12 fail=1.
+
+scenario Suite con marcador
+wait screen to=folders
+
+scenario Bajar dos filas
+wait screen to=folders
+tap 38 180                      # Biblioteca, en el nav rail
+wait library view=songs sel=0
+press DOWN x2
+wait library sel=1
+wait library sel=2
+
+scenario Mantener abajo
+tap 38 180
+wait library view=songs sel=0
+hold DOWN 2s
+wait library sel=10
+
+scenario Toque inyectado
+wait screen to=folders
+tap 480 272
+wait touch event=up x=480 y=272
+
+scenario El estado actual ya cumple
+tap 38 180
+wait library view=songs
+wait library view=songs
+
+scenario Timeout
+tap 38 180
+wait library view=songs sel=0
+wait library sel=5 timeout=1s   # nunca llega: el escenario falla aqui
+
+scenario Cambiar el idioma
+wait screen to=folders
+press SELECT                    # Ajustes
+wait settings category=0 item=0 lang=english
+press R x5                      # Idioma
+wait settings category=5 item=0
+press DOWN x2
+wait settings category=5 item=2
+press CROSS                     # Espanol
+wait settings lang=spanish
+
+scenario El idioma no pasa al siguiente
+wait screen to=folders
+press SELECT
+wait settings lang=english
+
+scenario Reproducir una pista
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
+wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
+press DOWN                      # la fila 0 sube a la carpeta de arriba
+wait folders sel=1
+press CROSS
+wait track event=open result=ok
+
+scenario Sin pista despues de relanzar
+wait screen to=folders
+sleep 1s
+
+scenario Semilla 42 (a)
+seed 42
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
+wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
+press DOWN                      # la fila 0 sube a la carpeta de arriba
+wait folders sel=1
+press CROSS
+wait track event=open result=ok
+press TRIANGLE                  # aleatorio
+sleep 300ms
+press R
+wait queue pos=1 count=5
+press R
+wait queue pos=2 count=5
+press R
+wait queue pos=3 count=5
+press R
+wait queue pos=4 count=5
+
+scenario Semilla 42 (b)
+seed 42
+wait folders dir=ux0:/pruebas-eleven/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS                     # formatos-estereo/
+wait folders dir=ux0:/pruebas-eleven/formatos-estereo/ sel=0 count=6
+press DOWN                      # la fila 0 sube a la carpeta de arriba
+wait folders sel=1
+press CROSS
+wait track event=open result=ok
+press TRIANGLE
+sleep 300ms
+press R
+wait queue pos=1 count=5
+press R
+wait queue pos=2 count=5
+press R
+wait queue pos=3 count=5
+press R
+wait queue pos=4 count=5
+
+scenario Ultimo
+wait screen to=folders

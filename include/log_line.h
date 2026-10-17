@@ -56,6 +56,39 @@ void LogLine_Buttons(LogLine *line, const char *key, unsigned int mask, const Lo
 // returns the same length.
 unsigned int LogLine_Finish(LogLine *line);
 
+// Most fields a parsed line can have. Real lines carry under ten.
+#define LOG_FIELDS_MAX 32
+
+// A line read back: the inverse of the functions above. Every pointer points
+// into `buf`, NUL-terminated, with the quotes and escapes of the values
+// undone. A cut line keeps its cut value and its cut=1 field as they are.
+typedef struct {
+	char buf[LOG_LINE_MAX + 1];
+	uint64_t time_us;       // to the millisecond, as the line has it
+	const char *category;
+	int count;
+	struct {
+		const char *key;
+		const char *value;
+	} fields[LOG_FIELDS_MAX];
+} LogParsed;
+
+// Reads "<seconds>.<millis> <category> <key>=<value> ..." from the `len`
+// bytes of `text`, with or without the final newline, and never past them.
+// Returns 1 and fills `out`, or 0 when the text is not a line the functions
+// above could have written: no time or no category, two spaces in a row, a
+// field without '=' or without a key, a bare value with a quote or a
+// backslash or empty, an unclosed quote, an unknown escape, more than
+// LOG_FIELDS_MAX fields, a NUL byte, or more than LOG_LINE_MAX bytes.
+int LogLine_Parse(const char *text, unsigned int len, LogParsed *out);
+
+// The same without the time: "<category> <key>=<value> ...". The time in
+// `out` is 0.
+int LogLine_ParseBody(const char *text, unsigned int len, LogParsed *out);
+
+// The value of `key` in a parsed line, or NULL when it has no such field.
+const char *LogParsed_Get(const LogParsed *line, const char *key);
+
 // A ring of bytes over memory the caller owns, holding whole lines until the
 // writer thread takes them. Not thread-safe: the console side holds its lock
 // around every call.

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.3.0] - 2026-10-17
+
 ### Added
 
 - Developer test suites: with the developer log on, a `suite.txt` in `ux0:data/ElevenMPV/` makes the app replay scripted button presses and touches, check the result of each scenario and record it in `debug.log`, then close by itself. Pressing any button stops the suite.

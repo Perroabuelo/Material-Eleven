@@ -38,7 +38,7 @@
 ## 4. Proceso y documentación
 
 - [x] 4.1 Agregar a `rules.design` en `openspec/config.yaml` la regla de la Decisión 10. Listo cuando `openspec validate add-debug-log` pase y `openspec instructions design --change add-debug-log --json` muestre la regla nueva.
-- [ ] 4.2 Agregar al `README.md` la sección en inglés de la Decisión 11. Listo cuando la sección explique el marcador, `debug.log`, `debug.prev.log` y el aviso de privacidad.
+- [x] 4.2 Agregar al `README.md` la sección en inglés de la Decisión 11. Listo cuando la sección explique el marcador, `debug.log`, `debug.prev.log` y el aviso de privacidad.
 
 ## 5. Verificación y versión
 

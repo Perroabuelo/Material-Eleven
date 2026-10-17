@@ -131,6 +131,17 @@ The enter and cancel buttons (cross/circle) follow your console's settings.
 Download `Material-Eleven-X.Y.Z.vpk` from the [Releases](https://github.com/Perroabuelo/Material-Eleven/releases) page and install it with VitaShell. Installing over a previous version keeps your library and your settings.
 
 
+# Debug log:
+For bug reports and development, the app can keep a log of what it did: the screens you opened, the buttons you pressed and where you touched, what each screen showed, the tracks it opened and when they ended, and the playlists and library scans it saved. It is off by default.
+
+- To turn it on, create an empty file named `debug` (no extension) in `ux0:data/ElevenMPV/`, for example with VitaShell, and restart the app. Creating or deleting the file while the app is open changes nothing until the next start.
+- The log is written to `ux0:data/ElevenMPV/debug.log`, a few lines at a time while the app runs.
+- Each start moves the previous log to `debug.prev.log`, so after a crash or after closing the app with the PS button, the session that ended is still there when you open the app again.
+- To turn it off, delete `debug`. The debug overlay (L + R + Select) shows whether the log is on, how many lines it has written and how many it dropped.
+
+**Privacy:** the log contains the paths and names of your music files and playlists. Read it before attaching it to a public issue, and remove anything you would rather not share.
+
+
 # License:
 Material-Eleven is distributed under the GNU General Public License, version 3 or (at your option) any later version. See [LICENSE](LICENSE).
 

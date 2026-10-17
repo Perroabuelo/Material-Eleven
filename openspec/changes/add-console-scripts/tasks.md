@@ -1,6 +1,12 @@
 ## 1. Spike
 
-- [ ] 1.1 Comprobar `sceAppMgrLoadExec("app0:eboot.bin", NULL, NULL)` en la consola con una build de prueba no versionada: con el marcador del log, un combo temporal relanza la app. Probarlo en Carpetas sin pista, y en la Biblioteca con una pista sonando y el overlay abierto. Anotar en esta tarea el código de retorno, si el proceso nuevo arranca en Carpetas sin música, si el `debug.log` del proceso anterior tiene todas sus líneas (con un `DebugLog_Sync` provisional) y el `heap_kb` de la primera línea `screen` de cada proceso. Listo cuando los tres casos relancen limpio. Si alguno falla, pausar y revisar con el usuario el plan B de design.md (Decisión 6) antes de seguir. La build de prueba no se commitea.
+- [x] 1.1 Comprobar `sceAppMgrLoadExec("app0:eboot.bin", NULL, NULL)` en la consola con una build de prueba no versionada: con el marcador del log, un combo temporal relanza la app. Probarlo en Carpetas sin pista, y en la Biblioteca con una pista sonando y el overlay abierto. Anotar en esta tarea el código de retorno, si el proceso nuevo arranca en Carpetas sin música, si el `debug.log` del proceso anterior tiene todas sus líneas (con un `DebugLog_Sync` provisional) y el `heap_kb` de la primera línea `screen` de cada proceso. Listo cuando los tres casos relancen limpio. Si alguno falla, pausar y revisar con el usuario el plan B de design.md (Decisión 6) antes de seguir. La build de prueba no se commitea.
+
+  Resultados (2026-10-17), con una build que no rotaba `debug.log` para que los cuatro procesos quedaran en un solo archivo:
+  - Código de retorno: `sceAppMgrLoadExec("app0:eboot.bin", NULL, NULL)` no volvió en ninguno de los tres casos. La línea `spike event=returned` que seguía a la llamada nunca se escribió, y la ruta alternativa `app0:/eboot.bin` no hizo falta.
+  - Los tres casos relanzaron limpio: Carpetas sin pista (`track=0`), con una pista sonando (`track=1`) y con una pista sonando y el overlay abierto (`track=1`). En los dos últimos, la app estaba en Reproduciendo después de abrir la pista desde la Biblioteca. Cada proceso nuevo empezó con `log event=start` y `screen to=folders`, sin música y sin líneas `track` hasta que se abrió una pista.
+  - Log del proceso anterior: la última línea de cada uno es la `spike event=relaunch`, escrita con el `DebugLog_Sync` provisional justo antes de la llamada. No falta ninguna.
+  - `heap_kb` de la primera línea `screen` de cada uno de los cuatro procesos: 1362.
 
 ## 2. Lógica pura
 

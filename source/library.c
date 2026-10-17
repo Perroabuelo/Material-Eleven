@@ -13,6 +13,7 @@
 #include "library.h"
 #include "library_row.h"
 #include "cover.h"
+#include "debug_log.h"
 #include "nav_rail.h"
 #include "path_index.h"
 #include "tags.h"
@@ -1092,7 +1093,7 @@ static void Library_CarryTags(Library_Track *dst, const Library_Carried *carry, 
 	}
 }
 
-SceBool Library_RunScan(void) {
+static SceBool Library_Scan(void) {
 	// Sin carpeta, o con una que ya no esta, no se toca nada: recorrer una
 	// raiz ausente dejaria cero pistas y se llevaria por delante un indice
 	// que sigue siendo bueno para cuando la tarjeta vuelva.
@@ -1257,4 +1258,19 @@ SceBool Library_RunScan(void) {
 	Library_IndexPaths();
 	Library_Save();
 	return SCE_TRUE;
+}
+
+SceBool Library_RunScan(void) {
+	SceBool ok = Library_Scan();
+
+	if (DebugLog_On()) {
+		LogLine line;
+		DebugLog_Begin(&line, "library");
+		LogLine_Str(&line, "event", "scan");
+		LogLine_Int(&line, "tracks", Library_Count());
+		LogLine_Str(&line, "result", ok ? "ok" : "fail");
+		DebugLog_Commit(&line);
+	}
+
+	return ok;
 }

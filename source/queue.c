@@ -37,8 +37,9 @@ static char **queue_albums = NULL;
 static int *queue_order = NULL;
 static int queue_count = 0;
 static int queue_capacity = 0;
-// Puesto dentro del plan, no indice en queue_paths. Por eso no sale de aqui:
-// fuera de este archivo la cola solo habla en rutas.
+// Puesto dentro del plan, no indice en queue_paths. Por eso solo sale de aqui
+// para el log (Queue_PlanPosition): fuera de este archivo la cola habla en
+// rutas.
 static int queue_slot = 0;
 static SceBool queue_shuffled = SCE_FALSE;
 
@@ -183,6 +184,10 @@ SceBool Queue_Add(const char *path, const char *title, const char *album) {
 
 int Queue_Count(void) {
 	return queue_count;
+}
+
+int Queue_PlanPosition(void) {
+	return queue_slot;
 }
 
 // Indice natural de esa ruta, o -1 si no esta. A diferencia del viejo

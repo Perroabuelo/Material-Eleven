@@ -182,7 +182,18 @@ static int Music_AdvanceOpen(void *ctx, const char *path) {
 }
 
 static const char *Music_AdvanceStep(void *ctx, int forward) {
-	return Queue_Advance(forward ? SCE_TRUE : SCE_FALSE);
+	const char *path = Queue_Advance(forward ? SCE_TRUE : SCE_FALSE);
+
+	// After the move and before the open, so the log reads end, queue, open.
+	if (DebugLog_On() && path != NULL) {
+		LogLine line;
+		DebugLog_Begin(&line, "queue");
+		LogLine_Int(&line, "pos", Queue_PlanPosition());
+		LogLine_Int(&line, "count", Queue_Count());
+		DebugLog_Commit(&line);
+	}
+
+	return path;
 }
 
 static const char *Music_AdvanceCurrent(void *ctx) {
@@ -255,8 +266,20 @@ void Music_Next(void) {
 // Sin Audio_HasTrack, despues de que ninguna pista abriera se volveria a probar
 // la cola entera en cada fotograma.
 void Music_Update(void) {
-	if (Audio_HasTrack() && !playing && Queue_Count() != 0)
+	if (Audio_HasTrack() && !playing && Queue_Count() != 0) {
+		if (DebugLog_On()) {
+			const char *path = NULL;
+			Queue_PeekAhead(0, &path, NULL, NULL);
+
+			LogLine line;
+			DebugLog_Begin(&line, "track");
+			LogLine_Str(&line, "event", "end");
+			LogLine_Str(&line, "file", path ? path : "");
+			DebugLog_Commit(&line);
+		}
+
 		Music_HandleNext(SCE_TRUE, repeat);
+	}
 }
 
 // ---- Now Playing rendering ----

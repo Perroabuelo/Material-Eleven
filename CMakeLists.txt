@@ -73,6 +73,7 @@ add_executable(${PROJECT_NAME}
   source/playlist_store.c
   source/queue.c
   source/screen_off.c
+  source/script.c
   source/search_dialog.c
   source/seek_bar.c
   source/selection.c

@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-16
+
 ### Added
 
 - Select several songs at once: choose "Select" from the Square menu, or touch and hold a row.

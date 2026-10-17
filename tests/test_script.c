@@ -336,10 +336,390 @@ static void test_limits(void) {
 	free(text);
 }
 
+// Un fotograma cada 16 ms, como la consola.
+#define FRAME_US 16667ULL
+
+// El estado de las pantallas que el lado de la consola guardaria.
+typedef struct {
+	const char *category;
+	const char *body;
+} FakeState;
+
+static const char *fake_last_state(const char *category, unsigned int *len, void *ctx) {
+	const FakeState *state = ctx;
+
+	if (!state || !state->body || strcmp(state->category, category) != 0)
+		return NULL;
+
+	*len = (unsigned int)strlen(state->body);
+	return state->body;
+}
+
+// Una suite de un escenario con `steps` como pasos.
+static Script *one_scenario(const char *steps) {
+	char text[4096];
+	ScriptError err;
+
+	snprintf(text, sizeof(text), "scenario prueba\n%s", steps);
+	Script *script = parse(text, &err);
+	CHECK(script != NULL, "'%s' no parsea: linea %d, %s", steps, err.line, err.reason);
+	return script;
+}
+
+static void observe(ScriptRun *run, const char *line) {
+	ScriptRun_Observe(run, line, (unsigned int)strlen(line));
+}
+
+static void test_run_press(void) {
+	Script *script = one_scenario("press DOWN x2\n");
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	unsigned int want[] = { BTN_DOWN, 0, BTN_DOWN, 0 };
+	uint64_t now = 1000000;
+	for (int i = 0; i < 4; i++, now += FRAME_US) {
+		ScriptFrame f = ScriptRun_Tick(&run, now);
+		CHECK(f.buttons == want[i] && f.result == SCRIPT_RUNNING, "press DOWN x2, fotograma %d: %x", i, f.buttons);
+		CHECK((i == 0) == (f.started != NULL), "press DOWN x2, fotograma %d: el paso deberia empezar solo en el primero", i);
+	}
+
+	ScriptFrame f = ScriptRun_Tick(&run, now);
+	CHECK(f.result == SCRIPT_PASS && f.buttons == 0, "press DOWN x2 deberia terminar con pass despues de 4 fotogramas");
+	f = ScriptRun_Tick(&run, now + FRAME_US);
+	CHECK(f.result == SCRIPT_PASS && f.started == NULL, "despues del final, sigue pass");
+
+	Script_Free(script);
+}
+
+static void test_run_hold(void) {
+	Script *script = one_scenario("hold DOWN 2s\npress CROSS\n");
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	uint64_t start = 5000000, now = start;
+	ScriptFrame f;
+	int held = 0;
+	while (1) {
+		f = ScriptRun_Tick(&run, now);
+		if (f.buttons != BTN_DOWN)
+			break;
+		held++;
+		now += FRAME_US;
+	}
+
+	CHECK(now - start >= 2000000 && now - start < 2000000 + FRAME_US,
+		"hold DOWN 2s deberia soltar a los 2 s, solto a los %llu us", (unsigned long long)(now - start));
+	CHECK(f.buttons == 0 && f.started == NULL, "hold: un fotograma sin botones al final");
+	CHECK(held > 100, "hold: %d fotogramas con DOWN", held);
+
+	f = ScriptRun_Tick(&run, now + FRAME_US);
+	CHECK(f.buttons == BTN_CROSS && f.started && f.started->cmd == SCRIPT_PRESS, "despues del hold empieza el press");
+
+	Script_Free(script);
+}
+
+static void test_run_tap_swipe(void) {
+	Script *script = one_scenario("tap 480 272\nswipe 0 100 200 300 1s\n");
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	uint64_t start = 0, now = start;
+	ScriptFrame f;
+	while (1) {
+		f = ScriptRun_Tick(&run, now);
+		if (!f.touching)
+			break;
+		CHECK(f.x == 480 && f.y == 272, "tap: el dedo en %d,%d", f.x, f.y);
+		now += 1000;
+	}
+	CHECK(now - start == SCRIPT_TAP_MS * 1000, "tap deberia durar %d ms, duro %llu us", SCRIPT_TAP_MS,
+		(unsigned long long)(now - start));
+	CHECK(f.started == NULL, "tap: el fotograma sin dedo no empieza otro paso");
+
+	start = now + FRAME_US;
+	f = ScriptRun_Tick(&run, start);
+	CHECK(f.started && f.started->cmd == SCRIPT_SWIPE && f.touching && f.x == 0 && f.y == 100,
+		"swipe: empieza en 0,100, dio %d,%d", f.x, f.y);
+	f = ScriptRun_Tick(&run, start + 500000);
+	CHECK(f.touching && f.x == 100 && f.y == 200, "swipe: a la mitad en 100,200, dio %d,%d", f.x, f.y);
+	f = ScriptRun_Tick(&run, start + 999000);
+	CHECK(f.touching && f.x == 199 && f.y == 299, "swipe: casi al final en 199,299, dio %d,%d", f.x, f.y);
+	f = ScriptRun_Tick(&run, start + 1200000);
+	CHECK(f.touching && f.x == 200 && f.y == 300, "swipe: el extremo 200,300, dio %d,%d", f.x, f.y);
+	f = ScriptRun_Tick(&run, start + 1216000);
+	CHECK(!f.touching && f.result == SCRIPT_RUNNING, "swipe: un fotograma sin dedo al final");
+	f = ScriptRun_Tick(&run, start + 1232000);
+	CHECK(f.result == SCRIPT_PASS, "swipe: despues termina el escenario");
+
+	Script_Free(script);
+}
+
+static void test_run_sleep_seed(void) {
+	Script *script = one_scenario("seed 7\nsleep 500ms\npress CROSS\n");
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	ScriptFrame f = ScriptRun_Tick(&run, 0);
+	CHECK(f.started && f.started->cmd == SCRIPT_SEED && f.started->seed == 7, "el primer fotograma empieza el seed");
+	f = ScriptRun_Tick(&run, FRAME_US);
+	CHECK(f.started && f.started->cmd == SCRIPT_SLEEP, "el segundo empieza el sleep");
+	f = ScriptRun_Tick(&run, FRAME_US + 499000);
+	CHECK(f.started == NULL && f.buttons == 0, "el sleep sigue a los 499 ms");
+	f = ScriptRun_Tick(&run, FRAME_US + 500000);
+	CHECK(f.started && f.started->cmd == SCRIPT_PRESS && f.buttons == BTN_CROSS,
+		"a los 500 ms empieza el press en el mismo fotograma");
+
+	Script_Free(script);
+}
+
+// Los escenarios "Campos de mas en la linea" y "Valor distinto".
+static void test_wait_matches(void) {
+	Script *script = one_scenario("wait library sel=2\nwait nowplaying file=\"a \\\"b\\\".mp3\"\n");
+	if (!script)
+		return;
+
+	const ScriptStep *wait = Script_Scenario(script, 0, NULL) + 1;
+	LogParsed line;
+
+	const char *more = "library view=songs group=- sel=2 count=291 mode=normal menu=none";
+	CHECK(LogLine_ParseBody(more, (unsigned int)strlen(more), &line) && Script_WaitMatches(wait, &line),
+		"wait library sel=2 deberia cumplirse con campos de mas");
+
+	const char *other = "library view=songs sel=20";
+	CHECK(LogLine_ParseBody(other, (unsigned int)strlen(other), &line) && !Script_WaitMatches(wait, &line),
+		"wait library sel=2 no deberia cumplirse con sel=20");
+
+	const char *category = "folders sel=2";
+	CHECK(LogLine_ParseBody(category, (unsigned int)strlen(category), &line) && !Script_WaitMatches(wait, &line),
+		"wait library sel=2 no deberia cumplirse con otra categoria");
+
+	const char *missing = "library view=songs";
+	CHECK(LogLine_ParseBody(missing, (unsigned int)strlen(missing), &line) && !Script_WaitMatches(wait, &line),
+		"wait library sel=2 no deberia cumplirse sin sel");
+
+	const char *quoted = "nowplaying file=\"a \\\"b\\\".mp3\" paused=0";
+	CHECK(LogLine_ParseBody(quoted, (unsigned int)strlen(quoted), &line) && Script_WaitMatches(wait + 1, &line),
+		"un valor con comillas deberia cumplirse");
+
+	Script_Free(script);
+}
+
+static void test_wait_lookahead(void) {
+	// La linea llega en el mismo fotograma que el press, antes de que los
+	// wait empiecen, y en el orden contrario al del guion.
+	Script *script = one_scenario("press DOWN x2\nwait library sel=1\nsleep 100ms\nwait library sel=2\n");
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	uint64_t now = 0;
+	ScriptRun_Tick(&run, now);
+	observe(&run, "0.000 library view=songs sel=2\n");
+	observe(&run, "0.000 library view=songs sel=1\n");
+
+	ScriptFrame f;
+	int frames = 0;
+	do {
+		now += FRAME_US;
+		f = ScriptRun_Tick(&run, now);
+		frames++;
+	} while (f.result == SCRIPT_RUNNING && frames < 100);
+
+	CHECK(f.result == SCRIPT_PASS, "las lineas vistas durante el press deberian cumplir los dos wait");
+	// 3 del press, 1 por wait y 100 ms de sleep: muy por debajo del timeout.
+	CHECK(frames < 20, "deberia terminar enseguida, tardo %d fotogramas", frames);
+
+	Script_Free(script);
+
+	// Una linea anterior a la ultima accion ya no cuenta.
+	script = one_scenario("press DOWN\npress DOWN\nwait library sel=1 timeout=100ms\n");
+	if (!script)
+		return;
+
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+	now = 0;
+	ScriptRun_Tick(&run, now);
+	observe(&run, "0.000 library view=songs sel=1\n");
+	do {
+		now += FRAME_US;
+		f = ScriptRun_Tick(&run, now);
+	} while (f.result == SCRIPT_RUNNING && now < 10000000);
+
+	CHECK(f.result == SCRIPT_FAIL, "una linea de antes de la ultima accion no deberia cumplir el wait");
+	CHECK(f.last && strcmp(f.last, "library view=songs sel=1") == 0, "last deberia ser la linea vista: '%s'",
+		f.last ? f.last : "(nada)");
+
+	Script_Free(script);
+}
+
+static void test_wait_state(void) {
+	// El escenario "El estado actual ya cumple", y un wait sin accion previa.
+	Script *script = one_scenario("wait library view=songs\nwait library view=songs\n");
+	if (!script)
+		return;
+
+	FakeState state = { "library", "library view=songs group=- sel=0 count=291 mode=normal menu=none\n" };
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, fake_last_state, &state);
+
+	ScriptFrame f = ScriptRun_Tick(&run, 0);
+	CHECK(f.started && f.result == SCRIPT_RUNNING, "el primer wait empieza");
+	f = ScriptRun_Tick(&run, FRAME_US);
+	CHECK(f.started && f.started->line == 3, "el segundo wait empieza en el fotograma siguiente");
+	f = ScriptRun_Tick(&run, 2 * FRAME_US);
+	CHECK(f.result == SCRIPT_PASS, "los dos wait se cumplen con el estado actual");
+
+	Script_Free(script);
+
+	// Sin estado, un wait sin accion previa ve las lineas desde el inicio
+	// del escenario.
+	script = one_scenario("wait screen to=folders\n");
+	if (!script)
+		return;
+
+	ScriptRun_Init(&run, script, 0, fake_last_state, NULL);
+	observe(&run, "2.660 screen to=folders heap_kb=1362\n");
+	f = ScriptRun_Tick(&run, 0);
+	CHECK(f.started, "el wait empieza");
+	f = ScriptRun_Tick(&run, FRAME_US);
+	CHECK(f.result == SCRIPT_PASS, "una linea vista antes del primer fotograma deberia cumplir el wait");
+
+	Script_Free(script);
+}
+
+static void test_wait_timeout(void) {
+	// El escenario "Timeout": en la linea 12 del guion.
+	Script *script = one_scenario("# 2\n# 3\n# 4\n# 5\n# 6\n# 7\n# 8\n# 9\n# 10\n# 11\nwait library sel=5 timeout=1s\npress CROSS\n");
+	if (!script)
+		return;
+
+	FakeState state = { "library", "library view=songs group=- sel=0 count=291 mode=normal menu=none\n" };
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, fake_last_state, &state);
+
+	uint64_t start = 3000000, now = start;
+	ScriptFrame f;
+	do {
+		f = ScriptRun_Tick(&run, now);
+		CHECK(f.buttons == 0, "el press despues del wait no deberia llegar");
+		now += FRAME_US;
+	} while (f.result == SCRIPT_RUNNING && now < start + 10000000);
+
+	now -= FRAME_US;
+	CHECK(f.result == SCRIPT_FAIL, "el wait deberia vencer");
+	CHECK(now - start >= 1000000 && now - start < 1000000 + FRAME_US, "deberia vencer al segundo, vencio a los %llu us",
+		(unsigned long long)(now - start));
+	CHECK(f.line == 12, "el motivo deberia tener line=12, tiene %d", f.line);
+	CHECK(f.reason && strcmp(f.reason, "wait timeout") == 0, "motivo '%s'", f.reason ? f.reason : "(nada)");
+	CHECK(f.last && strcmp(f.last, "library view=songs group=- sel=0 count=291 mode=normal menu=none") == 0,
+		"last deberia ser el estado actual: '%s'", f.last ? f.last : "(nada)");
+
+	f = ScriptRun_Tick(&run, now + FRAME_US);
+	CHECK(f.result == SCRIPT_FAIL && f.line == 12, "despues de fallar, sigue fail");
+	Script_Free(script);
+
+	// Con lineas vistas, last es la ultima de la categoria, aunque haya otras
+	// despues.
+	script = one_scenario("press DOWN\nwait library sel=5 timeout=100ms\n");
+	if (!script)
+		return;
+
+	ScriptRun_Init(&run, script, 0, fake_last_state, &state);
+	ScriptRun_Tick(&run, 0);
+	observe(&run, "0.010 library view=songs sel=1\n");
+	observe(&run, "0.020 library view=songs sel=2 name=\"a b\"\n");
+	observe(&run, "0.030 input up=DOWN\n");
+	now = 0;
+	do {
+		now += FRAME_US;
+		f = ScriptRun_Tick(&run, now);
+	} while (f.result == SCRIPT_RUNNING && now < 10000000);
+	CHECK(f.result == SCRIPT_FAIL && f.last && strcmp(f.last, "library view=songs sel=2 name=\"a b\"") == 0,
+		"last deberia ser la ultima library: '%s'", f.last ? f.last : "(nada)");
+	Script_Free(script);
+
+	// Sin ninguna linea de la categoria, last queda vacio.
+	script = one_scenario("wait track event=open timeout=100ms\n");
+	if (!script)
+		return;
+
+	ScriptRun_Init(&run, script, 0, fake_last_state, &state);
+	now = 0;
+	do {
+		f = ScriptRun_Tick(&run, now);
+		now += FRAME_US;
+	} while (f.result == SCRIPT_RUNNING && now < 10000000);
+	CHECK(f.result == SCRIPT_FAIL && f.last == NULL, "sin lineas track, last deberia faltar");
+	Script_Free(script);
+}
+
+// Mas waits entre dos acciones que los que caben en el grupo: los de mas
+// solo ven lo que llega desde que empiezan.
+static void test_wait_group_overflow(void) {
+	char steps[4096];
+	unsigned int n = (unsigned int)snprintf(steps, sizeof(steps), "press CROSS\n");
+	for (int i = 0; i <= SCRIPT_GROUP_MAX; i++)
+		n += (unsigned int)snprintf(steps + n, sizeof(steps) - n, "wait library sel=%d\n", i);
+
+	Script *script = one_scenario(steps);
+	if (!script)
+		return;
+
+	ScriptRun run;
+	ScriptRun_Init(&run, script, 0, NULL, NULL);
+
+	char line[64];
+	uint64_t now = 0;
+	ScriptRun_Tick(&run, now);
+	for (int i = 0; i < SCRIPT_GROUP_MAX; i++) {
+		snprintf(line, sizeof(line), "0.000 library sel=%d\n", i);
+		observe(&run, line);
+	}
+
+	ScriptFrame f;
+	int frames = 0;
+	do {
+		now += FRAME_US;
+		f = ScriptRun_Tick(&run, now);
+		// El ultimo wait recibe su linea cuando ya empezo.
+		if (f.started && f.started->line == 3 + SCRIPT_GROUP_MAX) {
+			snprintf(line, sizeof(line), "0.000 library sel=%d\n", SCRIPT_GROUP_MAX);
+			observe(&run, line);
+		}
+		frames++;
+	} while (f.result == SCRIPT_RUNNING && frames < 1000);
+
+	CHECK(f.result == SCRIPT_PASS, "los waits de mas deberian cumplirse con lineas que llegan despues de empezar");
+	Script_Free(script);
+}
+
 int main(void) {
 	test_valid();
 	test_errors();
 	test_limits();
+	test_run_press();
+	test_run_hold();
+	test_run_tap_swipe();
+	test_run_sleep_seed();
+	test_wait_matches();
+	test_wait_lookahead();
+	test_wait_state();
+	test_wait_timeout();
+	test_wait_group_overflow();
 
 	if (failures == 0)
 		printf("test_script: todo bien\n");

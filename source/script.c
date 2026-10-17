@@ -481,3 +481,319 @@ const ScriptStep *Script_Scenario(const Script *script, int index, int *step_cou
 		*step_count = 0;
 	return NULL;
 }
+
+int Script_WaitMatches(const ScriptStep *wait, const LogParsed *line) {
+	if (wait->cmd != SCRIPT_WAIT || strcmp(line->category, wait->arg) != 0)
+		return 0;
+
+	const char *key = wait->cond;
+	for (int i = 0; i < wait->cond_count; i++) {
+		const char *value = key + strlen(key) + 1;
+		const char *got = LogParsed_Get(line, key);
+
+		if (!got || strcmp(got, value) != 0)
+			return 0;
+
+		key = value + strlen(value) + 1;
+	}
+
+	return 1;
+}
+
+static int IsAction(ScriptCmd cmd) {
+	return cmd == SCRIPT_PRESS || cmd == SCRIPT_HOLD || cmd == SCRIPT_TAP || cmd == SCRIPT_SWIPE;
+}
+
+// The slot that remembers the last line of `category`. With `create`, takes
+// the oldest one if none does yet. -1 for a category too long to keep, or
+// one without a slot when not creating.
+static int Slot(ScriptRun *run, const char *category, int create) {
+	unsigned int len = strlen(category);
+	int oldest = 0;
+
+	if (len >= sizeof(run->last[0].category))
+		return -1;
+
+	for (int i = 0; i < SCRIPT_LAST_SLOTS; i++) {
+		if (run->last[i].age && strcmp(run->last[i].category, category) == 0) {
+			run->last[i].age = ++run->clock;
+			return i;
+		}
+		if (run->last[i].age < run->last[oldest].age)
+			oldest = i;
+	}
+
+	if (!create)
+		return -1;
+
+	memcpy(run->last[oldest].category, category, len + 1);
+	run->last[oldest].text[0] = '\0';
+	run->last[oldest].age = ++run->clock;
+	return oldest;
+}
+
+// The waits from `from` up to the next action see every line from now on.
+static void BuildGroup(ScriptRun *run, int from) {
+	run->group_count = 0;
+
+	for (int i = from; i < run->count && !IsAction(run->steps[i].cmd); i++) {
+		if (run->steps[i].cmd != SCRIPT_WAIT)
+			continue;
+
+		Slot(run, run->steps[i].arg, 1);
+
+		if (run->group_count < SCRIPT_GROUP_MAX) {
+			run->group[run->group_count] = i;
+			run->met[run->group_count] = 0;
+			run->group_count++;
+		}
+	}
+}
+
+static int GroupIndex(const ScriptRun *run, int step) {
+	for (int g = 0; g < run->group_count; g++) {
+		if (run->group[g] == step)
+			return g;
+	}
+
+	return -1;
+}
+
+// The screen's state as it stands, for a wait that asks for what is already
+// on screen.
+static int StateMeets(ScriptRun *run, const ScriptStep *wait) {
+	unsigned int len = 0;
+	LogParsed parsed;
+
+	if (!run->last_state)
+		return 0;
+
+	const char *body = run->last_state(wait->arg, &len, run->ctx);
+	return body && LogLine_ParseBody(body, len, &parsed) && Script_WaitMatches(wait, &parsed);
+}
+
+static void StartStep(ScriptRun *run, uint64_t now_us) {
+	const ScriptStep *step = &run->steps[run->cur];
+
+	run->start_us = now_us;
+	run->phase = 0;
+	run->done = 0;
+	run->current_met = 0;
+
+	if (IsAction(step->cmd)) {
+		BuildGroup(run, run->cur + 1);
+	}
+	else if (step->cmd == SCRIPT_WAIT) {
+		Slot(run, step->arg, 1);
+		int g = GroupIndex(run, run->cur);
+		if ((g >= 0 && run->met[g]) || StateMeets(run, step))
+			run->done = 1;
+	}
+	else if (step->cmd == SCRIPT_SEED) {
+		run->done = 1;
+	}
+}
+
+static void TimeOut(ScriptRun *run, const ScriptStep *step) {
+	run->result = SCRIPT_FAIL;
+	run->reason = "wait timeout";
+	run->fail_line = step->line;
+	run->fail_last = NULL;
+
+	int slot = Slot(run, step->arg, 1);
+	if (slot < 0)
+		return;
+
+	// Nothing of the category seen while running: the screen's state, if it
+	// is one, is still the last line of it.
+	if (run->last[slot].text[0] == '\0' && run->last_state) {
+		unsigned int len = 0;
+		const char *body = run->last_state(step->arg, &len, run->ctx);
+
+		if (body) {
+			while (len > 0 && body[len - 1] == '\n')
+				len--;
+			if (len >= sizeof(run->last[slot].text))
+				len = sizeof(run->last[slot].text) - 1;
+			memcpy(run->last[slot].text, body, len);
+			run->last[slot].text[len] = '\0';
+		}
+	}
+
+	if (run->last[slot].text[0] != '\0')
+		run->fail_last = run->last[slot].text;
+}
+
+// The frame of the current step, which may finish it.
+static void Step(ScriptRun *run, uint64_t now_us, ScriptFrame *frame) {
+	const ScriptStep *step = &run->steps[run->cur];
+	uint64_t elapsed = now_us - run->start_us;
+	uint64_t duration = (uint64_t)step->duration_ms * 1000;
+
+	if (run->done)
+		return;
+
+	switch (step->cmd) {
+		case SCRIPT_PRESS:
+			if (run->phase >= 2 * step->repeat) {
+				run->done = 1;
+				break;
+			}
+			if (run->phase % 2 == 0)
+				frame->buttons = step->buttons;
+			run->phase++;
+			break;
+
+		case SCRIPT_HOLD:
+		case SCRIPT_TAP:
+			if (step->cmd == SCRIPT_TAP)
+				duration = (uint64_t)SCRIPT_TAP_MS * 1000;
+			if (run->phase == 0 && elapsed < duration) {
+				frame->buttons = step->buttons;
+				frame->touching = step->cmd == SCRIPT_TAP;
+				frame->x = step->x1;
+				frame->y = step->y1;
+			}
+			else if (run->phase == 0) {
+				run->phase = 1;
+			}
+			else {
+				run->done = 1;
+			}
+			break;
+
+		case SCRIPT_SWIPE:
+			if (run->phase == 0) {
+				if (elapsed >= duration) {
+					elapsed = duration;
+					run->phase = 1;
+				}
+				frame->touching = 1;
+				frame->x = step->x1 + (int)((int64_t)(step->x2 - step->x1) * (int64_t)elapsed / (int64_t)duration);
+				frame->y = step->y1 + (int)((int64_t)(step->y2 - step->y1) * (int64_t)elapsed / (int64_t)duration);
+			}
+			else if (run->phase == 1) {
+				run->phase = 2;
+			}
+			else {
+				run->done = 1;
+			}
+			break;
+
+		case SCRIPT_SLEEP:
+			if (elapsed >= duration)
+				run->done = 1;
+			break;
+
+		case SCRIPT_WAIT: {
+			int g = GroupIndex(run, run->cur);
+			if ((g >= 0 && run->met[g]) || run->current_met)
+				run->done = 1;
+			else if (elapsed >= duration)
+				TimeOut(run, step);
+			break;
+		}
+
+		default:
+			run->done = 1;
+			break;
+	}
+}
+
+void ScriptRun_Init(ScriptRun *run, const Script *script, int index, ScriptRun_LastState last_state, void *ctx) {
+	int count = 0;
+	const ScriptStep *first = Script_Scenario(script, index, &count);
+
+	memset(run, 0, sizeof(*run));
+	run->steps = first ? first + 1 : NULL;
+	run->count = count;
+	run->cur = -1;
+	run->done = 1;
+	run->result = SCRIPT_RUNNING;
+	run->last_state = last_state;
+	run->ctx = ctx;
+
+	// Every category a wait of the scenario asks for remembers its lines
+	// from the start, so a timeout can show one from before its group.
+	for (int i = 0; i < run->count; i++) {
+		if (run->steps[i].cmd == SCRIPT_WAIT)
+			Slot(run, run->steps[i].arg, 1);
+	}
+
+	BuildGroup(run, 0);
+}
+
+ScriptFrame ScriptRun_Tick(ScriptRun *run, uint64_t now_us) {
+	ScriptFrame frame;
+	int started = 0;
+
+	memset(&frame, 0, sizeof(frame));
+
+	while (run->result == SCRIPT_RUNNING) {
+		if (run->done) {
+			// One step starts per frame, so each gets its own step line
+			// before anything it causes.
+			if (started)
+				break;
+
+			if (++run->cur >= run->count) {
+				run->cur = run->count;
+				run->result = SCRIPT_PASS;
+				break;
+			}
+
+			StartStep(run, now_us);
+			frame.started = &run->steps[run->cur];
+			started = 1;
+		}
+
+		Step(run, now_us, &frame);
+
+		// A step that ended without giving this frame anything hands it to
+		// the next one.
+		if (!run->done || started)
+			break;
+	}
+
+	if (run->result != SCRIPT_RUNNING) {
+		frame.buttons = 0;
+		frame.touching = 0;
+		frame.result = run->result;
+	}
+
+	if (run->result == SCRIPT_FAIL) {
+		frame.reason = run->reason;
+		frame.line = run->fail_line;
+		frame.last = run->fail_last;
+	}
+
+	return frame;
+}
+
+void ScriptRun_Observe(ScriptRun *run, const char *text, unsigned int len) {
+	LogParsed parsed;
+
+	if (run->result != SCRIPT_RUNNING || !LogLine_Parse(text, len, &parsed))
+		return;
+
+	int slot = Slot(run, parsed.category, 0);
+	if (slot >= 0) {
+		// The line from its category on, without the newline: a line that
+		// parsed has its time up to the first space.
+		const char *body = (const char *)memchr(text, ' ', len) + 1;
+		unsigned int n = len - (unsigned int)(body - text);
+		while (n > 0 && body[n - 1] == '\n')
+			n--;
+		memcpy(run->last[slot].text, body, n);
+		run->last[slot].text[n] = '\0';
+	}
+
+	for (int g = 0; g < run->group_count; g++) {
+		if (!run->met[g] && Script_WaitMatches(&run->steps[run->group[g]], &parsed))
+			run->met[g] = 1;
+	}
+
+	if (run->cur >= 0 && run->cur < run->count && GroupIndex(run, run->cur) < 0
+		&& Script_WaitMatches(&run->steps[run->cur], &parsed))
+		run->current_met = 1;
+}

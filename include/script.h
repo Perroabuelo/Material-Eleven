@@ -85,4 +85,99 @@ void Script_Free(Script *script);
 // steps follow it up to the next one. NULL when there is no such scenario.
 const ScriptStep *Script_Scenario(const Script *script, int index, int *step_count);
 
+// 1 when `line` is of the wait's category and has every one of its fields
+// with exactly that value. Other fields of the line do not matter.
+int Script_WaitMatches(const ScriptStep *wait, const LogParsed *line);
+
+// How long a tap keeps the finger down: what a real tap lasts, short of a
+// long press.
+#define SCRIPT_TAP_MS 100
+
+// Most waits between two actions that see the lines since the first of them
+// (see ScriptRun_Observe). Later ones only see lines from when they start.
+#define SCRIPT_GROUP_MAX 32
+// How many categories remember their last line, for the reason of a wait
+// that times out.
+#define SCRIPT_LAST_SLOTS 4
+
+typedef enum {
+	SCRIPT_RUNNING = 0,
+	SCRIPT_PASS,
+	SCRIPT_FAIL
+} ScriptResult;
+
+// The last state line of a screen, without its time: what the console side
+// keeps to drop repeated states (DebugLog_LastState). NULL when there is
+// none for `category`, or it is not a screen's state.
+typedef const char *(*ScriptRun_LastState)(const char *category, unsigned int *len, void *ctx);
+
+// What one frame gets from the scenario.
+typedef struct {
+	unsigned int buttons;           // held this frame
+	int touching;                   // a finger on the front panel this frame
+	int x, y;                       // where, in screen pixels
+	const ScriptStep *started;      // the step that started this frame, or NULL
+	ScriptResult result;            // not RUNNING: the scenario ended this frame
+	// With SCRIPT_FAIL:
+	const char *reason;
+	int line;                       // the failing step's line in suite.txt
+	const char *last;               // the last line of the wait's category, without its time, or NULL
+} ScriptFrame;
+
+// One scenario being run. Lives wherever the caller puts it; no memory of
+// its own.
+typedef struct {
+	const ScriptStep *steps;        // the scenario's steps, after its `scenario` line
+	int count;
+	int cur;                        // the current step, -1 before the first
+	int done;                       // the current step has finished
+	int phase;
+	uint64_t start_us;              // when the current step started
+	ScriptResult result;
+	int fail_line;
+	const char *reason;
+	// The waits that see the lines since the last action, and which of them
+	// a line already met.
+	int group[SCRIPT_GROUP_MAX];
+	unsigned char met[SCRIPT_GROUP_MAX];
+	int group_count;
+	int current_met;                // a line met the current wait, when it is not in the group
+	struct {
+		char category[32];
+		char text[LOG_LINE_MAX];    // without the time; empty: none seen yet
+		unsigned int age;
+	} last[SCRIPT_LAST_SLOTS];
+	unsigned int clock;             // ages the slots
+	const char *fail_last;
+	ScriptRun_LastState last_state;
+	void *ctx;
+} ScriptRun;
+
+// Gets scenario `index` of `script` ready to run from its first step. The
+// lines observed from now on count for the waits before its first action.
+// `last_state` may be NULL.
+void ScriptRun_Init(ScriptRun *run, const Script *script, int index, ScriptRun_LastState last_state, void *ctx);
+
+// Moves the scenario on by one frame at `now_us` (any clock in microseconds
+// that only goes forward) and says what the frame gets:
+//
+//   press  the buttons for one frame and none for the next, per repeat;
+//   hold   the buttons until the duration is over, then one frame without;
+//   tap    the finger for SCRIPT_TAP_MS, then one frame without;
+//   swipe  the finger along the line for the duration, then at the end
+//          point once more, then one frame without;
+//   sleep  nothing until the duration is over;
+//   seed   nothing; the caller applies the seed of `started`;
+//   wait   nothing until a line meets it or it times out.
+//
+// At most one step starts per frame. Once the result is not RUNNING, every
+// later call returns that result again with nothing held.
+ScriptFrame ScriptRun_Tick(ScriptRun *run, uint64_t now_us);
+
+// Hands the run a line as the log wrote it (time included, newline or
+// not). It meets the waits of the current group: the ones after the last
+// action up to the next, or after the start of the scenario if there was
+// no action yet.
+void ScriptRun_Observe(ScriptRun *run, const char *text, unsigned int len);
+
 #endif

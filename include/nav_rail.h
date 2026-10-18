@@ -23,7 +23,9 @@ typedef enum {
 	HINT_BTN_R,
 	HINT_BTN_SELECT,
 	HINT_BTN_START,
-	HINT_BTN_UP // D-pad up: a neutral chip with an arrow instead of a name
+	HINT_BTN_UP,        // D-pad up: a neutral chip with an arrow instead of a name
+	HINT_BTN_DOWN,      // D-pad down, the same with the arrow pointing down
+	HINT_BTN_LEFT_RIGHT // D-pad left and right as one chip with an arrow each way
 } NavRail_HintButton;
 
 #define NAV_RAIL_HINT_MAX_BUTTONS 3
@@ -40,8 +42,8 @@ typedef struct {
 // Draws the bottom physical-button legend, spanning the content column to
 // the right of the rail, from `count` entries, left to right in the order
 // given. Symbol buttons are vector glyphs in their PlayStation color; L, R,
-// SELECT and START are neutral chips with their name, and D-pad up a neutral
-// chip with an arrow. An entry that does not
+// SELECT and START are neutral chips with their name, and the D-pad neutral
+// chips with arrows. An entry that does not
 // fit in the bar's width is not drawn, and neither is any entry after it, so
 // callers list entries from most to least important.
 void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count);

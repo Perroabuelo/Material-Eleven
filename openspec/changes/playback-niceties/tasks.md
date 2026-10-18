@@ -1,7 +1,7 @@
 ## 1. Lógica pura y tests en PC
 
 - [x] 1.1 Agregar `TrackAdvance_PrevRestarts` y `TRACK_ADVANCE_RESTART_MS` a `include/track_advance.h` y `source/track_advance.c` (D1), con sus casos en `tests/test_track_advance.c` (0, 3000, 3001 y `UINT32_MAX` ms). Listo cuando `make -C tests` pase con sanitizers.
-- [ ] 1.2 Crear `source/fade.c` e `include/fade.h` con la rampa de ganancia y la interpolación del master (D2), y `tests/test_fade.c` con los casos de la estrategia de pruebas (44,1 y 48 kHz, mono y estéreo, invertir a medias, saturación, atajo con ganancia 1, master continuo entre buffers). Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 1.2 Crear `source/fade.c` e `include/fade.h` con la rampa de ganancia y la interpolación del master (D2), y `tests/test_fade.c` con los casos de la estrategia de pruebas (44,1 y 48 kHz, mono y estéreo, invertir a medias, saturación, atajo con ganancia 1, master continuo entre buffers). Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 1.3 Crear `source/sleep_timer.c` e `include/sleep_timer.h` (D4), y `tests/test_sleep_timer.c` con reloj falso: vencimiento de cada opción una sola vez, ganancia de los últimos 10 s, minutos redondeados hacia arriba, reemplazar y cancelar durante el fundido, `SleepTimer_TrackEnded`, salto de reloj y nombres del log. Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
 
 ## 2. Audio

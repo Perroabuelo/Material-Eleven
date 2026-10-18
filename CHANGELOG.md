@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-10-17
+
+### Added
+
+- Now Playing has a visualizer: press Down on the D-pad to open it, and again to close it.
+- Press Left or Right, or swipe sideways, to switch between five styles: spectrum bars, oscilloscope, VU meters, a spinning vinyl with a radial spectrum, and a spinning vinyl that pulses with the bass.
+- The vinyl uses the album art as its label and slows to a stop when you pause.
+- Press Up in the visualizer to jump to the lyrics, and Down in the lyrics to jump back.
+- The visualizer and the chosen style stay open when the track changes or you leave Now Playing and come back.
+
 ## [4.3.0] - 2026-10-17
 
 ### Added

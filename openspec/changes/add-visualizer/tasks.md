@@ -35,7 +35,7 @@
 ## 6. Documentación y versión
 
 - [x] 6.1 En `README.md`, documentar el visualizador: cómo abrirlo, cómo cambiar de estilo, los cinco estilos y las dos limitaciones (no refleja el EQ ni el ALC, y con auriculares Bluetooth puede verse adelantado). Listo cuando el README lo explique en inglés.
-- [ ] 6.2 Subir la versión a 4.4.0 (`VITA_VERSION "04.40"` en `CMakeLists.txt`) y agregar la entrada de v4.4.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` y su `param.sfo` diga `04.40`.
+- [x] 6.2 Subir la versión a 4.4.0 (`VITA_VERSION "04.40"` en `CMakeLists.txt`) y agregar la entrada de v4.4.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` y su `param.sfo` diga `04.40`.
 
 ## 7. Verificación en consola
 

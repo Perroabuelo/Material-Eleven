@@ -8,7 +8,7 @@ Tres comportamientos que cualquier otro reproductor tiene y que en Material-Elev
 - **Temporizador para dormir, desde Reproduciendo.** SELECT abre en Reproduciendo un menú con las opciones Apagado, 15, 30, 45, 60 y 90 minutos, y "Al terminar la pista". Al vencer un tiempo, la música baja de volumen durante unos 10 segundos y se pausa. Con la reproducción en pausa, la consola vuelve a poder suspenderse sola, como ya define `playback/screen-off`. Con "Al terminar la pista", cuando la pista en curso termina sola, la cola pasa a la siguiente pista, como siempre, pero la deja cargada en pausa en 0:00. Elegir otra opción reemplaza la anterior, y elegir Apagado lo cancela. El temporizador no se recuerda entre arranques.
 - **Indicador del temporizador.** Mientras hay un temporizador activo, la barra de estado (Reproduciendo, Carpetas y Biblioteca) muestra una luna con los minutos que faltan, o con "Fin de pista" en el modo de fin de pista.
 - **Fundido corto al pausar y reanudar.** Pausar baja el volumen a cero en unos 100 ms antes de detener el sonido, y reanudar lo sube desde cero en el mismo tiempo. Siempre está activo y no se configura. El estado de pausa que muestran la pantalla y la leyenda cambia en el acto, sin esperar al fundido.
-- **Leyenda.** Reproduciendo anuncia SELECT con la acción "Temporizador" ("Sleep timer").
+- **Leyenda.** Reproduciendo anuncia SELECT con la acción "Dormir" ("Sleep"). Para que entre, la leyenda se compacta: L y R dicen "<< >>", D-pad arriba y abajo van juntos como "Vistas" ("Views") y Triángulo dice "Mezclar". En la vista de visualizador no entra y se cae desde el final, como START.
 - **Log de desarrollo.** Una línea `track` `event=restart` al reiniciar una pista, una categoría `sleep` (`event=set` y `event=expire`, con `mode`) y dos campos nuevos al final de `nowplaying`: `menu` y `sleep`.
 
 ## Capabilities
@@ -21,7 +21,7 @@ Tres comportamientos que cualquier otro reproductor tiene y que en Material-Elev
 ### Modified Capabilities
 
 - `playback/queue`: el requirement "Avanzar y retroceder por el orden vigente". Retroceder reinicia la pista en curso cuando ya pasaron más de 3 segundos, y solo pasa a la anterior si pasaron 3 segundos o menos.
-- `ui/now-playing`: se agrega cómo se abre el menú del temporizador con SELECT, cómo se maneja, y su entrada en la leyenda.
+- `ui/now-playing`: se agrega cómo se abre el menú del temporizador con SELECT, cómo se maneja, y su entrada en la leyenda. Se modifica el requirement "La leyenda de Reproduciendo anuncia las letras": D-pad arriba y abajo pasan a una sola entrada "Vistas", y L y R a "<< >>".
 - `dev/debug-log`: se agregan la línea `track` `event=restart`, la categoría `sleep` y los campos `menu` y `sleep` al final de `nowplaying`.
 
 ## Impact

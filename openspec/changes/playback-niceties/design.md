@@ -126,9 +126,18 @@ Con el panel de captura del overlay de debug activo, SELECT hace las dos cosas, 
 
 ### D7. Leyenda y textos
 
-La leyenda de Reproduciendo agrega `{ { HINT_BTN_SELECT }, 0, Lang_Get(STR_HINT_SLEEP_TIMER) }` entre Cuadrado y START. Con el menú abierto, la leyenda es solo `{ CONFIRM, STR_HINT_SELECT }` ("Select" / "Seleccionar", que ya existe) y `{ CANCEL, STR_HINT_CLOSE }` (nueva: "Close" / "Cerrar"). Como la barra corta desde el final (`ui/now-playing`), si no entra, lo primero que se pierde sigue siendo START. Se verifica el ajuste en los dos idiomas en la consola.
+La leyenda de Reproduciendo agrega `{ { HINT_BTN_SELECT }, 0, Lang_Get(STR_HINT_SLEEP_TIMER) }` entre Cuadrado y START. Con el menú abierto, la leyenda es solo `{ CONFIRM, STR_HINT_SELECT }` ("Select" / "Seleccionar", que ya existe) y `{ CANCEL, STR_HINT_CLOSE }` (nueva: "Close" / "Cerrar").
 
-Textos nuevos en `include/lang_strings.h`, en inglés y en español: `STR_HINT_SLEEP_TIMER` ("Sleep timer" / "Temporizador"), `STR_SLEEP_TITLE` (igual), `STR_SLEEP_OFF` ("Off" / "Apagado"), `STR_SLEEP_MINUTES` ("%u min", igual en los dos), `STR_SLEEP_END_OF_TRACK` ("End of track" / "Al terminar la pista"), `STR_SLEEP_STATUS_TRACK` ("End of track" / "Fin de pista") y `STR_HINT_CLOSE` ("Close" / "Cerrar").
+**La leyenda no tenía lugar.** Medida en la consola y después con la fuente (IBM Plex Mono, 0,6 em por carácter: 10,2 px a 17 px y 9 px en los chips a 15 px, sobre 840 px útiles), ya venía llena antes de este cambio: en inglés Repeat no se veía. La entrada de SELECT necesita unos 135 px (el chip "SELECT" mide 66), y acortar solo su texto no alcanza. Para que entre, la leyenda se compacta:
+
+- L y R dicen "<< >>" en los dos idiomas (antes "Previous / Next" / "Pista").
+- D-pad arriba y abajo van en una sola entrada con los dos chips y "Views" / "Vistas" (antes dos entradas, "Lyrics" / "Letras" y "Visualizer" / "Visualizador").
+- Triángulo dice "Mezclar" en español (antes "Aleatorio"); en inglés sigue "Shuffle".
+- La entrada de SELECT dice "Sleep" / "Dormir".
+
+El orden queda: confirmar, volver, L R, ▲▼, ◀▶ Estilo (solo en el visualizador), Triángulo, Cuadrado, SELECT, START. En las vistas normal y de letras entra SELECT y se cae START. En el visualizador la entrada de estilo ocupa ese lugar y SELECT se cae desde el final, como permite `ui/now-playing`. Se verifica en la consola, en los dos idiomas.
+
+Textos nuevos en `include/lang_strings.h`, en inglés y en español: `STR_HINT_SLEEP_TIMER` ("Sleep" / "Dormir"), `STR_HINT_VIEWS` ("Views" / "Vistas"), `STR_SLEEP_TITLE` ("Sleep timer" / "Temporizador"), `STR_SLEEP_OFF` ("Off" / "Apagado"), `STR_SLEEP_MINUTES` ("%u min", igual en los dos), `STR_SLEEP_END_OF_TRACK` ("End of track" / "Al terminar la pista"), `STR_SLEEP_STATUS_TRACK` ("End of track" / "Fin de pista") y `STR_HINT_CLOSE` ("Close" / "Cerrar"). Cambian `STR_HINT_PREV_NEXT` ("<< >>" en los dos) y `STR_HINT_SHUFFLE` en español ("Mezclar"). `STR_HINT_LYRICS` y `STR_HINT_VISUALIZER` se borran si ninguna otra pantalla los usa.
 
 ### D8. Log
 
@@ -148,7 +157,7 @@ Textos nuevos en `include/lang_strings.h`, en inglés y en español: `STR_HINT_S
 - **[Carreras entre la UI y el hilo de audio]** → Cada variable compartida la escribe un solo hilo (`pause_request`, `hold` y el master, la UI; `paused` y la rampa, el audio) y son de 32 bits alineados. Una lectura desfasada dura a lo sumo un callback (20 ms), que es el mismo margen que ya acepta `power_tick_thread`.
 - **[Los 100 ms se miden en frames de la pista]** → Con el grain de 960 frames, 100 ms son unos 5 callbacks. Una pista mono o de otra frecuencia ajusta los frames con su `rate`, y se prueba en PC con 44,1 y 48 kHz.
 - **[Reloj con la app en segundo plano]** → Con el botón PS la consola congela el proceso y la música se corta (visto en el spike de `background-playback`). Si `sceKernelGetProcessTimeWide` sigue avanzando, al volver el temporizador puede haber vencido y pausa enseguida. Si no avanza, sigue contando desde donde quedó. En los dos casos no suena nada mientras tanto, así que se acepta cualquiera y no se especifica.
-- **[La leyenda de Reproduciendo ya es larga]** → Con la entrada nueva puede quedar fuera START en inglés o en español. El spec lo permite, y se verifica en la consola. Si también se cayera la entrada del temporizador, se acorta su texto antes de reordenar.
+- **[La leyenda de Reproduciendo ya es larga]** → Pasó: en la consola la entrada del temporizador no se veía en ningún idioma, y acortar su texto no alcanzaba. Se compacta la leyenda como dice D7, y en el visualizador la entrada sigue sin entrar, lo que el spec permite.
 - **[Seek a 0 en un decoder]** → Si algún decoder no volviera exactamente al principio, el reinicio empezaría unos ms después. Se verifica con un archivo de cada formato.
 - **[Vita3K]** → El emulador se cae con varios badges en pantalla, así que la verificación es en la consola real.
 

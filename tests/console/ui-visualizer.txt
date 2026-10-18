@@ -13,6 +13,8 @@
 
 scenario Abrir y cerrar el visualizador
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 wait nowplaying view=normal style=spectrum
@@ -23,6 +25,8 @@ wait nowplaying view=normal style=spectrum
 
 scenario Los botones siguen funcionando en el visualizador
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -34,6 +38,8 @@ wait nowplaying view=visualizer paused=0
 
 scenario De las letras al visualizador y de vuelta
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press UP
@@ -49,6 +55,8 @@ wait nowplaying view=normal
 
 scenario Recorrer los cinco estilos y la vuelta
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -68,6 +76,8 @@ wait nowplaying style=pulse
 
 scenario Cambiar de estilo deslizando
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -79,6 +89,8 @@ wait nowplaying view=visualizer style=spectrum
 
 scenario Las flechas laterales no hacen nada en la vista normal
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 wait nowplaying view=normal style=spectrum
@@ -89,6 +101,8 @@ wait nowplaying view=visualizer style=spectrum
 
 scenario El visualizador se recuerda al navegar
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -102,6 +116,8 @@ wait nowplaying view=visualizer style=vu
 
 scenario El estilo se recuerda al cerrar la vista
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -114,6 +130,8 @@ wait nowplaying view=visualizer style=scope
 
 scenario El estilo se mantiene al cambiar de pista
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 press DOWN
@@ -128,6 +146,8 @@ scenario Al arrancar no se recuerda
 # Cada escenario corre en un proceso nuevo, y el anterior dejo el
 # visualizador abierto en Disco que respira.
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 wait nowplaying view=normal style=spectrum
@@ -136,6 +156,8 @@ wait nowplaying view=visualizer style=spectrum
 
 scenario Recorrer los estilos muchas veces
 wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
 press CROSS
 wait screen to=nowplaying
 tap 38 110                      # Carpetas

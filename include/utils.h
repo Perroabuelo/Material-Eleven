@@ -21,6 +21,13 @@ KeyRepeat_Step Utils_GetListStep(void);
 // la consola la vuelve a encender con el boton PS. Se deshabilita mientras un
 // dialogo del sistema tiene la entrada, donde START significa otra cosa.
 void Utils_SetScreenOffEnabled(SceBool enabled);
+// Once at start and once at shutdown, on the UI thread: the power callback
+// that tells when the console turns the screen back on.
+void Utils_InitPowerCallback(void);
+void Utils_TermPowerCallback(void);
+// True from the moment START turns the screen off until the console turns it
+// back on. Always false if the power callback could not be registered.
+SceBool Utils_DisplayOff(void);
 int Utils_InitAppUtil(void);
 // Una vez al arrancar, después de Utils_InitAppUtil: pasa al subsistema de
 // diálogos comunes el idioma y la asignación de botones de la consola.

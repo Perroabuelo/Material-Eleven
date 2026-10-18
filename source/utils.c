@@ -29,6 +29,21 @@ static KeyRepeat_Step list_step;
 // before the app opened does not count until it is pressed again.
 static unsigned int old_physical = ~0u;
 
+// Whether the app turned the screen off and the console has not turned it
+// back on, so the visualizer can skip its work. The power callback clears it:
+// on the console, PS turning the screen on arrives as APP_RESUMING, and the
+// frame loop keeps its pace with the screen off, so there is no stall to
+// notice it by instead. Without the callback the mark is never set.
+static SceUID power_cb = -1;
+static SceBool display_off = SCE_FALSE;
+
+static int Utils_PowerCallback(int notifyId, int notifyCount, int notifyArg, void *common) {
+	if (notifyArg & (SCE_POWER_CB_APP_RESUMING | SCE_POWER_CB_APP_RESUME))
+		display_off = SCE_FALSE;
+
+	return 0;
+}
+
 void Utils_SetMax(int *set, int value, int max) {
 	if (*set > max)
 		*set = value;
@@ -70,10 +85,17 @@ int Utils_ReadControls(void) {
 	if (DebugLog_On())
 		DebugLog_Input(pressed, old_pad.buttons & ~pad.buttons);
 
+	// Runs the power callback on this thread, which created it.
+	if (power_cb >= 0)
+		sceKernelCheckCallback();
+
 	ScreenOff_Action action = SCREEN_OFF_KEEP;
 	pressed = ScreenOff_Filter(&screen_off, pressed, pad.buttons, &action);
-	if (action == SCREEN_OFF_TURN_OFF)
+	if (action == SCREEN_OFF_TURN_OFF) {
 		scePowerRequestDisplayOff();
+		if (power_cb >= 0)
+			display_off = SCE_TRUE;
+	}
 
 	list_step = KeyRepeat_Update(&key_repeat, pad.buttons & ~SCE_CTRL_START, pressed, sceKernelGetProcessTimeWide());
 
@@ -87,6 +109,29 @@ void Utils_ListStep(int *sel, int count, int page) {
 
 KeyRepeat_Step Utils_GetListStep(void) {
 	return list_step;
+}
+
+void Utils_InitPowerCallback(void) {
+	power_cb = sceKernelCreateCallback("power_cb", 0, Utils_PowerCallback, NULL);
+
+	if (power_cb >= 0 && scePowerRegisterCallback(power_cb) < 0) {
+		sceKernelDeleteCallback(power_cb);
+		power_cb = -1;
+	}
+}
+
+void Utils_TermPowerCallback(void) {
+	if (power_cb < 0)
+		return;
+
+	scePowerUnregisterCallback(power_cb);
+	sceKernelDeleteCallback(power_cb);
+	power_cb = -1;
+	display_off = SCE_FALSE;
+}
+
+SceBool Utils_DisplayOff(void) {
+	return display_off;
 }
 
 void Utils_SetScreenOffEnabled(SceBool enabled) {

@@ -567,7 +567,14 @@ void UI_DrawStroke(float x0, float y0, float x1, float y1, float thickness, unsi
 }
 
 void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int color) {
-	vita2d_color_vertex *v = UI_VertexBuffer((UI_RING_SEGMENTS + 1) * 2);
+	UI_DrawRingN(cx, cy, radius, thickness, UI_RING_SEGMENTS, color);
+}
+
+void UI_DrawRingN(float cx, float cy, float radius, float thickness, int segments, unsigned int color) {
+	if (segments < 3)
+		segments = 3;
+
+	vita2d_color_vertex *v = UI_VertexBuffer((segments + 1) * 2);
 	float inner = radius - thickness;
 
 	if (!v)
@@ -576,15 +583,15 @@ void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int
 	if (inner < 0.0f)
 		inner = 0.0f;
 
-	for (int i = 0; i <= UI_RING_SEGMENTS; i++) {
-		float a = (2.0f * UI_PI * (float)i) / (float)UI_RING_SEGMENTS;
+	for (int i = 0; i <= segments; i++) {
+		float a = (2.0f * UI_PI * (float)i) / (float)segments;
 		float c = cosf(a), s = sinf(a);
 
 		UI_SetVertex(&v[i * 2], cx + c * radius, cy + s * radius, color);
 		UI_SetVertex(&v[i * 2 + 1], cx + c * inner, cy + s * inner, color);
 	}
 
-	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLE_STRIP, v, (UI_RING_SEGMENTS + 1) * 2);
+	vita2d_draw_array(SCE_GXM_PRIMITIVE_TRIANGLE_STRIP, v, (segments + 1) * 2);
 }
 
 // Nudged right by a fraction of its width so it reads optically centered.

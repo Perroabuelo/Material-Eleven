@@ -17,6 +17,7 @@ whether it runs smoothly, how it sounds, and anything the script cannot do
 | `dev-console-scripts.txt` | The suites themselves: input, waits, a timeout, isolation between scenarios, the seed |
 | `dev-console-scripts-error.txt` | A suite with a syntax error on line 3, which must not run at all |
 | `dev-debug-log.txt` | Scenarios of `dev/debug-log` that used to be done by hand |
+| `ui-visualizer.txt` | Moving between Now Playing's views and the visualizer styles, and that doing it many times keeps the heap flat |
 
 One suite per capability, named after it. A change with console scenarios adds
 them to the suite of its capability, or starts one, and its design says which

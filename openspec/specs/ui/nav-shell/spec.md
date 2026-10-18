@@ -79,7 +79,7 @@ The system SHALL preserve the physical-button navigation behavior that existed b
 - **THEN** la aplicación vuelve a Carpetas
 
 ### Requirement: On-screen legend of available physical-button actions
-The system SHALL display, on every screen, a legend of the physical-button actions currently available on that screen. Each entry SHALL show the button that performs the action next to the action's name, and the action's name SHALL NOT repeat the button's name in words. The four symbol buttons (Cross, Circle, Square and Triangle) SHALL be shown as their symbol drawn in that button's PlayStation color (Cross blue, Circle red, Square pink, Triangle green), legible over the legend's background. The other buttons (L, R, SELECT, START) SHALL be shown as a neutral chip with the button's name. El D-pad arriba SHALL mostrarse como un chip neutro con una flecha hacia arriba dibujada, en vez de un nombre. The entries for confirming and for going back SHALL show whichever symbol button the console assigns to confirm and to cancel. The legend SHALL NOT offer an action to exit the app.
+The system SHALL display, on every screen, a legend of the physical-button actions currently available on that screen. Each entry SHALL show the button that performs the action next to the action's name, and the action's name SHALL NOT repeat the button's name in words. The four symbol buttons (Cross, Circle, Square and Triangle) SHALL be shown as their symbol drawn in that button's PlayStation color (Cross blue, Circle red, Square pink, Triangle green), legible over the legend's background. The other buttons (L, R, SELECT, START) SHALL be shown as a neutral chip with the button's name. Las direcciones del D-pad SHALL mostrarse como un chip neutro con una flecha dibujada, en vez de un nombre: el D-pad arriba con una flecha hacia arriba, el D-pad abajo con una flecha hacia abajo, y el par izquierda y derecha, cuando una acción usa los dos, como un solo chip con una flecha hacia cada lado. The entries for confirming and for going back SHALL show whichever symbol button the console assigns to confirm and to cancel. The legend SHALL NOT offer an action to exit the app.
 
 #### Scenario: Legend reflects the current screen
 - **WHEN** the user is viewing the Folders screen
@@ -112,6 +112,10 @@ The system SHALL display, on every screen, a legend of the physical-button actio
 #### Scenario: El D-pad arriba se muestra como flecha
 - **WHEN** el usuario está en Reproduciendo
 - **THEN** la leyenda muestra, junto a la acción de letras, un chip neutro con una flecha hacia arriba, del mismo alto que los chips de L y R, y ningún texto que nombre el botón con palabras
+
+#### Scenario: El D-pad abajo y el par izquierda y derecha se muestran como flechas
+- **WHEN** el usuario está en Reproduciendo con la vista de visualizador abierta
+- **THEN** la leyenda muestra, junto a la acción de visualizador, un chip neutro con una flecha hacia abajo, y junto a la acción de estilo, un solo chip neutro con una flecha hacia la izquierda y otra hacia la derecha, los dos del mismo alto que los chips de L y R y sin ningún texto que nombre los botones con palabras
 
 ### Requirement: Cambiar de pantalla no acumula memoria
 Cambiar de una pantalla de nivel superior a otra (con el nav rail, con un botón físico, al reproducir una canción o al volver de Reproduciendo) SHALL NOT dejar memoria tomada por la pantalla anterior. El usuario SHALL poder cambiar de pantalla cualquier cantidad de veces en una misma sesión sin que la aplicación se cierre ni se degrade por ello. El overlay de debug SHALL mostrar la pila usada por el hilo principal, para poder comprobarlo en la consola.

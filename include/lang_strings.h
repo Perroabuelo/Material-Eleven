@@ -183,4 +183,8 @@ X(STR_HINT_SHUFFLE,          "Shuffle",                  "Aleatorio")
 X(STR_HINT_REPEAT,           "Repeat",                   "Repetir")
 // D-pad arriba abre y cierra la vista de letras (ui/now-playing).
 X(STR_HINT_LYRICS,           "Lyrics",                   "Letras")
+// D-pad abajo abre y cierra el visualizador, y ← → cambian su estilo
+// (ui/visualizer).
+X(STR_HINT_VISUALIZER,       "Visualizer",               "Visualizador")
+X(STR_HINT_STYLE,            "Style",                    "Estilo")
 X(STR_NO_LYRICS,             "No lyrics",                "Sin letra")

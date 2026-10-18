@@ -12,6 +12,7 @@
 #include "cover.h"
 #include "debug_log.h"
 #include "fs.h"
+#include "gesture.h"
 #include "lang.h"
 #include "lyrics.h"
 #include "lyrics_layout.h"
@@ -30,6 +31,8 @@
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
+#include "viz_draw.h"
+#include "viz_nav.h"
 
 // La repeticion es una politica sobre el fin de la pista, y por eso vive aqui.
 // El barajado es una propiedad del orden y vive en la cola, que es lo que deja
@@ -51,12 +54,19 @@ static void Music_FreeLyrics(void);
 
 // The progress bar, while the user holds it. A grab never outlives the track,
 // the view or the visit to this screen: it would seek in something else.
-static SeekBar_State seek_state = { 0 }, lyrics_seek_state = { 0 };
+static SeekBar_State seek_state = { 0 }, lyrics_seek_state = { 0 }, viz_seek_state = { 0 };
 
 static void Menu_ResetSeekBars(void) {
 	SeekBar_Reset(&seek_state);
 	SeekBar_Reset(&lyrics_seek_state);
+	SeekBar_Reset(&viz_seek_state);
 }
+
+// Which view is open, and the visualizer's style. Kept in memory only, so they
+// survive track changes and trips through other screens, and the app always
+// starts on the normal view and the spectrum.
+static NowPlaying_View np_view = NP_VIEW_NORMAL;
+static Viz_Style viz_style = VIZ_STYLE_SPECTRUM;
 
 static void Menu_ConvertSecondsToString(char *string, SceUInt64 seconds) {
 	int h = 0, m = 0, s = 0;
@@ -567,10 +577,6 @@ static void Menu_SeekElapsed(const SeekBar_State *state, float shown) {
 static Lyrics lyrics = { 0 };
 static LyricsLayout lyrics_layout = { 0 };
 
-// Which view is open. Kept in memory only, so it survives track changes and
-// trips through other screens, and the app always starts on the normal view.
-static SceBool lyrics_view = SCE_FALSE;
-
 // Content y shown at the vertical middle of the lyrics area.
 static float lyrics_scroll = 0.0f;
 static SceBool lyrics_dragging = SCE_FALSE;
@@ -733,16 +739,22 @@ static void Menu_LyricsHandleDrag(void) {
 	}
 }
 
-static void Menu_DrawLyricsHeader(void) {
+// The compact header of the lyrics and the visualizer views. The vinyl styles
+// leave out the small cover art, which is already the record's label.
+static void Menu_DrawTrackHeader(SceBool with_art) {
 	float y = LYRICS_HEADER_Y + (LYRICS_HEADER_H - LYRICS_ART) / 2.0f;
+	float text_x = LYRICS_X;
 
-	if ((metadata.has_meta) && (metadata.cover_image))
-		vita2d_draw_texture_scale(metadata.cover_image, LYRICS_X, y,
-			(float)LYRICS_ART / vita2d_texture_get_width(metadata.cover_image), (float)LYRICS_ART / vita2d_texture_get_height(metadata.cover_image));
-	else
-		UI_DrawRoundedRect(LYRICS_X, y, LYRICS_ART, LYRICS_ART, 9, UI_COLOR_SURFACE);
+	if (with_art) {
+		if ((metadata.has_meta) && (metadata.cover_image))
+			vita2d_draw_texture_scale(metadata.cover_image, LYRICS_X, y,
+				(float)LYRICS_ART / vita2d_texture_get_width(metadata.cover_image), (float)LYRICS_ART / vita2d_texture_get_height(metadata.cover_image));
+		else
+			UI_DrawRoundedRect(LYRICS_X, y, LYRICS_ART, LYRICS_ART, 9, UI_COLOR_SURFACE);
 
-	float text_x = LYRICS_X + LYRICS_ART + 14;
+		text_x += LYRICS_ART + 14;
+	}
+
 	float right = LYRICS_X + LYRICS_W;
 
 	const char *badge_label; unsigned int badge_color, badge_wash;
@@ -807,7 +819,7 @@ static void Menu_DrawLyricsRows(void) {
 }
 
 static void Menu_DrawLyricsView(void) {
-	Menu_DrawLyricsHeader();
+	Menu_DrawTrackHeader(SCE_TRUE);
 
 	if (lyrics_layout.count > 0)
 		Menu_DrawLyricsRows();
@@ -820,6 +832,92 @@ static void Menu_DrawLyricsView(void) {
 
 	float shown = Menu_DrawSeekBar(&lyrics_seek_state, LYRICS_X, LYRICS_SEEK_Y, LYRICS_W);
 	Menu_SeekElapsed(&lyrics_seek_state, shown);
+	float time_y = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, LYRICS_SEEK_Y + 8, 22);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X, time_y, UI_COLOR_TEXT_TERTIARY, position_time);
+	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X + LYRICS_W - length_time_width, time_y, UI_COLOR_TEXT_TERTIARY, length_time);
+}
+
+// ---- Visualizer view ----
+//
+// Laid out like the lyrics view: the compact header, the visualizer's area
+// with a row of dots for the styles under it, and the same seek bar over the
+// hint bar.
+
+#define VIZ_TOP      (LYRICS_TOP + 4)
+#define VIZ_DOTS_Y   (LYRICS_BOTTOM - 10)
+#define VIZ_BOTTOM   (VIZ_DOTS_Y - 14)
+#define VIZ_DOT_R    3.0f
+#define VIZ_DOT_GAP  16.0f
+
+// Frame time used for the first frame, and the longest one taken as is: a
+// stall is not a reason for the meters to jump.
+#define VIZ_FRAME_MS     16.67f
+#define VIZ_MAX_FRAME_MS 100.0f
+
+static Gesture_State viz_gesture = { 0 };
+static SceBool viz_touch_owned = SCE_FALSE;
+static SceUInt64 viz_last_frame_us = 0;
+static float viz_frame_ms = VIZ_FRAME_MS;
+
+// Time since the last frame of this screen, measured once per frame.
+static void Menu_VisualizerTick(void) {
+	SceUInt64 now = sceKernelGetProcessTimeWide();
+
+	viz_frame_ms = (viz_last_frame_us != 0) ? (float)(now - viz_last_frame_us) / 1000.0f : VIZ_FRAME_MS;
+	if (viz_frame_ms > VIZ_MAX_FRAME_MS)
+		viz_frame_ms = VIZ_MAX_FRAME_MS;
+
+	viz_last_frame_us = now;
+}
+
+static void Menu_VisualizerForgetTouch(void) {
+	Gesture_Reset(&viz_gesture);
+	viz_touch_owned = SCE_FALSE;
+}
+
+// A sideways swipe that starts on the visualizer's area changes the style:
+// to the left is the next one, as if the styles were pages. The seek bar and
+// the rail keep their own touches.
+static void Menu_VisualizerHandleSwipe(void) {
+	float x = (float)Touch_GetX(), y = (float)Touch_GetY();
+
+	if (Touch_CheckPressed()) {
+		SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+		viz_touch_owned = x >= CONTENT_X && y >= LYRICS_TOP && y < geo.hit_top;
+	}
+
+	Gesture_Input in = { viz_touch_owned && Touch_CheckHeld(), x, y, viz_frame_ms, 0.0f, 1 };
+	Gesture_Result res = Gesture_Update(&viz_gesture, &in);
+
+	if (res.type == GESTURE_SWIPE_X)
+		VizNav_Apply(&np_view, &viz_style, res.dx < 0.0f ? VIZ_NAV_RIGHT : VIZ_NAV_LEFT);
+
+	if (!Touch_CheckHeld())
+		viz_touch_owned = SCE_FALSE;
+}
+
+static void Menu_DrawVisualizerDots(void) {
+	float cx = LYRICS_X + LYRICS_W / 2.0f;
+	float x = cx - VIZ_DOT_GAP * (VIZ_STYLE_COUNT - 1) / 2.0f;
+
+	for (int i = 0; i < VIZ_STYLE_COUNT; i++, x += VIZ_DOT_GAP) {
+		if (i == (int)viz_style)
+			vita2d_draw_fill_circle(x, VIZ_DOTS_Y, VIZ_DOT_R + 1.0f, ui_color_accent);
+		else
+			vita2d_draw_fill_circle(x, VIZ_DOTS_Y, VIZ_DOT_R, UI_COLOR_TEXT_MUTED);
+	}
+}
+
+static void Menu_DrawVisualizerView(void) {
+	Menu_DrawTrackHeader(!VizNav_StyleHasDisc(viz_style));
+	// Nobody sees it with the screen off. Back on, the window it reads is
+	// what is playing then.
+	if (!Utils_DisplayOff())
+		VizDraw_Frame(viz_style, LYRICS_X, VIZ_TOP, LYRICS_W, VIZ_BOTTOM - VIZ_TOP, viz_frame_ms / 1000.0f, !Audio_IsPaused());
+	Menu_DrawVisualizerDots();
+
+	float shown = Menu_DrawSeekBar(&viz_seek_state, LYRICS_X, LYRICS_SEEK_Y, LYRICS_W);
+	Menu_SeekElapsed(&viz_seek_state, shown);
 	float time_y = UI_TextBaselineY(UI_FACE_MONO, UI_TS_LABEL, LYRICS_SEEK_Y + 8, 22);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X, time_y, UI_COLOR_TEXT_TERTIARY, position_time);
 	UI_DrawText(UI_FACE_MONO, UI_TS_LABEL, LYRICS_X + LYRICS_W - length_time_width, time_y, UI_COLOR_TEXT_TERTIARY, length_time);
@@ -881,12 +979,16 @@ static void Menu_LogNowPlayingState(void) {
 	DebugLog_Begin(&line, "nowplaying");
 	LogLine_Str(&line, "file", path ? path : "");
 	LogLine_Int(&line, "paused", Audio_IsPaused() ? 1 : 0);
+	LogLine_Str(&line, "view", VizNav_ViewName(np_view));
+	LogLine_Str(&line, "style", VizNav_StyleName(viz_style));
 	DebugLog_CommitState(&line, DEBUG_STATE_NOWPLAYING);
 }
 
 static UI_Screen Menu_RunNowPlayingLoop(void) {
 	track_failed = SCE_FALSE;
 	Menu_ResetSeekBars();
+	Menu_VisualizerForgetTouch();
+	viz_last_frame_us = 0;
 
 	while (SCE_TRUE) {
 		// Antes de dibujar: sin track, las cadenas de esta pantalla estan
@@ -904,18 +1006,30 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		vita2d_draw_rectangle(CONTENT_X, STATUS_H - 1, 960 - CONTENT_X, 1, UI_COLOR_HAIRLINE);
 		StatusBar_Display();
 
-		if (lyrics_view)
-			Menu_DrawLyricsView();
-		else
-			Menu_DrawPlayerView();
+		Menu_VisualizerTick();
+
+		switch (np_view) {
+			case NP_VIEW_LYRICS:
+				Menu_DrawLyricsView();
+				break;
+			case NP_VIEW_VISUALIZER:
+				Menu_DrawVisualizerView();
+				break;
+			default:
+				Menu_DrawPlayerView();
+				break;
+		}
 
 		// Confirmar pausa y reanuda, y la leyenda dice cual de las dos hara ahora.
-		// Letras va antes de Triangulo: la barra corta desde el final.
+		// Letras y Visualizador van antes de Triangulo: la barra corta desde el
+		// final. Estilo solo existe en el visualizador (una etiqueta NULL se salta).
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(Audio_IsPaused() ? STR_HINT_PLAY : STR_HINT_PAUSE) },
 			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_PREV_NEXT) },
 			{ { HINT_BTN_UP }, 0, Lang_Get(STR_HINT_LYRICS) },
+			{ { HINT_BTN_DOWN }, 0, Lang_Get(STR_HINT_VISUALIZER) },
+			{ { HINT_BTN_LEFT_RIGHT }, 0, (np_view == NP_VIEW_VISUALIZER) ? Lang_Get(STR_HINT_STYLE) : NULL },
 			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SHUFFLE) },
 			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_REPEAT) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
@@ -944,13 +1058,24 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		if (pressed & SCE_CTRL_ENTER)
 			Audio_Pause();
 
-		if (pressed & SCE_CTRL_UP) {
-			lyrics_view = !lyrics_view;
+		NowPlaying_View was = np_view;
+
+		if (pressed & SCE_CTRL_UP)
+			VizNav_Apply(&np_view, &viz_style, VIZ_NAV_UP);
+		else if (pressed & SCE_CTRL_DOWN)
+			VizNav_Apply(&np_view, &viz_style, VIZ_NAV_DOWN);
+		else if (pressed & SCE_CTRL_LEFT)
+			VizNav_Apply(&np_view, &viz_style, VIZ_NAV_LEFT);
+		else if (pressed & SCE_CTRL_RIGHT)
+			VizNav_Apply(&np_view, &viz_style, VIZ_NAV_RIGHT);
+
+		if (np_view != was) {
 			Menu_ResetSeekBars();
+			Menu_VisualizerForgetTouch();
 
 			// Synced lyrics open on the line playing, not scrolling there from
 			// wherever they were left.
-			if (lyrics_view && !lyrics_moved)
+			if (np_view == NP_VIEW_LYRICS && !lyrics_moved)
 				Menu_LyricsSnap();
 		}
 
@@ -958,12 +1083,20 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		// lyrics or seek with its own bar.
 		// While its bar is held the lyrics keep following the real position,
 		// which does not move until the release; then they jump to the new line.
-		if (lyrics_view) {
+		if (np_view == NP_VIEW_LYRICS) {
 			SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
 
 			Menu_LyricsHandleDrag();
 			if (Menu_HandleSeekTouch(&lyrics_seek_state, &geo))
 				Menu_LyricsSnap();
+		}
+		// The visualizer has no on-screen transport either: a swipe on its
+		// area changes the style, and its bar seeks.
+		else if (np_view == NP_VIEW_VISUALIZER) {
+			SeekBar_Geometry geo = Menu_LyricsSeekGeometry();
+
+			Menu_VisualizerHandleSwipe();
+			Menu_HandleSeekTouch(&viz_seek_state, &geo);
 		}
 		// The transport is tested first: a press it takes never reaches the bar,
 		// and once the bar is held the buttons see no press to fire on.

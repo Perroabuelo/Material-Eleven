@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script test_viz_tap test_viz_fft test_viz_bands test_viz_meter test_viz_scope test_viz_spin test_viz_disc test_viz_nav
 
 .PHONY: all clean FORCE
 
@@ -81,7 +81,7 @@ test_list_filter: test_list_filter.c ../source/list_filter.c ../include/list_fil
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_list_filter.c ../source/list_filter.c
 
 test_gesture: test_gesture.c ../source/gesture.c ../include/gesture.h
-	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_gesture.c ../source/gesture.c
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_gesture.c ../source/gesture.c -lm
 
 test_list_scroll: test_list_scroll.c ../source/list_scroll.c ../include/list_scroll.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_list_scroll.c ../source/list_scroll.c -lm
@@ -103,6 +103,30 @@ test_log_line: test_log_line.c ../source/log_line.c ../include/log_line.h
 
 test_script: test_script.c ../source/script.c ../include/script.h ../source/log_line.c ../include/log_line.h
 	$(CC) $(CFLAGS) $(INCLUDE) -DSCRIPT_TEST_ALLOC -o $@ test_script.c ../source/script.c ../source/log_line.c
+
+test_viz_tap: test_viz_tap.c ../source/viz_tap.c ../include/viz_tap.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_tap.c ../source/viz_tap.c
+
+test_viz_fft: test_viz_fft.c ../source/viz_fft.c ../include/viz_fft.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_fft.c ../source/viz_fft.c -lm
+
+test_viz_bands: test_viz_bands.c ../source/viz_bands.c ../include/viz_bands.h ../source/viz_fft.c ../include/viz_fft.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_bands.c ../source/viz_bands.c ../source/viz_fft.c -lm
+
+test_viz_meter: test_viz_meter.c ../source/viz_meter.c ../include/viz_meter.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_meter.c ../source/viz_meter.c -lm
+
+test_viz_scope: test_viz_scope.c ../source/viz_scope.c ../include/viz_scope.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_scope.c ../source/viz_scope.c -lm
+
+test_viz_spin: test_viz_spin.c ../source/viz_spin.c ../include/viz_spin.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_spin.c ../source/viz_spin.c -lm
+
+test_viz_disc: test_viz_disc.c ../source/viz_disc.c ../include/viz_disc.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_disc.c ../source/viz_disc.c -lm
+
+test_viz_nav: test_viz_nav.c ../source/viz_nav.c ../include/viz_nav.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_nav.c ../source/viz_nav.c
 
 clean:
 	rm -f $(BIN) .cflags

@@ -1,0 +1,254 @@
+# Suite de ui/visualizer: la navegacion de las vistas y los estilos de
+# Reproduciendo. Lo que se ve y se oye (la forma de cada estilo, la sincronia,
+# el vinilo, la pantalla apagada) se verifica a mano.
+#
+# fixtures:
+#   - lastdir.txt en "ux0:/pruebas-eleven/visualizador/", con los cinco
+#     archivos de prueba de design.md (tonos de 60 s, para que ninguno termine
+#     a mitad de un escenario);
+#   - el boton de confirmar en Cruz.
+#
+# El ultimo escenario no tiene un resultado propio: deja diez lineas
+# screen to=folders cuyo heap_kb se compara a mano (la primera con la ultima).
+
+scenario Abrir y cerrar el visualizador
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+wait nowplaying view=normal style=spectrum
+press DOWN
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal style=spectrum
+
+scenario Los botones siguen funcionando en el visualizador
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+wait nowplaying view=visualizer paused=0
+press CROSS
+wait nowplaying view=visualizer paused=1
+press CROSS
+wait nowplaying view=visualizer paused=0
+
+scenario De las letras al visualizador y de vuelta
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press UP
+wait nowplaying view=lyrics
+press DOWN
+wait nowplaying view=visualizer
+press UP
+wait nowplaying view=lyrics
+press DOWN
+wait nowplaying view=visualizer
+press DOWN
+wait nowplaying view=normal
+
+scenario Recorrer los cinco estilos y la vuelta
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+wait nowplaying view=visualizer style=spectrum
+press RIGHT
+wait nowplaying style=scope
+press RIGHT
+wait nowplaying style=vu
+press RIGHT
+wait nowplaying style=disc
+press RIGHT
+wait nowplaying style=pulse
+press RIGHT
+wait nowplaying style=spectrum
+press LEFT
+wait nowplaying style=pulse
+
+scenario Cambiar de estilo deslizando
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+wait nowplaying view=visualizer style=spectrum
+swipe 700 260 500 260 150ms     # hacia la izquierda: el siguiente
+wait nowplaying view=visualizer style=scope
+swipe 500 260 700 260 150ms     # hacia la derecha: el anterior
+wait nowplaying view=visualizer style=spectrum
+
+scenario Las flechas laterales no hacen nada en la vista normal
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+wait nowplaying view=normal style=spectrum
+press RIGHT
+sleep 500ms
+press DOWN
+wait nowplaying view=visualizer style=spectrum
+
+scenario El visualizador se recuerda al navegar
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+press RIGHT x2
+wait nowplaying view=visualizer style=vu
+tap 38 506                      # Ajustes, en el nav rail
+wait screen to=settings
+tap 38 40                       # Reproduciendo, en el nav rail
+wait screen to=nowplaying
+wait nowplaying view=visualizer style=vu
+
+scenario El estilo se recuerda al cerrar la vista
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+press RIGHT
+wait nowplaying view=visualizer style=scope
+press DOWN
+wait nowplaying view=normal style=scope
+press DOWN
+wait nowplaying view=visualizer style=scope
+
+scenario El estilo se mantiene al cambiar de pista
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+press DOWN
+press LEFT
+wait nowplaying view=visualizer style=pulse
+press R
+wait queue pos=1
+wait track event=open result=ok
+wait nowplaying view=visualizer style=pulse
+
+scenario Al arrancar no se recuerda
+# Cada escenario corre en un proceso nuevo, y el anterior dejo el
+# visualizador abierto en Disco que respira.
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+wait nowplaying view=normal style=spectrum
+press DOWN
+wait nowplaying view=visualizer style=spectrum
+
+scenario Recorrer los estilos muchas veces
+wait folders dir=ux0:/pruebas-eleven/visualizador/ sel=0
+press DOWN                      # la fila 0 es ..
+wait folders sel=1
+press CROSS
+wait screen to=nowplaying
+tap 38 110                      # Carpetas
+wait screen to=folders
+tap 38 40                       # Reproduciendo
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders
+tap 38 40
+wait screen to=nowplaying
+press DOWN
+press RIGHT x50
+wait nowplaying view=visualizer style=spectrum
+press DOWN
+wait nowplaying view=normal
+tap 38 110
+wait screen to=folders

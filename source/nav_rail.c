@@ -175,8 +175,15 @@ static float NavRail_HintButtonWidth(NavRail_HintButton button) {
 	if (NavRail_HintSymbolOf(button) != HINT_SYM_CHIP)
 		return HINT_GLYPH_BOX;
 
-	// The arrow chip is as wide as a one-letter chip, so it sits like L and R.
-	const char *name = (button == HINT_BTN_UP) ? "L" : NavRail_HintChipName(button);
+	// An arrow chip is as wide as a one-letter chip, so it sits like L and R,
+	// and the left-right one as a two-letter chip.
+	const char *name;
+	if (button == HINT_BTN_UP || button == HINT_BTN_DOWN)
+		name = "L";
+	else if (button == HINT_BTN_LEFT_RIGHT)
+		name = "LR";
+	else
+		name = NavRail_HintChipName(button);
 	return UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, name) + HINT_CHIP_PAD_X * 2;
 }
 
@@ -213,6 +220,20 @@ static void NavRail_DrawHintSymbol(NavRail_HintSymbol symbol, float cx, float cy
 		case HINT_SYM_CHIP:
 			break;
 	}
+}
+
+// A D-pad arrow centered on (cx, cy), pointing along (dx, dy), one of the four
+// unit directions.
+static void NavRail_DrawHintArrow(float cx, float cy, float dx, float dy) {
+	float half = HINT_CHIP_H * 0.22f;
+	// The base sits a little closer to the center than the tip, so the
+	// triangle reads centered.
+	float tip_x = cx + dx * half, tip_y = cy + dy * half;
+	float base_x = cx - dx * half * 0.7f, base_y = cy - dy * half * 0.7f;
+	// Perpendicular to the direction, for the base corners.
+	float px = -dy * half, py = dx * half;
+
+	UI_DrawTriangle(tip_x, tip_y, base_x + px, base_y + py, base_x - px, base_y - py, UI_COLOR_TEXT_SECONDARY);
 }
 
 static int NavRail_HintButtonCount(const NavRail_Hint *hint) {
@@ -282,9 +303,16 @@ void NavRail_DrawHints(float y, const NavRail_Hint *hints, int count) {
 			if (symbol == HINT_SYM_CHIP) {
 				UI_DrawPill(x, chip_y, w, HINT_CHIP_H, UI_COLOR_SURFACE_2);
 
-				if (hint->buttons[b] == HINT_BTN_UP) {
-					float cx = x + w / 2.0f, half = HINT_CHIP_H * 0.22f;
-					UI_DrawTriangle(cx, mid - half, cx + half, mid + half * 0.7f, cx - half, mid + half * 0.7f, UI_COLOR_TEXT_SECONDARY);
+				float cx = x + w / 2.0f;
+
+				if (hint->buttons[b] == HINT_BTN_UP)
+					NavRail_DrawHintArrow(cx, mid, 0.0f, -1.0f);
+				else if (hint->buttons[b] == HINT_BTN_DOWN)
+					NavRail_DrawHintArrow(cx, mid, 0.0f, 1.0f);
+				else if (hint->buttons[b] == HINT_BTN_LEFT_RIGHT) {
+					float apart = HINT_CHIP_H * 0.25f;
+					NavRail_DrawHintArrow(cx - apart, mid, -1.0f, 0.0f);
+					NavRail_DrawHintArrow(cx + apart, mid, 1.0f, 0.0f);
 				}
 				else
 					UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x + HINT_CHIP_PAD_X, chip_baseline, UI_COLOR_TEXT_SECONDARY,

@@ -1,3 +1,4 @@
+#include <math.h>
 #include <string.h>
 
 #include "gesture.h"
@@ -75,6 +76,7 @@ Gesture_Result Gesture_Update(Gesture_State *state, const Gesture_Input *in) {
 
 	res.start_x = state->start_x;
 	res.start_y = state->start_y;
+	state->down_ms += in->dt_ms;
 
 	// What the finger moved this frame, for the speed. The catch-up of the
 	// first drag frame below is not speed.
@@ -114,5 +116,17 @@ Gesture_Result Gesture_Update(Gesture_State *state, const Gesture_Input *in) {
 
 	state->last_x = in->x;
 	state->last_y = in->y;
+
+	if (in->swipe && !state->caught && state->down_ms <= GESTURE_SWIPE_MS) {
+		float dx = in->x - state->start_x;
+		float dy = in->y - state->start_y;
+
+		if (fabsf(dx) > GESTURE_SWIPE_DISTANCE && fabsf(dx) > fabsf(dy)) {
+			state->caught = 1;
+			res.type = GESTURE_SWIPE_X;
+			res.dx = dx;
+		}
+	}
+
 	return res;
 }

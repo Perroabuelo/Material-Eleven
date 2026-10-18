@@ -112,6 +112,7 @@ int TouchList_Update(TouchList *list, SceBool may_own, float *out_tap_y) {
 			break;
 
 		case GESTURE_NONE:
+		case GESTURE_SWIPE_X:   // lists never ask for swipes
 			break;
 	}
 

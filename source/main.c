@@ -129,6 +129,7 @@ int main(int argc, char *argv[]) {
 	sceSysmoduleLoadModule(SCE_SYSMODULE_MUSIC_EXPORT);
 	sceSysmoduleLoadModule(SCE_SYSMODULE_IME);
 	Utils_InitPowerTick();
+	Utils_InitPowerCallback();
 
 	// Every screen runs until the user picks another one and returns it, and
 	// only this loop opens the next. A screen that opened the next one itself
@@ -178,6 +179,7 @@ int main(int argc, char *argv[]) {
 	sceSysmoduleUnloadModule(SCE_SYSMODULE_MUSIC_EXPORT);
 
 	Touch_Shutdown();
+	Utils_TermPowerCallback();
 	sceAppMgrReleaseBgmPort();
 	Utils_TermAppUtil();
 

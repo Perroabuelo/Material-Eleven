@@ -13,7 +13,7 @@ include("${VITASDK}/share/vita.cmake" REQUIRED)
 
 set(VITA_APP_NAME "Material Eleven")
 set(VITA_TITLEID  "ELEVENMPV")
-set(VITA_VERSION  "04.30")
+set(VITA_VERSION  "04.40")
 
 # -g rides along with -O3: it emits DWARF without changing the generated code,
 # which is what lets vita-parse-core resolve function names and line numbers out
@@ -89,6 +89,15 @@ add_executable(${PROJECT_NAME}
   source/ui_gpu.c
   source/ui_theme.c
   source/utils.c
+  source/viz_bands.c
+  source/viz_disc.c
+  source/viz_draw.c
+  source/viz_fft.c
+  source/viz_meter.c
+  source/viz_nav.c
+  source/viz_scope.c
+  source/viz_spin.c
+  source/viz_tap.c
   source/audio/audio.c
   source/audio/flac.c
   source/audio/mp3.c

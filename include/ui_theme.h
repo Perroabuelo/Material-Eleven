@@ -215,6 +215,9 @@ void UI_DrawQuad(float x0, float y0, float x1, float y1, float x2, float y2, flo
 void UI_DrawStroke(float x0, float y0, float x1, float y1, float thickness, unsigned int color);
 // Annulus `thickness` px wide whose outer edge sits at `radius`.
 void UI_DrawRing(float cx, float cy, float radius, float thickness, unsigned int color);
+// The same with `segments` sides, for rings large enough that the default
+// count shows as a polygon.
+void UI_DrawRingN(float cx, float cy, float radius, float thickness, int segments, unsigned int color);
 
 // ---- Transport glyphs (shared by Now Playing and the Folders mini-player) ----
 // `size` is the glyph's nominal box, centered on (cx, cy).

@@ -188,3 +188,12 @@ X(STR_HINT_LYRICS,           "Lyrics",                   "Letras")
 X(STR_HINT_VISUALIZER,       "Visualizer",               "Visualizador")
 X(STR_HINT_STYLE,            "Style",                    "Estilo")
 X(STR_NO_LYRICS,             "No lyrics",                "Sin letra")
+// SELECT abre el menu del temporizador para dormir (playback/sleep-timer).
+X(STR_HINT_SLEEP_TIMER,      "Sleep timer",              "Temporizador")
+X(STR_SLEEP_TITLE,           "Sleep timer",              "Temporizador")
+X(STR_SLEEP_OFF,             "Off",                      "Apagado")
+X(STR_SLEEP_MINUTES,         "%u min",                   "%u min")
+X(STR_SLEEP_END_OF_TRACK,    "End of track",             "Al terminar la pista")
+// Junto a la luna de la barra de estado, en el modo de fin de pista.
+X(STR_SLEEP_STATUS_TRACK,    "End of track",             "Fin de pista")
+X(STR_HINT_CLOSE,            "Close",                    "Cerrar")

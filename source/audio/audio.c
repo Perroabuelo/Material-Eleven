@@ -8,6 +8,7 @@
 #include "lyrics.h"
 #include "ui_theme.h"
 #include "vitaaudiolib.h"
+#include "viz_tap.h"
 #include "fs.h"
 
 #include "flac.h"
@@ -45,6 +46,10 @@ static Audio_Decoder decoder = {0}, empty_decoder = {0};
 static SceBool track_loaded = SCE_FALSE;
 SceBool playing = SCE_TRUE, paused = SCE_FALSE;
 
+// The rate the visualizer's copy is tagged with, set before the track's audio
+// thread starts so that thread never asks the decoder.
+static unsigned int viz_rate = 0;
+
 static void Audio_Decode(void *buf, unsigned int length, void *userdata) {
 	if (playing == SCE_FALSE || paused == SCE_TRUE) {
 		// vitaAudioInit reserva grain * canales shorts, asi que el silencio se
@@ -58,6 +63,11 @@ static void Audio_Decode(void *buf, unsigned int length, void *userdata) {
 	}
 	else
 		(* decoder.decode)(buf, length, userdata);
+
+	// What the console is about to play, silence included, so the
+	// visualizer falls to zero on pause. Same frame width as above: a mono
+	// buffer holds `length` shorts, not twice that.
+	VizTap_Write(VizTap_Shared(), buf, length, vitaAudioGetChannelCount(), viz_rate);
 }
 
 static const char *Audio_FormatName(enum Audio_FileType type) {
@@ -209,6 +219,11 @@ int Audio_Init(const char *path) {
 	// load where the accent can follow it. Formats with no cover art at all (WAV,
 	// OGG, the trackers) leave cover_image NULL and fall back to the fixed accent.
 	UI_Theme_SetAccentFromCoverArt((metadata.has_meta && metadata.cover_image) ? metadata.cover_image : NULL);
+
+	// No thread of this track writes yet, and the last one's ended in
+	// Audio_Term, so nothing races the reset.
+	viz_rate = (* decoder.rate)();
+	VizTap_Reset(VizTap_Shared());
 
 	vitaAudioInit((* decoder.rate)(), (* decoder.channels)() == 2? SCE_AUDIO_OUT_MODE_STEREO : SCE_AUDIO_OUT_MODE_MONO);
 	vitaAudioSetChannelCallback(0, Audio_Decode, NULL);

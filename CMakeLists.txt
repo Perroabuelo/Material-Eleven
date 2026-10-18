@@ -89,6 +89,14 @@ add_executable(${PROJECT_NAME}
   source/ui_gpu.c
   source/ui_theme.c
   source/utils.c
+  source/viz_bands.c
+  source/viz_disc.c
+  source/viz_fft.c
+  source/viz_meter.c
+  source/viz_nav.c
+  source/viz_scope.c
+  source/viz_spin.c
+  source/viz_tap.c
   source/audio/audio.c
   source/audio/flac.c
   source/audio/mp3.c

@@ -59,6 +59,7 @@ Screenshots of earlier versions are in [docs/screenshots](docs/screenshots).
 - Displays ID3v1 and ID3v2 metadata for MP3 files. Other tags are displayed for OGG, FLAC, OPUS and XM.
 - Turn off the display and keep listening in the background.
 - A full-screen lyrics view on Now Playing (see Lyrics below).
+- A full-screen visualizer on Now Playing (see Visualizer below).
 
 **Lyrics**
 - Press Up on the D-pad on Now Playing to open the lyrics view, and again to close it.
@@ -74,6 +75,25 @@ Screenshots of earlier versions are in [docs/screenshots](docs/screenshots).
 - Files over 64 KB are ignored.
 - **Save `.lrc` files as UTF-8.** UTF-16 with a byte order mark and Windows-1252 are also read, but
   a file in any other encoding (Shift-JIS, GBK, Big5, EUC-KR...) will show the wrong characters.
+
+**Visualizer**
+- Press Down on the D-pad on Now Playing to open the visualizer, and again to close it. Up opens the
+  lyrics straight from the visualizer, and Down opens the visualizer straight from the lyrics.
+- Press Left or Right, or swipe sideways over the visualizer, to switch between five styles. The dots
+  under it show which one is on:
+  - **Spectrum:** frequency bars, from the bass on the left to the treble on the right.
+  - **Oscilloscope:** the waveform of what is playing.
+  - **VU:** level meters for the left and right channels, with a peak mark.
+  - **Vinyl + radial spectrum:** the album art as the label of a spinning record, with the frequency
+    bars around its edge.
+  - **Pulsing vinyl:** the same record, which pulses with the bass inside a halo of the track's color.
+- The record slows to a stop when you pause and picks up speed when you resume. A track without album
+  art gets a plain label.
+- The visualizer and its style stay as you left them when the track changes or you leave Now Playing
+  and come back. The app always starts on the normal view and the spectrum.
+- It shows the music before the console's own processing, so it does not reflect the EQ presets or
+  the volume limiter. With Bluetooth headphones, which add their own delay, it may run slightly ahead
+  of what you hear.
 
 **Audio** (ported from ElevenMPV-A)
 - The volume follows the system volume control.
@@ -113,11 +133,13 @@ The enter and cancel buttons (cross/circle) follow your console's settings.
 - L trigger: previous track in the queue.
 - R trigger: next track in the queue.
 - DPAD Up: open or close the lyrics view.
+- DPAD Down: open or close the visualizer.
+- DPAD Left/Right: in the visualizer, switch style.
 - Triangle: toggle shuffle.
 - Square: toggle repeat.
 - Start: turn off the display and keep playing audio in the background.
 - Touch: touch anywhere on the progress bar to seek to that location. In the lyrics view, drag the
-  lyrics to scroll them.
+  lyrics to scroll them. In the visualizer, swipe sideways to switch style.
 
 **Settings:**
 

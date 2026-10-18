@@ -13,7 +13,7 @@
 - [x] 2.5 Crear `source/viz_scope.c` e `include/viz_scope.h` (disparo en un cruce ascendente, D3) y `tests/test_viz_scope.c`. Listo cuando `make -C tests` pase con sanitizers.
 - [x] 2.6 Crear `source/viz_spin.c` e `include/viz_spin.h` (giro con inercia, D4), `source/viz_disc.c` e `include/viz_disc.h` (posiciones y UV del abanico, D4) y sus tests `tests/test_viz_spin.c` y `tests/test_viz_disc.c`. Listo cuando `make -C tests` pase con sanitizers.
 - [x] 2.7 Crear `source/viz_nav.c` e `include/viz_nav.h` con las transiciones de vista y de estilo (D6), y `tests/test_viz_nav.c` con todas las transiciones de los escenarios de `specs/ui/visualizer` y `specs/ui/now-playing`. Listo cuando `make -C tests` pase con sanitizers.
-- [ ] 2.8 Agregar a `source/gesture.c` el deslizamiento horizontal `GESTURE_SWIPE_X` (D7), con sus casos en `tests/test_gesture.c`, incluido que un arrastre vertical no se dispare como deslizamiento. Listo cuando `make -C tests` pase con sanitizers y los casos anteriores de `test_gesture` sigan pasando.
+- [x] 2.8 Agregar a `source/gesture.c` el deslizamiento horizontal `GESTURE_SWIPE_X` (D7), con sus casos en `tests/test_gesture.c`, incluido que un arrastre vertical no se dispare como deslizamiento. Listo cuando `make -C tests` pase con sanitizers y los casos anteriores de `test_gesture` sigan pasando.
 
 ## 3. Toma de audio
 

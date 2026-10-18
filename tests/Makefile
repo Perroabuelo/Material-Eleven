@@ -81,7 +81,7 @@ test_list_filter: test_list_filter.c ../source/list_filter.c ../include/list_fil
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_list_filter.c ../source/list_filter.c
 
 test_gesture: test_gesture.c ../source/gesture.c ../include/gesture.h
-	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_gesture.c ../source/gesture.c
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_gesture.c ../source/gesture.c -lm
 
 test_list_scroll: test_list_scroll.c ../source/list_scroll.c ../include/list_scroll.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_list_scroll.c ../source/list_scroll.c -lm

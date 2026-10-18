@@ -5,8 +5,9 @@
 // the finger is down, where it is and how long the frame took, it reports the
 // landing (to highlight what is under it), each frame of a drag, a tap when
 // the finger lifts without having moved past the drag threshold, a hold when
-// it stays still long enough (only for screens that ask for it), and the
-// speed at which a drag was let go (to start inertia).
+// it stays still long enough (only for screens that ask for it), a quick
+// sideways swipe (also only when asked for), and the speed at which a drag
+// was let go (to start inertia).
 //
 // Pure logic: no vita2d and no SCE headers, so it can be tested on a PC
 // (tests/test_gesture.c). The screen builds the input from touch.c and only
@@ -24,12 +25,18 @@
 // screens that ask for holds (Gesture_Input.hold_ms).
 #define GESTURE_HOLD_MS 500
 
+// A swipe is a touch that travels more than this many pixels sideways, more
+// than it travels up or down, within GESTURE_SWIPE_MS of landing.
+#define GESTURE_SWIPE_DISTANCE 80.0f
+#define GESTURE_SWIPE_MS 400.0f
+
 typedef enum {
 	GESTURE_NONE,       // no finger, or a finger holding still before the threshold
 	GESTURE_PRESS,      // the finger just landed at (start_x, start_y)
 	GESTURE_DRAG,       // the finger is dragging: it moved `dy` this frame
 	GESTURE_TAP,        // lifted without dragging; landed at start, lifted at end
 	GESTURE_HOLD,       // still at (start_x, start_y) for hold_ms; once per touch
+	GESTURE_SWIPE_X,    // a quick sideways swipe of `dx` so far; once per touch
 	GESTURE_RELEASE     // lifted after a drag (or a caught or held tap) at `velocity`
 } Gesture_Event;
 
@@ -38,11 +45,13 @@ typedef struct {
 	float x, y;         // its position (ignored when up)
 	float dt_ms;        // time since the previous frame
 	float hold_ms;      // how long still makes a hold; 0 never reports one
+	int swipe;          // report GESTURE_SWIPE_X; 0 never reports one
 } Gesture_Input;
 
 typedef struct {
 	Gesture_Event type;
 	float dy;                   // DRAG: vertical movement this frame, + is down
+	float dx;                   // SWIPE_X: horizontal movement since landing, + is right
 	float start_x, start_y;     // where the finger landed
 	float end_x, end_y;         // TAP/RELEASE: where it was last seen
 	float velocity;             // RELEASE: px/ms over the last frames, + is down
@@ -53,6 +62,7 @@ typedef struct {
 	int dragging;
 	int caught;
 	float held_ms;      // time down without dragging, for the hold
+	float down_ms;      // time since landing, for the swipe
 	float start_x, start_y;
 	float last_x, last_y;
 	float sample_dy[GESTURE_SPEED_SAMPLES];
@@ -76,7 +86,8 @@ int Gesture_Pressing(const Gesture_State *state);
 
 // Advances the recogniser by one frame. A hold marks the touch as caught, so
 // lifting it reports GESTURE_RELEASE and not GESTURE_TAP; dragging after it
-// still drags.
+// still drags. A swipe is reported instead of the drag frame where it is
+// recognised, and marks the touch as caught the same way.
 Gesture_Result Gesture_Update(Gesture_State *state, const Gesture_Input *in);
 
 #endif

@@ -336,6 +336,97 @@ static void test_drag_after_hold(void) {
 	CHECK(up(&st).type == GESTURE_TAP, "el toque siguiente deberia dar TAP");
 }
 
+static Gesture_Result swipe(Gesture_State *st, float x, float y) {
+	Gesture_Input in = { 1, x, y, FRAME_MS, 0.0f, 1 };
+	return Gesture_Update(st, &in);
+}
+
+// Apoya en (300, 300) y recorre (dx, dy) en `frames` fotogramas parejos;
+// devuelve cuantos SWIPE_X hubo y deja en *last el ultimo.
+static int swipe_path(Gesture_State *st, float dx, float dy, int frames, Gesture_Result *last) {
+	int swipes = 0;
+
+	swipe(st, 300.0f, 300.0f);
+	for (int i = 1; i <= frames; i++) {
+		Gesture_Result r = swipe(st, 300.0f + dx * i / frames, 300.0f + dy * i / frames);
+		if (r.type == GESTURE_SWIPE_X) {
+			swipes++;
+			*last = r;
+		}
+	}
+
+	return swipes;
+}
+
+static void test_swipe_left_right(void) {
+	Gesture_State st;
+	Gesture_Result r = {0};
+	Gesture_Reset(&st);
+
+	// 150 px a la izquierda en 10 fotogramas (167 ms).
+	CHECK(swipe_path(&st, -150.0f, 10.0f, 10, &r) == 1, "un deslizamiento rapido deberia dar un SWIPE_X");
+	CHECK(r.dx < -GESTURE_SWIPE_DISTANCE, "hacia la izquierda dx deberia ser negativo y pasar el umbral, dio %f", r.dx);
+	CHECK(NEAR(r.start_x, 300.0f) && NEAR(r.start_y, 300.0f), "SWIPE_X deberia informar el apoyo");
+	Gesture_Result u = up(&st);
+	CHECK(u.type == GESTURE_RELEASE, "levantar despues del deslizamiento deberia dar RELEASE, dio %d", u.type);
+
+	CHECK(swipe_path(&st, 150.0f, -10.0f, 10, &r) == 1 && r.dx > GESTURE_SWIPE_DISTANCE, "hacia la derecha dx deberia ser positivo, dio %f", r.dx);
+	up(&st);
+}
+
+static void test_swipe_vertical_drag(void) {
+	Gesture_State st;
+	Gesture_Result r = {0};
+	Gesture_Reset(&st);
+
+	// Un arrastre vertical largo y rapido no es un deslizamiento.
+	CHECK(swipe_path(&st, 0.0f, 200.0f, 10, &r) == 0, "un arrastre vertical no deberia dar SWIPE_X");
+	up(&st);
+
+	// Ni uno en diagonal con mas recorrido vertical que horizontal.
+	CHECK(swipe_path(&st, 100.0f, 130.0f, 10, &r) == 0, "una diagonal mas vertical no deberia dar SWIPE_X");
+	up(&st);
+}
+
+static void test_swipe_too_slow_or_short(void) {
+	Gesture_State st;
+	Gesture_Result r = {0};
+	Gesture_Reset(&st);
+
+	// 150 px en 60 fotogramas (1 s): pasa los 80 px a los 533 ms.
+	CHECK(swipe_path(&st, 150.0f, 0.0f, 60, &r) == 0, "un deslizamiento lento no deberia contar");
+	up(&st);
+
+	CHECK(swipe_path(&st, 70.0f, 0.0f, 5, &r) == 0, "70 px no deberian contar");
+	up(&st);
+}
+
+static void test_swipe_once(void) {
+	Gesture_State st;
+	Gesture_Result r = {0};
+	Gesture_Reset(&st);
+
+	// Ida y vuelta en el mismo toque: un unico deslizamiento.
+	int swipes = swipe_path(&st, 200.0f, 0.0f, 6, &r);
+	for (int i = 1; i <= 6; i++)
+		swipes += swipe(&st, 500.0f - 50.0f * i, 300.0f).type == GESTURE_SWIPE_X;
+	CHECK(swipes == 1, "un toque deberia dar un solo SWIPE_X, dio %d", swipes);
+	up(&st);
+}
+
+static void test_swipe_off(void) {
+	Gesture_State st;
+	Gesture_Reset(&st);
+
+	// Sin pedirlo, como las listas: moverse de lado sigue siendo arrastre.
+	int swipes = 0;
+	down(&st, 300.0f, 300.0f);
+	for (int i = 1; i <= 10; i++)
+		swipes += down(&st, 300.0f - 15.0f * i, 300.0f).type == GESTURE_SWIPE_X;
+	CHECK(swipes == 0, "sin swipe no deberia dar SWIPE_X");
+	CHECK(up(&st).type == GESTURE_RELEASE, "deberia soltarse como un arrastre");
+}
+
 int main(void) {
 	test_idle();
 	test_tap();
@@ -355,6 +446,11 @@ int main(void) {
 	test_hold_off();
 	test_hold_caught();
 	test_drag_after_hold();
+	test_swipe_left_right();
+	test_swipe_vertical_drag();
+	test_swipe_too_slow_or_short();
+	test_swipe_once();
+	test_swipe_off();
 
 	if (failures == 0)
 		printf("test_gesture: todo bien\n");

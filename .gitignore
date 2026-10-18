@@ -84,4 +84,12 @@ templates/
 /tests/test_selection
 /tests/test_log_line
 /tests/test_script
+/tests/test_viz_tap
+/tests/test_viz_fft
+/tests/test_viz_bands
+/tests/test_viz_meter
+/tests/test_viz_scope
+/tests/test_viz_spin
+/tests/test_viz_disc
+/tests/test_viz_nav
 /tests/.cflags

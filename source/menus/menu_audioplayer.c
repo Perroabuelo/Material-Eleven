@@ -25,6 +25,7 @@
 #include "nav_request.h"
 #include "queue.h"
 #include "seek_bar.h"
+#include "sleep_timer.h"
 #include "status_bar.h"
 #include "touch.h"
 #include "track_advance.h"
@@ -46,6 +47,14 @@ static char *position_time = NULL, *length_time = NULL, *filename = NULL;
 // solo Menu_PlayAudio y Menu_PlayQueued: entrar por el nav rail o cambiar de
 // pista no la cambia.
 static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
+
+// The sleep timer lives as long as the process and is never saved: every
+// start begins with it off.
+static Sleep_Timer sleep_timer = { SLEEP_OFF, 0 };
+// After a timed expiry the master stays at 0 until the pause it asked for has
+// faded out. Raising it at once would bring the sound back up for a buffer
+// while the pause fade is only starting.
+static SceBool sleep_master_held = SCE_FALSE;
 
 // The lyrics follow the track's lifecycle: loaded and laid out in
 // Menu_InitMusic, freed in Music_FreeCurrentTrack. Defined with the lyrics view.
@@ -236,6 +245,10 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 
 	if (!TrackAdvance_Run(&ops, count, forward, replay))
 		track_failed = SCE_TRUE;
+
+	// Asked for one advance only: a mark no track used must not pause the
+	// next one the user plays.
+	Audio_SetStartPaused(SCE_FALSE);
 }
 
 // Se baraja al encenderlo, y ahi es donde hace falta el generador ya sembrado.
@@ -306,6 +319,48 @@ void Music_Next(void) {
 		Music_HandleNext(SCE_TRUE, SCE_FALSE);
 }
 
+static void Music_LogSleep(const char *event, Sleep_Option option) {
+	if (!DebugLog_On())
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "sleep");
+	LogLine_Str(&line, "event", event);
+	LogLine_Str(&line, "mode", SleepTimer_Name(option));
+	DebugLog_Commit(&line);
+}
+
+void Music_SleepSet(Sleep_Option option) {
+	SleepTimer_Set(&sleep_timer, option, sceKernelGetProcessTimeWide());
+	Music_LogSleep("set", sleep_timer.option);
+}
+
+void Music_SleepTick(void) {
+	Sleep_Option was = sleep_timer.option;
+	float gain;
+
+	if (SleepTimer_Tick(&sleep_timer, sceKernelGetProcessTimeWide(), &gain) == SLEEP_TICK_EXPIRED) {
+		Music_LogSleep("expire", was);
+
+		if (Audio_HasTrack() && !Audio_IsPaused())
+			Audio_TogglePause();
+
+		sleep_master_held = SCE_TRUE;
+	}
+
+	// Released once the pause is heard, or at once if it expired paused. A
+	// resume before the fade-out ends releases it too, or the music would
+	// stay silent.
+	if (sleep_master_held) {
+		if (Audio_IsSilent() || !Audio_IsPaused())
+			sleep_master_held = SCE_FALSE;
+		else
+			gain = 0.0f;
+	}
+
+	Audio_SetMasterGain(gain);
+}
+
 // La pista termino sola: la repeticion la reabre y si no se avanza por el plan
 // vigente, barajado o no, igual que en un salto manual. Lo llama
 // Utils_ReadControls una vez por fotograma, asi que vale en cualquier pantalla.
@@ -322,6 +377,13 @@ void Music_Update(void) {
 			LogLine_Str(&line, "event", "end");
 			LogLine_Str(&line, "file", path ? path : "");
 			DebugLog_Commit(&line);
+		}
+
+		// The end-of-track mode: the queue moves on as always, and the track it
+		// opens stays paused at 0:00.
+		if (SleepTimer_TrackEnded(&sleep_timer)) {
+			Music_LogSleep("expire", SLEEP_END_OF_TRACK);
+			Audio_SetStartPaused(SCE_TRUE);
 		}
 
 		Music_HandleNext(SCE_TRUE, repeat);

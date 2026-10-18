@@ -69,7 +69,7 @@ Con el log prendido, el sistema SHALL registrar al menos estos eventos, con al m
 | `folders` | cuando cambia su estado | `dir`, `sel`, `count` |
 | `library` | cuando cambia su estado | `view`, `group` (`-` fuera de un grupo), `sel`, `count`, `mode` (`normal`, `select` o `move`), `menu` (`none`, `options`, `picker` o `confirm`) |
 | `settings` | cuando cambia su estado | `category`, `item`, `lang` (el idioma elegido en Ajustes: `system`, `english` o `spanish`) |
-| `nowplaying` | cuando cambia su estado | `file`, `paused` (`0` o `1`) |
+| `nowplaying` | cuando cambia su estado | `file`, `paused` (`0` o `1`), `view` (`normal`, `lyrics` o `visualizer`), `style` (`spectrum`, `scope`, `vu`, `disc` o `pulse`: el estilo del visualizador elegido en la sesión, también cuando la vista abierta no es la de visualizador) |
 | `track` | al intentar abrir una pista | `event=open`, `file`, `result` (`ok` o `fail`) y, si abrió, `format`, `rate`, `channels` |
 | `track` | al terminar una pista por llegar al final | `event=end`, `file` |
 | `queue` | cuando la cola pasa a otra pista | `pos` (desde 0), `count` |
@@ -98,6 +98,10 @@ Con el log prendido, el sistema SHALL registrar al menos estos eventos, con al m
 #### Scenario: Toque en la pantalla
 - **WHEN** con el log prendido, el usuario toca la pantalla cerca del centro y levanta el dedo
 - **THEN** el log tiene una línea `touch` con `event=down` y otra con `event=up`, las dos con `x` entre 400 y 560 e `y` entre 200 y 340
+
+#### Scenario: Recorrer las vistas y los estilos de Reproduciendo
+- **WHEN** con el log prendido, el usuario reproduce una pista, en Reproduciendo pulsa D-pad abajo, luego D-pad derecha dos veces, luego D-pad arriba y luego D-pad arriba otra vez
+- **THEN** el log tiene, en este orden, líneas `nowplaying` con `view=normal style=spectrum`, `view=visualizer style=spectrum`, `view=visualizer style=scope`, `view=visualizer style=vu`, `view=lyrics style=vu` y `view=normal style=vu`
 
 ### Requirement: El estado de una pantalla se registra solo cuando cambia
 El sistema SHALL escribir una línea de estado de pantalla (`folders`, `library`, `settings` o `nowplaying`) solo si difiere de la última línea de estado que escribió esa pantalla, y siempre al abrirla. Lo que cambia sin que cambie ningún campo de la línea, como el desplazamiento de la lista en píxeles o el avance de la pista, SHALL NOT producir líneas.

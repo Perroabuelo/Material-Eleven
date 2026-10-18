@@ -6,7 +6,7 @@
 
 ## 2. Lógica pura y tests en PC
 
-- [ ] 2.1 Crear `source/viz_tap.c` e `include/viz_tap.h` con el buffer circular de un escritor y un lector, la conversión de mono a estéreo, la lectura con retraso, el descarte si el escritor dio la vuelta y el reinicio (D1, D2), y `tests/test_viz_tap.c`. Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
+- [x] 2.1 Crear `source/viz_tap.c` e `include/viz_tap.h` con el buffer circular de un escritor y un lector, la conversión de mono a estéreo, la lectura con retraso, el descarte si el escritor dio la vuelta y el reinicio (D1, D2), y `tests/test_viz_tap.c`. Agregarlo a `tests/Makefile`. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 2.2 Crear `source/viz_fft.c` e `include/viz_fft.h` (FFT radix-2 de 1024 puntos con ventana de Hann, D3) y `tests/test_viz_fft.c`, que compara con una DFT directa y comprueba los bins de 100 Hz, 1 kHz y 8 kHz a 44,1 y 48 kHz. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 2.3 Crear `source/viz_bands.c` e `include/viz_bands.h` (32 bandas logarítmicas de 40 Hz a 16 kHz en dB, y energía de graves con ganancia automática, D3) y `tests/test_viz_bands.c`. Listo cuando `make -C tests` pase con sanitizers.
 - [ ] 2.4 Crear `source/viz_meter.c` e `include/viz_meter.h` (ataque y caída que dependen de `dt`, pico con retención, RMS por canal en dB, D3) y `tests/test_viz_meter.c`, con el caso de 60 frente a 30 fps. Listo cuando `make -C tests` pase con sanitizers.

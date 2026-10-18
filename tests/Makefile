@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script test_viz_tap
 
 .PHONY: all clean FORCE
 
@@ -103,6 +103,9 @@ test_log_line: test_log_line.c ../source/log_line.c ../include/log_line.h
 
 test_script: test_script.c ../source/script.c ../include/script.h ../source/log_line.c ../include/log_line.h
 	$(CC) $(CFLAGS) $(INCLUDE) -DSCRIPT_TEST_ALLOC -o $@ test_script.c ../source/script.c ../source/log_line.c
+
+test_viz_tap: test_viz_tap.c ../source/viz_tap.c ../include/viz_tap.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_tap.c ../source/viz_tap.c
 
 clean:
 	rm -f $(BIN) .cflags

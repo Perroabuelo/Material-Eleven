@@ -38,6 +38,9 @@ void Music_SleepSet(Sleep_Option option);
 // per frame next to Music_Update, from Utils_ReadControls, so it runs on every
 // screen and with the screen off.
 void Music_SleepTick(void);
+// The sleep timer for the status bar: SCE_FALSE when it is off; otherwise its
+// option, and in *minutes_left the minutes a timed one has left, rounded up.
+SceBool Music_SleepStatus(Sleep_Option *option, uint32_t *minutes_left);
 // Seeds the shuffle with `seed` instead of the clock, for a suite that needs
 // the same order every time (dev/console-scripts, `seed`).
 void Music_SetSeed(unsigned int seed);

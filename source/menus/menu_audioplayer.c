@@ -342,6 +342,15 @@ void Music_SleepSet(Sleep_Option option) {
 	Music_LogSleep("set", sleep_timer.option);
 }
 
+SceBool Music_SleepStatus(Sleep_Option *option, uint32_t *minutes_left) {
+	if (sleep_timer.option == SLEEP_OFF)
+		return SCE_FALSE;
+
+	*option = sleep_timer.option;
+	*minutes_left = SleepTimer_MinutesLeft(&sleep_timer, sceKernelGetProcessTimeWide());
+	return SCE_TRUE;
+}
+
 void Music_SleepTick(void) {
 	Sleep_Option was = sleep_timer.option;
 	float gain;

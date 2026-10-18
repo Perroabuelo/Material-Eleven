@@ -3,6 +3,8 @@
 #include <stdio.h>
 
 #include "common.h"
+#include "lang.h"
+#include "menu_audioplayer.h"
 #include "status_bar.h"
 #include "ui_theme.h"
 
@@ -81,8 +83,9 @@ static const char *StatusBar_GetCurrentTime(void) {
 	return buffer;
 }
 
-// Draws the level to the right of `x` and its percentage to the left of it.
-static void StatusBar_DrawBatteryStatus(float x, int baseline) {
+// Draws the level to the right of `x` and its percentage to the left of it,
+// and returns where the leftmost of the two begins.
+static float StatusBar_DrawBatteryStatus(float x, int baseline) {
 	int percent = scePowerGetBatteryLifePercent();
 	SceBool charging = (scePowerIsBatteryCharging() > 0) ? SCE_TRUE : SCE_FALSE;
 	char buf[13];
@@ -91,7 +94,7 @@ static void StatusBar_DrawBatteryStatus(float x, int baseline) {
 	if (percent < 0) {
 		// Unknown level: the shell alone, and no number to go with it.
 		StatusBar_DrawBattery(x, (STATUS_BAR_H - BATT_H) / 2.0f, -1, charging);
-		return;
+		return x;
 	}
 
 	snprintf(buf, sizeof(buf), "%d%%", percent);
@@ -99,6 +102,40 @@ static void StatusBar_DrawBatteryStatus(float x, int baseline) {
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, x - width - 8, baseline, UI_COLOR_TEXT_TERTIARY, buf);
 
 	StatusBar_DrawBattery(x, (STATUS_BAR_H - BATT_H) / 2.0f, percent, charging);
+	return x - width - 8;
+}
+
+// The sleep timer, drawn as geometry: a crescent moon (a disc with a smaller
+// one in the background color laid over it, off to one side).
+#define MOON_R        6.0f
+#define MOON_CUT_R    5.0f
+#define MOON_CUT_DX   3.5f
+#define MOON_CUT_DY  -2.5f
+#define MOON_TEXT_GAP 6
+#define SLEEP_GAP     14
+
+// While a sleep timer is set: the moon and the minutes left, or "End of
+// track", ending at `right`.
+static void StatusBar_DrawSleep(float right, int baseline) {
+	Sleep_Option option;
+	uint32_t minutes;
+	char buf[24];
+
+	if (!Music_SleepStatus(&option, &minutes))
+		return;
+
+	const char *text = buf;
+	if (option == SLEEP_END_OF_TRACK)
+		text = Lang_Get(STR_SLEEP_STATUS_TRACK);
+	else
+		snprintf(buf, sizeof(buf), Lang_Get(STR_SLEEP_MINUTES), (unsigned int)minutes);
+
+	float text_x = right - UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, text);
+	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, text_x, baseline, UI_COLOR_TEXT_TERTIARY, text);
+
+	float cx = text_x - MOON_TEXT_GAP - MOON_R, cy = STATUS_BAR_H / 2.0f;
+	vita2d_draw_fill_circle(cx, cy, MOON_R, UI_COLOR_TEXT_TERTIARY);
+	vita2d_draw_fill_circle(cx + MOON_CUT_DX, cy + MOON_CUT_DY, MOON_CUT_R, UI_COLOR_BG);
 }
 
 void StatusBar_Display(void) {
@@ -109,6 +146,8 @@ void StatusBar_Display(void) {
 	int width = UI_TextWidth(UI_FACE_MONO, UI_TS_BADGE, now);
 	int baseline = UI_TextBaselineY(UI_FACE_MONO, UI_TS_BADGE, 0, STATUS_BAR_H);
 
-	StatusBar_DrawBatteryStatus((950 - width) - (BATT_W + BATT_NUB_W + 14), baseline);
+	float battery_left = StatusBar_DrawBatteryStatus((950 - width) - (BATT_W + BATT_NUB_W + 14), baseline);
 	UI_DrawText(UI_FACE_MONO, UI_TS_BADGE, 950 - width, baseline, UI_COLOR_TEXT_TERTIARY, now);
+
+	StatusBar_DrawSleep(battery_left - SLEEP_GAP, baseline);
 }

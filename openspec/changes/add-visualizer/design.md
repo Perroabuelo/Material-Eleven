@@ -168,4 +168,6 @@ No aplica. No hay datos en disco nuevos ni cambios de formato. Para volver atrá
 ## Open Questions
 
 - ¿El callback de energía informa el encendido de la pantalla en este firmware? Si no, se usa el respaldo del salto de tiempo entre fotogramas (D8). Ninguna de las dos opciones cambia los specs ni las tareas.
+  - **Resuelta (tarea 1.3):** sí. Al encender la pantalla con PS llega `SCE_POWER_CB_APP_RESUMING`. El respaldo no habría servido: con la pantalla apagada el loop de fotogramas sigue a ritmo normal, sin saltos de tiempo.
 - ¿Cuál es el valor final de `VIZ_HW_LATENCY_FRAMES`? Se ajusta en la consola con `pulsos.wav`.
+  - **Resuelta (tarea 4.6):** 960 frames (un grain). Coincide con el altavoz y con audífonos de cable.

@@ -7,6 +7,7 @@
 // Sale con codigo 0 si todo pasa y distinto de 0 si algo falla, con una linea
 // por cada falla.
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -214,6 +215,13 @@ static void test_empty_queue(void) {
 	CHECK(q.advance_calls == 0, "una cola vacia no deberia avanzar, avanzo %d", q.advance_calls);
 }
 
+static void test_prev_restarts(void) {
+	CHECK(TrackAdvance_PrevRestarts(0) == 0, "en 0 ms deberia pasar a la anterior");
+	CHECK(TrackAdvance_PrevRestarts(TRACK_ADVANCE_RESTART_MS) == 0, "en 3000 ms justos deberia pasar a la anterior");
+	CHECK(TrackAdvance_PrevRestarts(TRACK_ADVANCE_RESTART_MS + 1) == 1, "en 3001 ms deberia reiniciar");
+	CHECK(TrackAdvance_PrevRestarts(UINT32_MAX) == 1, "en la posicion maxima deberia reiniciar");
+}
+
 int main(void) {
 	test_forward_opens_next();
 	test_replay_reopens_current();
@@ -223,6 +231,7 @@ int main(void) {
 	test_none_opens();
 	test_null_never_opened();
 	test_empty_queue();
+	test_prev_restarts();
 
 	if (failures == 0)
 		printf("test_track_advance: todo bien\n");

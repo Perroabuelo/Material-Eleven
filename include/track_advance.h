@@ -9,6 +9,12 @@
 // caller's functions; Music_HandleNext (menus/menu_audioplayer.c) passes
 // adapters over Menu_InitMusic and the real queue.
 
+#include <stdint.h>
+
+// Past this much of the current track, going back restarts it instead of
+// moving to the previous one.
+#define TRACK_ADVANCE_RESTART_MS 3000
+
 typedef struct {
 	// 1 if the track at `path` opened and is now the one loaded.
 	int (*open)(void *ctx, const char *path);
@@ -26,5 +32,10 @@ typedef struct {
 //
 // Returns 1 if a track opened, 0 if none did.
 int TrackAdvance_Run(const TrackAdvance_Ops *ops, int count, int forward, int replay);
+
+// 1 if going back from `position_ms` into the current track should restart it
+// (more than TRACK_ADVANCE_RESTART_MS played), 0 if it should open the
+// previous one.
+int TrackAdvance_PrevRestarts(uint32_t position_ms);
 
 #endif

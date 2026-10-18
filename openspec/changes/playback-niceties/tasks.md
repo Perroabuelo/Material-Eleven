@@ -21,7 +21,7 @@
 
 ## 5. Suite de consola
 
-- [ ] 5.1 Escribir `tests/console/playback-niceties.txt` (formato de `dev/console-scripts`) con los escenarios de la tabla de la estrategia de pruebas de design.md, incluido el de 15 minutos con `timeout=960s`. Listo cuando la suite corra en la consola y `debug.log` termine con `script` `event=end` sin escenarios fallados, y el resultado quede anotado aquí.
+- [ ] 5.1 Escribir `tests/console/playback-niceties.txt` (formato de `dev/console-scripts`) con los escenarios de la tabla de la estrategia de pruebas de design.md, incluido el de 15 minutos con `timeout=960s`, y sumarla a la tabla de `tests/console/README.md`. Listo cuando la suite corra en la consola y `debug.log` termine con `script` `event=end` sin escenarios fallados, y el resultado quede anotado aquí.
 
 ## 6. Documentación y versión
 

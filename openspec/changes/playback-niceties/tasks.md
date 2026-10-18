@@ -11,7 +11,7 @@
 
 ## 3. Retroceder
 
-- [ ] 3.1 En `source/menus/menu_audioplayer.c`, hacer de `Music_Previous` el único camino de retroceder (D1): L en Reproduciendo y el botón de anterior en pantalla pasan a llamarla. Reiniciar con `Music_SeekTo(0.0)`, llevar la letra sincronizada al principio y registrar `track` `event=restart`. Listo cuando `scripts/build.sh` compile y, en la consola, con `04 tono 60s.flac`, L después de 5 s reinicie la pista con una línea `event=restart` y sin línea `queue`, L antes de 1 s pase a la anterior, y lo mismo desde el botón en pantalla y el del mini reproductor.
+- [x] 3.1 En `source/menus/menu_audioplayer.c`, hacer de `Music_Previous` el único camino de retroceder (D1): L en Reproduciendo y el botón de anterior en pantalla pasan a llamarla. Reiniciar con `Music_SeekTo(0.0)`, llevar la letra sincronizada al principio y registrar `track` `event=restart`. Listo cuando `scripts/build.sh` compile y, en la consola, con `04 tono 60s.flac`, L después de 5 s reinicie la pista con una línea `event=restart` y sin línea `queue`, L antes de 1 s pase a la anterior, y lo mismo desde el botón en pantalla y el del mini reproductor.
 
 ## 4. Temporizador
 

@@ -1,0 +1,98 @@
+# Suite de playback-niceties: retroceder con la regla de los 3 segundos.
+# Lo que se oye (los fundidos, que el reinicio empiece justo al principio) y
+# que no haya una linea queue entre la pulsacion y el reinicio se verifican a
+# mano, leyendo debug.log despues de la suite.
+#
+# fixtures:
+#   - lastdir.txt en "ux0:/pruebas-eleven/niceties/", con los cuatro tonos de
+#     design.md: "01 tono 8s.flac", "02 tono 8s.flac", "03 tono 8s.flac" y
+#     "04 tono 60s.flac";
+#   - el boton de confirmar en Cruz.
+
+scenario Retroceder con mas de 3 s reinicia
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4                   # la fila 0 es ..
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=0
+
+scenario Retroceder al principio pasa a la anterior
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" result=ok
+
+scenario Los extremos se recorren de forma circular
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+
+scenario Dos retrocesos seguidos
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" result=ok
+
+scenario Con la repeticion encendida
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SQUARE
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+
+scenario Reiniciar en pausa no reanuda
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press CROSS
+wait nowplaying paused=1
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+sleep 1s
+wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=1
+
+scenario El boton de anterior en pantalla sigue la regla
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+tap 627 318                     # anterior, en el transporte de Reproduciendo
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+
+scenario El mini reproductor sigue la regla
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press CIRCLE
+wait screen to=folders
+sleep 5s
+tap 757 468                     # anterior, en el mini reproductor
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"

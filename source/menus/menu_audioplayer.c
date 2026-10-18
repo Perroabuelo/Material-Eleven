@@ -51,6 +51,7 @@ static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
 // Menu_InitMusic, freed in Music_FreeCurrentTrack. Defined with the lyrics view.
 static void Music_LoadLyrics(const char *path, char *embedded, size_t embedded_len);
 static void Music_FreeLyrics(void);
+static void Menu_LyricsSnap(void);
 
 // The progress bar, while the user holds it. A grab never outlives the track,
 // the view or the visit to this screen: it would seek in something else.
@@ -273,9 +274,31 @@ void Music_TogglePlayPause(void) {
 		Audio_TogglePause();
 }
 
+// The one way back, for L, the on-screen button and the mini player: past
+// TRACK_ADVANCE_RESTART_MS the track starts over where it is, paused or not,
+// and the queue stays put; before that it is the previous one of the plan.
 void Music_Previous(void) {
-	if (Audio_HasTrack() && Queue_Count() != 0)
+	if (!Audio_HasTrack() || Queue_Count() == 0)
+		return;
+
+	if (!TrackAdvance_PrevRestarts(Audio_GetPositionMs())) {
 		Music_HandleNext(SCE_FALSE, SCE_FALSE);
+		return;
+	}
+
+	Music_SeekTo(0.0);
+	Menu_LyricsSnap();
+
+	if (DebugLog_On()) {
+		const char *path = NULL;
+		Queue_PeekAhead(0, &path, NULL, NULL);
+
+		LogLine line;
+		DebugLog_Begin(&line, "track");
+		LogLine_Str(&line, "event", "restart");
+		LogLine_Str(&line, "file", path ? path : "");
+		DebugLog_Commit(&line);
+	}
 }
 
 void Music_Next(void) {
@@ -463,8 +486,7 @@ static SceBool Menu_HandleTransportTouch(void) {
 	}
 
 	if (UI_TouchTarget(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
-		if (Queue_Count() != 0)
-			Music_HandleNext(SCE_FALSE, SCE_FALSE);
+		Music_Previous();
 		return SCE_TRUE;
 	}
 
@@ -1110,10 +1132,8 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		else if (pressed & SCE_CTRL_SQUARE)
 			repeat = !repeat;
 
-		if (pressed & SCE_CTRL_LTRIGGER) {
-			if (Queue_Count() != 0)
-				Music_HandleNext(SCE_FALSE, SCE_FALSE);
-		}
+		if (pressed & SCE_CTRL_LTRIGGER)
+			Music_Previous();
 		else if (pressed & SCE_CTRL_RTRIGGER) {
 			if (Queue_Count() != 0)
 				Music_HandleNext(SCE_TRUE, SCE_FALSE);

@@ -91,6 +91,7 @@ add_executable(${PROJECT_NAME}
   source/utils.c
   source/viz_bands.c
   source/viz_disc.c
+  source/viz_draw.c
   source/viz_fft.c
   source/viz_meter.c
   source/viz_nav.c

@@ -31,6 +31,7 @@
 #include "ui_gpu.h"
 #include "ui_theme.h"
 #include "utils.h"
+#include "viz_draw.h"
 #include "viz_nav.h"
 
 // La repeticion es una politica sobre el fin de la pista, y por eso vive aqui.
@@ -909,6 +910,7 @@ static void Menu_DrawVisualizerDots(void) {
 
 static void Menu_DrawVisualizerView(void) {
 	Menu_DrawTrackHeader(!VizNav_StyleHasDisc(viz_style));
+	VizDraw_Frame(viz_style, LYRICS_X, VIZ_TOP, LYRICS_W, VIZ_BOTTOM - VIZ_TOP, viz_frame_ms / 1000.0f, !Audio_IsPaused());
 	Menu_DrawVisualizerDots();
 
 	float shown = Menu_DrawSeekBar(&viz_seek_state, LYRICS_X, LYRICS_SEEK_Y, LYRICS_W);

@@ -21,7 +21,7 @@ CFLAGS  ?= -std=gnu11 -O1 -g -Wall -Werror
 CFLAGS  += $(SANFLAGS)
 INCLUDE := -I../include
 
-BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script test_viz_tap test_viz_fft
+BIN := test_lang test_screen_off test_accent test_track_meta test_library_row test_nav_request test_capture_bmp test_text_encoding test_lyrics test_lyrics_layout test_track_advance test_seek_bar test_key_repeat test_text_fold test_list_filter test_gesture test_list_scroll test_playlist test_path_index test_cover_mosaic test_selection test_log_line test_script test_viz_tap test_viz_fft test_viz_bands
 
 .PHONY: all clean FORCE
 
@@ -109,6 +109,9 @@ test_viz_tap: test_viz_tap.c ../source/viz_tap.c ../include/viz_tap.h
 
 test_viz_fft: test_viz_fft.c ../source/viz_fft.c ../include/viz_fft.h
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_fft.c ../source/viz_fft.c -lm
+
+test_viz_bands: test_viz_bands.c ../source/viz_bands.c ../include/viz_bands.h ../source/viz_fft.c ../include/viz_fft.h
+	$(CC) $(CFLAGS) $(INCLUDE) -o $@ test_viz_bands.c ../source/viz_bands.c ../source/viz_fft.c -lm
 
 clean:
 	rm -f $(BIN) .cflags

@@ -31,8 +31,24 @@ int Audio_Init(const char *path);
 // other screens can tell whether a track is loaded and playing in the
 // background after the user has navigated away from Now Playing.
 SceBool Audio_HasTrack(void);
+// The pause the user asked for, which the screen shows from the frame of the
+// press on. What is heard follows a short fade later (Audio_IsSilent).
 SceBool Audio_IsPaused(void);
-void Audio_Pause(void);
+// SCE_TRUE once a pause has faded out and the audio thread writes silence,
+// and with no track loaded.
+SceBool Audio_IsSilent(void);
+// The user's pause and resume: fades out over some 100 ms before the sound
+// stops, and fades back in on resume. Pressing again mid-fade turns it around.
+void Audio_TogglePause(void);
+// Silence right away while `on`, without decoding and without touching the
+// pause or its fade. For seeking: Audio_Hold(1), Audio_Seek, Audio_Hold(0).
+void Audio_Hold(SceBool on);
+// Gain over everything played, 0..1, that the sleep timer lowers. Kept across
+// tracks; the audio thread eases between the values of consecutive buffers.
+void Audio_SetMasterGain(float gain);
+// With `on`, the next Audio_Init that succeeds opens the track paused at 0:00,
+// without one buffer heard. Audio_Init consumes it; SCE_FALSE drops it.
+void Audio_SetStartPaused(SceBool on);
 void Audio_Stop(void);
 SceUInt64 Audio_GetPosition(void);
 SceUInt64 Audio_GetLength(void);

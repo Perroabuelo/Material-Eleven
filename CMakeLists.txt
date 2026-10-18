@@ -85,6 +85,8 @@ add_executable(${PROJECT_NAME}
   source/touch.c
   source/touch_list.c
   source/track_advance.c
+  source/fade.c
+  source/sleep_timer.c
   source/track_meta.c
   source/ui_gpu.c
   source/ui_theme.c

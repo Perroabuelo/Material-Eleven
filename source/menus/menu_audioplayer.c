@@ -260,9 +260,17 @@ const char *Music_GetDisplayArtist(void) {
 	return "";
 }
 
+// Seeks without the pause fade and without touching the pause: silence while
+// the decoder moves, then the same state as before.
+static void Music_SeekTo(double fraction) {
+	Audio_Hold(SCE_TRUE);
+	Audio_Seek(fraction);
+	Audio_Hold(SCE_FALSE);
+}
+
 void Music_TogglePlayPause(void) {
 	if (Audio_HasTrack())
-		Audio_Pause();
+		Audio_TogglePause();
 }
 
 void Music_Previous(void) {
@@ -450,7 +458,7 @@ static SceBool Menu_HandleTransportTouch(void) {
 	float toggle_y = TRANSPORT_CY - TOGGLE_ICON_SIZE / 2;
 
 	if (UI_TouchTarget(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2)) {
-		Audio_Pause();
+		Audio_TogglePause();
 		return SCE_TRUE;
 	}
 
@@ -504,15 +512,7 @@ static SceBool Menu_HandleSeekTouch(SeekBar_State *state, const SeekBar_Geometry
 	if (SeekBar_Update(state, geo, &in, &fraction) != SEEKBAR_COMMIT)
 		return SCE_FALSE;
 
-	SceBool was_paused = Audio_IsPaused();
-	if (!was_paused)
-		Audio_Pause();
-
-	Audio_Seek(fraction);
-
-	if (was_paused != Audio_IsPaused())
-		Audio_Pause();
-
+	Music_SeekTo(fraction);
 	return SCE_TRUE;
 }
 
@@ -1056,7 +1056,7 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 			return tapped;
 
 		if (pressed & SCE_CTRL_ENTER)
-			Audio_Pause();
+			Audio_TogglePause();
 
 		NowPlaying_View was = np_view;
 

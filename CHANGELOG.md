@@ -8,6 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-10-18
+
+### Added
+
+- Sleep timer: press SELECT in Now Playing to stop the music after 15, 30, 45, 60 or 90 minutes, or at the end of the current song. The music fades out over a few seconds and pauses.
+- While a sleep timer is set, the status bar shows a moon with the minutes left.
+
+### Changed
+
+- Previous now restarts the song when it has played for more than 3 seconds, and goes to the previous song otherwise. This works the same from L, the on-screen button and the mini player.
+- Pausing and resuming now fade the sound out and in quickly, instead of cutting it with a click.
+- The Now Playing button bar is shorter so the sleep timer fits: L and R show `<< >>`, and Up and Down share one "Views" entry.
+
 ## [4.4.0] - 2026-10-17
 
 ### Added

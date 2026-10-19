@@ -20,3 +20,7 @@ int TrackAdvance_Run(const TrackAdvance_Ops *ops, int count, int forward, int re
 
 	return 0;
 }
+
+int TrackAdvance_PrevRestarts(uint32_t position_ms) {
+	return position_ms > TRACK_ADVANCE_RESTART_MS;
+}

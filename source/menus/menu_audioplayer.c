@@ -25,6 +25,7 @@
 #include "nav_request.h"
 #include "queue.h"
 #include "seek_bar.h"
+#include "sleep_timer.h"
 #include "status_bar.h"
 #include "touch.h"
 #include "track_advance.h"
@@ -47,10 +48,26 @@ static char *position_time = NULL, *length_time = NULL, *filename = NULL;
 // pista no la cambia.
 static UI_Screen playback_origin = UI_SCREEN_FOLDERS;
 
+// The sleep timer lives as long as the process and is never saved: every
+// start begins with it off.
+static Sleep_Timer sleep_timer = { SLEEP_OFF, 0 };
+// After a timed expiry the master stays at 0 until the pause it asked for has
+// faded out. Raising it at once would bring the sound back up for a buffer
+// while the pause fade is only starting.
+static SceBool sleep_master_held = SCE_FALSE;
+
+// The sleep timer's menu, opened with SELECT over any of the three views.
+// Screen state only: it closes whenever Now Playing is entered again.
+static SceBool sleep_menu_open = SCE_FALSE;
+static int sleep_menu_index = 0;
+// Set on the frame the menu takes a touch, so the rail ignores it on the next.
+static SceBool sleep_menu_took_touch = SCE_FALSE;
+
 // The lyrics follow the track's lifecycle: loaded and laid out in
 // Menu_InitMusic, freed in Music_FreeCurrentTrack. Defined with the lyrics view.
 static void Music_LoadLyrics(const char *path, char *embedded, size_t embedded_len);
 static void Music_FreeLyrics(void);
+static void Menu_LyricsSnap(void);
 
 // The progress bar, while the user holds it. A grab never outlives the track,
 // the view or the visit to this screen: it would seek in something else.
@@ -235,6 +252,10 @@ static void Music_HandleNext(SceBool forward, SceBool replay) {
 
 	if (!TrackAdvance_Run(&ops, count, forward, replay))
 		track_failed = SCE_TRUE;
+
+	// Asked for one advance only: a mark no track used must not pause the
+	// next one the user plays.
+	Audio_SetStartPaused(SCE_FALSE);
 }
 
 // Se baraja al encenderlo, y ahi es donde hace falta el generador ya sembrado.
@@ -260,19 +281,100 @@ const char *Music_GetDisplayArtist(void) {
 	return "";
 }
 
-void Music_TogglePlayPause(void) {
-	if (Audio_HasTrack())
-		Audio_Pause();
+// Seeks without the pause fade and without touching the pause: silence while
+// the decoder moves, then the same state as before.
+static void Music_SeekTo(double fraction) {
+	Audio_Hold(SCE_TRUE);
+	Audio_Seek(fraction);
+	Audio_Hold(SCE_FALSE);
 }
 
+void Music_TogglePlayPause(void) {
+	if (Audio_HasTrack())
+		Audio_TogglePause();
+}
+
+// The one way back, for L, the on-screen button and the mini player: past
+// TRACK_ADVANCE_RESTART_MS the track starts over where it is, paused or not,
+// and the queue stays put; before that it is the previous one of the plan.
 void Music_Previous(void) {
-	if (Audio_HasTrack() && Queue_Count() != 0)
+	if (!Audio_HasTrack() || Queue_Count() == 0)
+		return;
+
+	if (!TrackAdvance_PrevRestarts(Audio_GetPositionMs())) {
 		Music_HandleNext(SCE_FALSE, SCE_FALSE);
+		return;
+	}
+
+	Music_SeekTo(0.0);
+	Menu_LyricsSnap();
+
+	if (DebugLog_On()) {
+		const char *path = NULL;
+		Queue_PeekAhead(0, &path, NULL, NULL);
+
+		LogLine line;
+		DebugLog_Begin(&line, "track");
+		LogLine_Str(&line, "event", "restart");
+		LogLine_Str(&line, "file", path ? path : "");
+		DebugLog_Commit(&line);
+	}
 }
 
 void Music_Next(void) {
 	if (Audio_HasTrack() && Queue_Count() != 0)
 		Music_HandleNext(SCE_TRUE, SCE_FALSE);
+}
+
+static void Music_LogSleep(const char *event, Sleep_Option option) {
+	if (!DebugLog_On())
+		return;
+
+	LogLine line;
+	DebugLog_Begin(&line, "sleep");
+	LogLine_Str(&line, "event", event);
+	LogLine_Str(&line, "mode", SleepTimer_Name(option));
+	DebugLog_Commit(&line);
+}
+
+void Music_SleepSet(Sleep_Option option) {
+	SleepTimer_Set(&sleep_timer, option, sceKernelGetProcessTimeWide());
+	Music_LogSleep("set", sleep_timer.option);
+}
+
+SceBool Music_SleepStatus(Sleep_Option *option, uint32_t *minutes_left) {
+	if (sleep_timer.option == SLEEP_OFF)
+		return SCE_FALSE;
+
+	*option = sleep_timer.option;
+	*minutes_left = SleepTimer_MinutesLeft(&sleep_timer, sceKernelGetProcessTimeWide());
+	return SCE_TRUE;
+}
+
+void Music_SleepTick(void) {
+	Sleep_Option was = sleep_timer.option;
+	float gain;
+
+	if (SleepTimer_Tick(&sleep_timer, sceKernelGetProcessTimeWide(), &gain) == SLEEP_TICK_EXPIRED) {
+		Music_LogSleep("expire", was);
+
+		if (Audio_HasTrack() && !Audio_IsPaused())
+			Audio_TogglePause();
+
+		sleep_master_held = SCE_TRUE;
+	}
+
+	// Released once the pause is heard, or at once if it expired paused. A
+	// resume before the fade-out ends releases it too, or the music would
+	// stay silent.
+	if (sleep_master_held) {
+		if (Audio_IsSilent() || !Audio_IsPaused())
+			sleep_master_held = SCE_FALSE;
+		else
+			gain = 0.0f;
+	}
+
+	Audio_SetMasterGain(gain);
 }
 
 // La pista termino sola: la repeticion la reabre y si no se avanza por el plan
@@ -292,6 +394,18 @@ void Music_Update(void) {
 			LogLine_Str(&line, "file", path ? path : "");
 			DebugLog_Commit(&line);
 		}
+
+		// The end-of-track mode: the queue moves on as always, and the track it
+		// opens stays paused at 0:00.
+		if (SleepTimer_TrackEnded(&sleep_timer)) {
+			Music_LogSleep("expire", SLEEP_END_OF_TRACK);
+			Audio_SetStartPaused(SCE_TRUE);
+		}
+		// A pause asked for while its fade-out still played the end of the
+		// file (the user's, or the timer's): Audio_Term forgets it with this
+		// track, so the next one opens paused instead of playing.
+		else if (Audio_IsPaused())
+			Audio_SetStartPaused(SCE_TRUE);
 
 		Music_HandleNext(SCE_TRUE, repeat);
 	}
@@ -450,13 +564,12 @@ static SceBool Menu_HandleTransportTouch(void) {
 	float toggle_y = TRANSPORT_CY - TOGGLE_ICON_SIZE / 2;
 
 	if (UI_TouchTarget(cx - PLAY_BTN_R, TRANSPORT_CY - PLAY_BTN_R, PLAY_BTN_R * 2, PLAY_BTN_R * 2)) {
-		Audio_Pause();
+		Audio_TogglePause();
 		return SCE_TRUE;
 	}
 
 	if (UI_TouchTarget(prev_x, side_y, SIDE_BTN_SIZE, SIDE_BTN_SIZE)) {
-		if (Queue_Count() != 0)
-			Music_HandleNext(SCE_FALSE, SCE_FALSE);
+		Music_Previous();
 		return SCE_TRUE;
 	}
 
@@ -504,15 +617,7 @@ static SceBool Menu_HandleSeekTouch(SeekBar_State *state, const SeekBar_Geometry
 	if (SeekBar_Update(state, geo, &in, &fraction) != SEEKBAR_COMMIT)
 		return SCE_FALSE;
 
-	SceBool was_paused = Audio_IsPaused();
-	if (!was_paused)
-		Audio_Pause();
-
-	Audio_Seek(fraction);
-
-	if (was_paused != Audio_IsPaused())
-		Audio_Pause();
-
+	Music_SeekTo(fraction);
 	return SCE_TRUE;
 }
 
@@ -967,6 +1072,114 @@ static void Menu_DrawPlayerView(void) {
 	Menu_DrawUpNext();
 }
 
+// ---- Sleep timer menu ----
+//
+// The same shape as the Library's options menu, bottom right over the hint
+// bar, with rows of its own: seven of the Library's 56 px rows and a title do
+// not fit between the status bar and the hints.
+
+#define SLEEP_MENU_W     280
+#define SLEEP_MENU_ROW_H 44
+#define SLEEP_MENU_PAD   8
+
+static float Menu_SleepMenuH(void) { return (SLEEP_OPTION_COUNT + 1) * SLEEP_MENU_ROW_H + 2 * SLEEP_MENU_PAD; }
+static float Menu_SleepMenuX(void) { return 960 - 16 - SLEEP_MENU_W; }
+static float Menu_SleepMenuY(void) { return 544 - UI_HINT_BAR_HEIGHT - 8 - Menu_SleepMenuH(); }
+
+// Row 0 is the title, so option i sits one row down.
+static float Menu_SleepMenuRowY(int i) { return Menu_SleepMenuY() + SLEEP_MENU_PAD + (i + 1) * SLEEP_MENU_ROW_H; }
+
+static const char *Menu_SleepOptionLabel(Sleep_Option option, char *buf, size_t size) {
+	if (option == SLEEP_OFF)
+		return Lang_Get(STR_SLEEP_OFF);
+	if (option == SLEEP_END_OF_TRACK)
+		return Lang_Get(STR_SLEEP_END_OF_TRACK);
+
+	snprintf(buf, size, Lang_Get(STR_SLEEP_MINUTES), (unsigned int)SleepTimer_OptionMinutes(option));
+	return buf;
+}
+
+// A check mark, drawn as two strokes.
+static void Menu_DrawCheckGlyph(float cx, float cy, float size, unsigned int color) {
+	float t = size * 0.12f;
+	UI_DrawStroke(cx - size * 0.40f, cy, cx - size * 0.12f, cy + size * 0.30f, t, color);
+	UI_DrawStroke(cx - size * 0.12f, cy + size * 0.30f, cx + size * 0.42f, cy - size * 0.32f, t, color);
+}
+
+static void Menu_DrawSleepMenu(void) {
+	if (!sleep_menu_open)
+		return;
+
+	float x = Menu_SleepMenuX(), y = Menu_SleepMenuY();
+	float text_w = SLEEP_MENU_W - 2 * SLEEP_MENU_PAD - 32 - 24;
+	char buf[16];
+
+	UI_DrawRoundedRect(x, y, SLEEP_MENU_W, Menu_SleepMenuH(), 14, UI_COLOR_SURFACE_2);
+	UI_DrawTextClipped(UI_FACE_UI, UI_TS_LABEL, x + SLEEP_MENU_PAD + 16,
+		UI_TextBaselineY(UI_FACE_UI, UI_TS_LABEL, y + SLEEP_MENU_PAD, SLEEP_MENU_ROW_H), text_w, UI_COLOR_TEXT_SECONDARY, Lang_Get(STR_SLEEP_TITLE));
+
+	for (int i = 0; i < SLEEP_OPTION_COUNT; i++) {
+		float ry = Menu_SleepMenuRowY(i);
+
+		if (i == sleep_menu_index)
+			UI_DrawRowHighlight(x + SLEEP_MENU_PAD, ry, SLEEP_MENU_W - 2 * SLEEP_MENU_PAD, SLEEP_MENU_ROW_H);
+
+		UI_DrawTextClipped(UI_FACE_UI, UI_TS_BODY, x + SLEEP_MENU_PAD + 16, UI_TextBaselineY(UI_FACE_UI, UI_TS_BODY, ry, SLEEP_MENU_ROW_H),
+			text_w, UI_COLOR_TEXT_PRIMARY, Menu_SleepOptionLabel((Sleep_Option)i, buf, sizeof(buf)));
+
+		if (i == (int)sleep_timer.option)
+			Menu_DrawCheckGlyph(x + SLEEP_MENU_W - SLEEP_MENU_PAD - 24, ry + SLEEP_MENU_ROW_H / 2.0f, 18, ui_color_accent);
+	}
+}
+
+static void Menu_OpenSleepMenu(void) {
+	// A bar or a drag held when it opens is let go, so its release cannot
+	// seek or scroll once the menu closes.
+	Menu_ResetSeekBars();
+	Menu_VisualizerForgetTouch();
+	lyrics_dragging = SCE_FALSE;
+
+	sleep_menu_open = SCE_TRUE;
+	sleep_menu_index = (int)sleep_timer.option;
+}
+
+static void Menu_ChooseSleepOption(int i) {
+	Music_SleepSet((Sleep_Option)i);
+	sleep_menu_open = SCE_FALSE;
+}
+
+// The menu takes all of the frame's input, the rail's touches too: a touch
+// outside it only closes it. START still turns the screen off, which
+// Utils_ReadControls does before this.
+static void Menu_HandleSleepMenu(void) {
+	if (Touch_CheckPressed()) {
+		float x = Menu_SleepMenuX();
+		sleep_menu_took_touch = SCE_TRUE;
+
+		// Exact rows: grown to UI_TOUCH_MIN they would overlap their
+		// neighbours.
+		for (int i = 0; i < SLEEP_OPTION_COUNT; i++) {
+			float ry = Menu_SleepMenuRowY(i);
+			if (Touch_Position(x, ry, x + SLEEP_MENU_W, ry + SLEEP_MENU_ROW_H)) {
+				Menu_ChooseSleepOption(i);
+				return;
+			}
+		}
+
+		// The title and the padding are the menu too.
+		if (!Touch_Position(x, Menu_SleepMenuY(), x + SLEEP_MENU_W, Menu_SleepMenuY() + Menu_SleepMenuH()))
+			sleep_menu_open = SCE_FALSE;
+		return;
+	}
+
+	Utils_ListStep(&sleep_menu_index, SLEEP_OPTION_COUNT, SLEEP_OPTION_COUNT);
+
+	if (pressed & SCE_CTRL_ENTER)
+		Menu_ChooseSleepOption(sleep_menu_index);
+	else if (pressed & (SCE_CTRL_CANCEL | SCE_CTRL_SELECT))
+		sleep_menu_open = SCE_FALSE;
+}
+
 // The nowplaying line of the debug log, written only when it changes.
 static void Menu_LogNowPlayingState(void) {
 	if (!DebugLog_On())
@@ -981,6 +1194,8 @@ static void Menu_LogNowPlayingState(void) {
 	LogLine_Int(&line, "paused", Audio_IsPaused() ? 1 : 0);
 	LogLine_Str(&line, "view", VizNav_ViewName(np_view));
 	LogLine_Str(&line, "style", VizNav_StyleName(viz_style));
+	LogLine_Str(&line, "menu", sleep_menu_open ? "sleep" : "none");
+	LogLine_Str(&line, "sleep", SleepTimer_Name(sleep_timer.option));
 	DebugLog_CommitState(&line, DEBUG_STATE_NOWPLAYING);
 }
 
@@ -989,6 +1204,8 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 	Menu_ResetSeekBars();
 	Menu_VisualizerForgetTouch();
 	viz_last_frame_us = 0;
+	sleep_menu_open = SCE_FALSE;
+	sleep_menu_took_touch = SCE_FALSE;
 
 	while (SCE_TRUE) {
 		// Antes de dibujar: sin track, las cadenas de esta pantalla estan
@@ -1020,21 +1237,34 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 				break;
 		}
 
+		Menu_DrawSleepMenu();
+
 		// Confirmar pausa y reanuda, y la leyenda dice cual de las dos hara ahora.
-		// Letras y Visualizador van antes de Triangulo: la barra corta desde el
-		// final. Estilo solo existe en el visualizador (una etiqueta NULL se salta).
+		// Las vistas van antes de Triangulo: la barra corta desde el final, y ya
+		// no le sobra lugar (el temporizador entra en la vista normal y en la de
+		// letras, no en el visualizador). Estilo solo existe en el visualizador
+		// (una etiqueta NULL se salta).
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(Audio_IsPaused() ? STR_HINT_PLAY : STR_HINT_PAUSE) },
 			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_PREV_NEXT) },
-			{ { HINT_BTN_UP }, 0, Lang_Get(STR_HINT_LYRICS) },
-			{ { HINT_BTN_DOWN }, 0, Lang_Get(STR_HINT_VISUALIZER) },
+			{ { HINT_BTN_UP, HINT_BTN_DOWN }, 0, Lang_Get(STR_HINT_VIEWS) },
 			{ { HINT_BTN_LEFT_RIGHT }, 0, (np_view == NP_VIEW_VISUALIZER) ? Lang_Get(STR_HINT_STYLE) : NULL },
 			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SHUFFLE) },
 			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_REPEAT) },
+			{ { HINT_BTN_SELECT }, 0, Lang_Get(STR_HINT_SLEEP_TIMER) },
 			{ { HINT_BTN_START }, 0, Lang_Get(STR_HINT_SCREEN_OFF) },
 		};
-		NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, sizeof(hints) / sizeof(hints[0]));
+		// With the sleep timer's menu open, only what the menu does.
+		const NavRail_Hint menu_hints[] = {
+			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(STR_HINT_SELECT) },
+			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_CLOSE) },
+		};
+
+		if (sleep_menu_open)
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, menu_hints, sizeof(menu_hints) / sizeof(menu_hints[0]));
+		else
+			NavRail_DrawHints(544 - UI_HINT_BAR_HEIGHT, hints, sizeof(hints) / sizeof(hints[0]));
 
 		UI_Screen tapped = NavRail_DrawAndHitTest(UI_SCREEN_NOW_PLAYING);
 		UI_Debug_Draw();
@@ -1052,11 +1282,29 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		UI_Debug_Update();
 		UI_Theme_RenewFallbackIfNeeded();
 
+		// The rail hit-tests while drawing, before this frame's Touch_Update,
+		// so a press the menu took reaches it one frame later, menu closed.
+		if (sleep_menu_took_touch) {
+			sleep_menu_took_touch = SCE_FALSE;
+			tapped = UI_SCREEN_NONE;
+		}
+
+		// The menu takes everything, the rail included, and the music plays on.
+		if (sleep_menu_open) {
+			Menu_HandleSleepMenu();
+			continue;
+		}
+
 		if (tapped == UI_SCREEN_FOLDERS || tapped == UI_SCREEN_LIBRARY || tapped == UI_SCREEN_SETTINGS)
 			return tapped;
 
+		if (pressed & SCE_CTRL_SELECT) {
+			Menu_OpenSleepMenu();
+			continue;
+		}
+
 		if (pressed & SCE_CTRL_ENTER)
-			Audio_Pause();
+			Audio_TogglePause();
 
 		NowPlaying_View was = np_view;
 
@@ -1110,10 +1358,8 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		else if (pressed & SCE_CTRL_SQUARE)
 			repeat = !repeat;
 
-		if (pressed & SCE_CTRL_LTRIGGER) {
-			if (Queue_Count() != 0)
-				Music_HandleNext(SCE_FALSE, SCE_FALSE);
-		}
+		if (pressed & SCE_CTRL_LTRIGGER)
+			Music_Previous();
 		else if (pressed & SCE_CTRL_RTRIGGER) {
 			if (Queue_Count() != 0)
 				Music_HandleNext(SCE_TRUE, SCE_FALSE);

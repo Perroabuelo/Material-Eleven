@@ -18,6 +18,7 @@ whether it runs smoothly, how it sounds, and anything the script cannot do
 | `dev-console-scripts-error.txt` | A suite with a syntax error on line 3, which must not run at all |
 | `dev-debug-log.txt` | Scenarios of `dev/debug-log` that used to be done by hand |
 | `ui-visualizer.txt` | Moving between Now Playing's views and the visualizer styles, and that doing it many times keeps the heap flat |
+| `playback-niceties.txt` | Going back past 3 seconds, the sleep timer's menu, its end-of-track mode and two 15-minute expiries with the library (about 37 minutes in all) |
 
 One suite per capability, named after it. A change with console scenarios adds
 them to the suite of its capability, or starts one, and its design says which

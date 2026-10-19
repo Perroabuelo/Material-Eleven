@@ -1,0 +1,356 @@
+# Suite de playback-niceties: retroceder con la regla de los 3 segundos, el
+# menu del temporizador y el modo de fin de pista.
+# Lo que se oye (los fundidos, que el reinicio empiece justo al principio), lo
+# que se ve (el menu, la leyenda, el indicador) y que no haya una linea queue
+# entre la pulsacion y el reinicio se verifican a mano, leyendo debug.log
+# despues de la suite.
+#
+# fixtures:
+#   - lastdir.txt en "ux0:/pruebas-eleven/niceties/", con los cuatro tonos de
+#     design.md: "01 tono 8s.flac", "02 tono 8s.flac", "03 tono 8s.flac" y
+#     "04 tono 60s.flac";
+#   - biblioteca de "ux0:/Mis cosas" escaneada (291 canciones), en la vista
+#     Canciones;
+#   - el boton de confirmar en Cruz.
+
+scenario Retroceder con mas de 3 s reinicia
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4                   # la fila 0 es ..
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=0
+
+scenario Retroceder al principio pasa a la anterior
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" result=ok
+
+scenario Los extremos se recorren de forma circular
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+
+scenario Dos retrocesos seguidos
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+press L
+wait track event=open file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" result=ok
+
+scenario Con la repeticion encendida
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SQUARE
+sleep 5s
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+
+scenario Reiniciar en pausa no reanuda
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+press CROSS
+wait nowplaying paused=1
+press L
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+sleep 1s
+wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=1
+
+scenario El boton de anterior en pantalla sigue la regla
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+sleep 5s
+tap 627 318                     # anterior, en el transporte de Reproduciendo
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+
+scenario El mini reproductor sigue la regla
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press CIRCLE
+wait screen to=folders
+sleep 5s
+tap 757 468                     # anterior, en el mini reproductor
+wait track event=restart file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac"
+
+# ---- El menu del temporizador ----
+# El menu se abre abajo a la derecha: x 664 a 944, y 128 a 496. La fila 0 es
+# el titulo, y la opcion i va de y = 180 + 44 i a 224 + 44 i.
+
+scenario Elegir y cancelar el temporizador
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SELECT
+wait nowplaying menu=sleep sleep=off
+press DOWN
+press CROSS
+wait sleep event=set mode=15
+wait nowplaying menu=none sleep=15 paused=0
+press SELECT
+wait nowplaying menu=sleep sleep=15
+press UP
+press CROSS
+wait sleep event=set mode=off
+wait nowplaying menu=none sleep=off paused=0
+
+scenario Cerrar sin cambiar nada
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SELECT
+press DOWN x2
+press CROSS
+wait sleep event=set mode=30
+press SELECT
+wait nowplaying menu=sleep sleep=30
+press DOWN x2
+press CIRCLE
+wait nowplaying menu=none sleep=30
+press SELECT                    # sigue en Reproduciendo: en Carpetas SELECT abre Ajustes
+wait nowplaying menu=sleep sleep=30
+press SELECT                    # SELECT tambien lo cierra
+wait nowplaying menu=none sleep=30
+
+scenario Elegir tocando
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SELECT
+wait nowplaying menu=sleep
+tap 804 466                     # "Al terminar la pista", la septima opcion
+wait sleep event=set mode=track
+wait nowplaying menu=none sleep=track
+
+scenario Tocar fuera cierra sin cambiar nada
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SELECT
+wait nowplaying menu=sleep
+tap 38 126                      # Carpetas, en el nav rail: solo cierra el menu
+wait nowplaying menu=none sleep=off
+sleep 500ms
+press SELECT                    # sigue en Reproduciendo: en Carpetas SELECT abre Ajustes
+wait nowplaying menu=sleep
+
+scenario Los gatillos no actuan con el menu abierto
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SELECT
+wait nowplaying menu=sleep
+press R
+press TRIANGLE
+press SQUARE
+sleep 500ms
+wait nowplaying menu=sleep
+press CIRCLE
+wait nowplaying menu=none file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=0
+
+scenario Desde la vista de letras
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press UP
+wait nowplaying view=lyrics
+press SELECT
+wait nowplaying view=lyrics menu=sleep
+press CIRCLE
+wait nowplaying view=lyrics menu=none
+
+scenario Desde el visualizador
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press DOWN
+wait nowplaying view=visualizer
+press SELECT
+wait nowplaying view=visualizer menu=sleep
+press RIGHT                     # con el menu abierto no cambia el estilo
+press CIRCLE
+wait nowplaying view=visualizer menu=none style=spectrum
+
+# ---- El modo de fin de pista ----
+
+scenario Vencer al terminar la pista
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press SELECT
+press UP                        # desde Apagado da la vuelta a la ultima
+press CROSS
+wait sleep event=set mode=track
+wait track event=end file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" timeout=15s
+wait sleep event=expire mode=track
+wait track event=open file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" result=ok
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1 sleep=off
+
+scenario Reanudar continua la cola
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press SELECT
+press UP
+press CROSS
+wait track event=end file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" timeout=15s
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1
+press CROSS
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=0
+wait track event=end file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" timeout=15s
+wait track event=open file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" result=ok
+wait nowplaying file="ux0:/pruebas-eleven/niceties/03 tono 8s.flac" paused=0
+
+scenario Fin de pista con la repeticion encendida
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press SQUARE
+press SELECT
+press UP
+press CROSS
+wait track event=end file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" timeout=15s
+wait sleep event=expire mode=track
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+wait nowplaying file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" paused=1 sleep=off
+
+scenario Fin de pista fuera de Reproduciendo
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+press SELECT
+press UP
+press CROSS
+wait sleep event=set mode=track
+press CIRCLE
+wait screen to=folders
+wait track event=end file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" timeout=15s
+wait sleep event=expire mode=track
+wait track event=open file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" result=ok
+
+# ---- Pausar justo antes del final ----
+# La pausa se pulsa unos 100 ms antes de que termine la pista, mientras su
+# fundido todavia reproduce el final del archivo. Depende del tiempo: si la
+# pulsacion cayera fuera de ese margen el wait de 02 fallaria por tiempo, no
+# por el comportamiento: el sleep empieza unos 160 ms despues de abrir la
+# pista, y la de 8 s termina a los 7,97 s de abierta.
+
+scenario Pausar justo antes del final deja la siguiente en pausa
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+sleep 7700ms
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" result=ok
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1
+sleep 2s
+press SELECT                    # una accion, para que el wait mire el estado de ahora
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1 menu=sleep
+
+# ---- Con la Biblioteca ----
+# Estos usan las canciones de "ux0:/Mis cosas", para reconocerlas de oido.
+
+scenario Retroceder con el barajado encendido
+seed 42
+tap 38 180                      # Biblioteca, en el nav rail
+wait library view=songs sel=0
+press CROSS
+wait track event=open result=ok
+press TRIANGLE                  # aleatorio
+sleep 300ms
+press R
+wait queue pos=1 count=291
+press R
+wait queue pos=2 count=291
+press L                         # con menos de 3 s: la que sono antes en el orden barajado
+wait queue pos=1 count=291
+wait track event=open result=ok
+
+# ---- Vencer por tiempo ----
+# Cada uno dura unos 16 minutos: van al final para no demorar el resto.
+
+scenario Vencer en la Biblioteca
+tap 38 180
+wait library view=songs sel=0
+press CROSS
+wait track event=open result=ok
+wait screen to=nowplaying
+press SELECT
+press DOWN
+press CROSS
+wait sleep event=set mode=15
+press CIRCLE                    # de vuelta a la Biblioteca, de donde salio la cancion
+wait screen to=library
+wait sleep event=expire mode=15 timeout=960s
+sleep 2s                        # si la pista terminara durante el fundido, seguiria en pausa
+tap 38 40                       # Reproduciendo, en el nav rail
+wait screen to=nowplaying
+wait nowplaying paused=1 sleep=off
+
+scenario Vencer con la reproduccion en pausa
+tap 38 180
+wait library view=songs sel=0
+press CROSS
+wait track event=open result=ok
+wait screen to=nowplaying
+press SELECT
+press DOWN
+press CROSS
+wait sleep event=set mode=15
+press CROSS                     # pausa enseguida
+wait nowplaying paused=1 sleep=15
+wait sleep event=expire mode=15 timeout=960s
+press SELECT
+wait nowplaying paused=1 sleep=off menu=sleep

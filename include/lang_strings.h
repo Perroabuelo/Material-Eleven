@@ -176,15 +176,21 @@ X(STR_UP_NEXT,               "UP NEXT",                  "A CONTINUACIÓN")
 // Confirmar anuncia lo que hace ahora: "Pausa" mientras suena y STR_HINT_PLAY
 // en pausa. "Reproducir / Pausa" entero no cabe en la barra en español.
 X(STR_HINT_PAUSE,            "Pause",                    "Pausa")
-// "Anterior / Siguiente" dejaba fuera a START en español al sumarse Letras;
-// los chips L y R ya dicen la dirección.
-X(STR_HINT_PREV_NEXT,        "Previous / Next",          "Pista")
-X(STR_HINT_SHUFFLE,          "Shuffle",                  "Aleatorio")
+// La leyenda de Reproduciendo no tiene lugar de sobra (ui/now-playing): los
+// chips L y R ya dicen que son los gatillos, y las flechas dicen la dirección.
+X(STR_HINT_PREV_NEXT,        "<< >>",                    "<< >>")
+X(STR_HINT_SHUFFLE,          "Shuffle",                  "Mezclar")
 X(STR_HINT_REPEAT,           "Repeat",                   "Repetir")
-// D-pad arriba abre y cierra la vista de letras (ui/now-playing).
-X(STR_HINT_LYRICS,           "Lyrics",                   "Letras")
-// D-pad abajo abre y cierra el visualizador, y ← → cambian su estilo
-// (ui/visualizer).
-X(STR_HINT_VISUALIZER,       "Visualizer",               "Visualizador")
+// D-pad arriba (letras) y abajo (visualizador) van en una sola entrada con
+// STR_HINT_VIEWS, el mismo texto que usa la Biblioteca para L y R.
 X(STR_HINT_STYLE,            "Style",                    "Estilo")
 X(STR_NO_LYRICS,             "No lyrics",                "Sin letra")
+// SELECT abre el menu del temporizador para dormir (playback/sleep-timer).
+X(STR_HINT_SLEEP_TIMER,      "Sleep",                    "Dormir")
+X(STR_SLEEP_TITLE,           "Sleep timer",              "Temporizador")
+X(STR_SLEEP_OFF,             "Off",                      "Apagado")
+X(STR_SLEEP_MINUTES,         "%u min",                   "%u min")
+X(STR_SLEEP_END_OF_TRACK,    "End of track",             "Al terminar la pista")
+// Junto a la luna de la barra de estado, en el modo de fin de pista.
+X(STR_SLEEP_STATUS_TRACK,    "End of track",             "Fin de pista")
+X(STR_HINT_CLOSE,            "Close",                    "Cerrar")

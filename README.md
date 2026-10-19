@@ -55,6 +55,12 @@ Screenshots of earlier versions are in [docs/screenshots](docs/screenshots).
 
 **Playback**
 - A playback queue with an "Up next" list, and independent shuffle and repeat.
+- Going back restarts the song when it has played for more than 3 seconds, and goes to the previous
+  song otherwise. This works the same from L, the on-screen button and the mini player, also with
+  repeat on, and restarting a paused song leaves it paused.
+- Pausing and resuming fade the sound out and in over about a tenth of a second, instead of cutting
+  it with a click.
+- A sleep timer (see Sleep timer below).
 - Seeking with the touch screen.
 - Displays ID3v1 and ID3v2 metadata for MP3 files. Other tags are displayed for OGG, FLAC, OPUS and XM.
 - Turn off the display and keep listening in the background.
@@ -95,6 +101,20 @@ Screenshots of earlier versions are in [docs/screenshots](docs/screenshots).
   the volume limiter. With Bluetooth headphones, which add their own delay, it may run slightly ahead
   of what you hear.
 
+**Sleep timer**
+- Press Select on Now Playing to open the sleep timer, in any of its views. Choose Off, 15, 30, 45,
+  60 or 90 minutes, or End of track, with the D-pad and the enter button, or by touching it. The
+  cancel button, Select or a touch outside the menu close it without changing anything.
+- When the time is up, the music fades out over the last 10 seconds and pauses. Resuming plays it
+  at its normal volume. The timer keeps counting while paused, on every screen and with the display
+  off.
+- With End of track, when the current song ends the queue moves on to the next one (or the same one,
+  with repeat on) and leaves it paused at 0:00, without playing it.
+- Choosing another option replaces the one set, and Off cancels it. Once paused, the console can go
+  to sleep on its own again. The timer is not remembered when the app is closed.
+- While a timer is set, the status bar on Now Playing, Folders and Library shows a moon with the
+  minutes left, or "End of track".
+
 **Audio** (ported from ElevenMPV-A)
 - The volume follows the system volume control.
 - Hardware EQ presets (Heavy, Pop, Jazz, Unique), with an optional volume limiter.
@@ -130,13 +150,14 @@ The enter and cancel buttons (cross/circle) follow your console's settings.
 
 - Enter button: play/pause.
 - Cancel button: return to Folders.
-- L trigger: previous track in the queue.
+- L trigger: restart the song, or the previous track in the queue within its first 3 seconds.
 - R trigger: next track in the queue.
 - DPAD Up: open or close the lyrics view.
 - DPAD Down: open or close the visualizer.
 - DPAD Left/Right: in the visualizer, switch style.
 - Triangle: toggle shuffle.
 - Square: toggle repeat.
+- Select: open the sleep timer.
 - Start: turn off the display and keep playing audio in the background.
 - Touch: touch anywhere on the progress bar to seek to that location. In the lyrics view, drag the
   lyrics to scroll them. In the visualizer, swipe sideways to switch style.

@@ -3,6 +3,7 @@
 
 #include <psp2/types.h>
 
+#include "sleep_timer.h"
 #include "ui_screen.h"
 
 // Starts playback of `path` and asks to go to Now Playing through
@@ -31,6 +32,15 @@ void Music_Next(void);
 // Atiende el fin de la pista en curso: la repite o avanza la cola. Una vez por
 // fotograma, entre fotogramas; la llama Utils_ReadControls.
 void Music_Update(void);
+// Chooses a sleep timer option (playback/sleep-timer), replacing the one set.
+void Music_SleepSet(Sleep_Option option);
+// Advances the sleep timer: its fade-out, and the pause when it expires. Once
+// per frame next to Music_Update, from Utils_ReadControls, so it runs on every
+// screen and with the screen off.
+void Music_SleepTick(void);
+// The sleep timer for the status bar: SCE_FALSE when it is off; otherwise its
+// option, and in *minutes_left the minutes a timed one has left, rounded up.
+SceBool Music_SleepStatus(Sleep_Option *option, uint32_t *minutes_left);
 // Seeds the shuffle with `seed` instead of the clock, for a suite that needs
 // the same order every time (dev/console-scripts, `seed`).
 void Music_SetSeed(unsigned int seed);

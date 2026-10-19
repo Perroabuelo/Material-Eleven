@@ -59,6 +59,7 @@ int Utils_ReadControls(void) {
 	// frame, outside drawing: the one place where a finished track moves the
 	// queue on, whichever screen is open.
 	Music_Update();
+	Music_SleepTick();
 
 	memset(&pad, 0, sizeof(SceCtrlData));
 	sceCtrlPeekBufferPositive(0, &pad, 1);

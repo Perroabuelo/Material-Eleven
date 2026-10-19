@@ -92,4 +92,6 @@ templates/
 /tests/test_viz_spin
 /tests/test_viz_disc
 /tests/test_viz_nav
+/tests/test_fade
+/tests/test_sleep_timer
 /tests/.cflags

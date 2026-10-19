@@ -22,7 +22,8 @@
 
 ## 5. Suite de consola
 
-- [ ] 5.1 Escribir `tests/console/playback-niceties.txt` (formato de `dev/console-scripts`) con los escenarios de la tabla de la estrategia de pruebas de design.md, incluido el de 15 minutos con `timeout=960s`, y sumarla a la tabla de `tests/console/README.md`. Listo cuando la suite corra en la consola y `debug.log` termine con `script` `event=end` sin escenarios fallados, y el resultado quede anotado aquí.
+- [x] 5.1 Escribir `tests/console/playback-niceties.txt` (formato de `dev/console-scripts`) con los escenarios de la tabla de la estrategia de pruebas de design.md, incluido el de 15 minutos con `timeout=960s`, y sumarla a la tabla de `tests/console/README.md`. Listo cuando la suite corra en la consola y `debug.log` termine con `script` `event=end` sin escenarios fallados, y el resultado quede anotado aquí.
+  - Resultado (2026-10-18, v04.50): 20/20, con el de 15 minutos venciendo a los 900,0 s de elegirlo. El log mostró un fallo que el `wait` no vio: el vencimiento coincidió con el final de la pista, la cola pasó a la siguiente durante el fundido de pausa y esa pista arrancó sonando (lo mismo al pausar en los últimos ~100 ms de una canción). Se corrigió en `Music_Update` (una pista que termina con la pausa pedida deja la siguiente en pausa), se sumó el escenario "Pausar justo antes del final deja la siguiente en pausa" y una segunda comprobación 2 s después en el de 15 minutos. Con la corrección, una suite corta pasó el escenario nuevo con 7700 y 7750 ms (con 7650 la pausa cae antes del margen y no lo prueba) y los cuatro de fin de pista. No se repitió la suite completa: la corrección solo actúa cuando una pista termina con la pausa pedida.
 
 ## 6. Documentación y versión
 

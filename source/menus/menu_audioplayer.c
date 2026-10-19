@@ -401,6 +401,11 @@ void Music_Update(void) {
 			Music_LogSleep("expire", SLEEP_END_OF_TRACK);
 			Audio_SetStartPaused(SCE_TRUE);
 		}
+		// A pause asked for while its fade-out still played the end of the
+		// file (the user's, or the timer's): Audio_Term forgets it with this
+		// track, so the next one opens paused instead of playing.
+		else if (Audio_IsPaused())
+			Audio_SetStartPaused(SCE_TRUE);
 
 		Music_HandleNext(SCE_TRUE, repeat);
 	}

@@ -275,3 +275,44 @@ wait screen to=folders
 wait track event=end file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" timeout=15s
 wait sleep event=expire mode=track
 wait track event=open file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" result=ok
+
+# ---- Pausar justo antes del final ----
+# La pausa se pulsa unos 100 ms antes de que termine la pista, mientras su
+# fundido todavia reproduce el final del archivo. Depende del tiempo: si la
+# pulsacion cayera fuera de ese margen el wait de 02 fallaria por tiempo, no
+# por el comportamiento: el sleep empieza unos 160 ms despues de abrir la
+# pista, y la de 8 s termina a los 7,97 s de abierta.
+
+scenario Pausar justo antes del final deja la siguiente en pausa
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN
+wait folders sel=1
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/01 tono 8s.flac" result=ok
+sleep 7700ms
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" result=ok
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1
+sleep 2s
+press SELECT                    # una accion, para que el wait mire el estado de ahora
+wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1 menu=sleep
+
+# ---- Vencer por tiempo ----
+# Dura unos 16 minutos: va al final para no demorar el resto.
+
+scenario Vencer 15 minutos
+wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
+press DOWN x4
+wait folders sel=4
+press CROSS
+wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
+press SQUARE                    # la repeticion, para que la pista no se acabe
+press SELECT
+press DOWN
+press CROSS
+wait sleep event=set mode=15
+wait sleep event=expire mode=15 timeout=960s
+wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=1 sleep=off
+sleep 2s                        # si la pista terminara durante el fundido, seguiria en pausa
+press SELECT
+wait nowplaying paused=1 sleep=off menu=sleep

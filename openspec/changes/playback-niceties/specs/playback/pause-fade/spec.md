@@ -5,7 +5,7 @@ Define el fundido corto con que la reproducción se pausa y se reanuda, para que
 ## ADDED Requirements
 
 ### Requirement: Pausar y reanudar con un fundido corto
-Cuando el usuario pausa la reproducción, desde cualquier superficie (el botón de confirmar o el botón de reproducir en Reproduciendo, o el del mini reproductor), el sistema SHALL bajar el volumen de lo que suena de forma continua hasta el silencio en unos 100 ms, y solo entonces detener el sonido. Al reanudar, SHALL subir el volumen de forma continua desde el silencio hasta el volumen normal en unos 100 ms. El fundido SHALL estar siempre activo y SHALL NOT ser configurable. El estado de pausa que muestran la pantalla, el mini reproductor y la leyenda SHALL cambiar en el mismo momento de la pulsación, sin esperar a que termine el fundido. Pulsar de nuevo durante un fundido SHALL invertirlo desde el volumen al que había llegado, sin saltos de volumen.
+Cuando el usuario pausa la reproducción, desde cualquier superficie (el botón de confirmar o el botón de reproducir en Reproduciendo, o el del mini reproductor), el sistema SHALL bajar el volumen de lo que suena de forma continua hasta el silencio en unos 100 ms, y solo entonces detener el sonido. Al reanudar, SHALL subir el volumen de forma continua desde el silencio hasta el volumen normal en unos 100 ms. El fundido SHALL estar siempre activo y SHALL NOT ser configurable. El estado de pausa que muestran la pantalla, el mini reproductor y la leyenda SHALL cambiar en el mismo momento de la pulsación, sin esperar a que termine el fundido. Pulsar de nuevo durante un fundido SHALL invertirlo desde el volumen al que había llegado, sin saltos de volumen. Si la pista termina mientras el fundido de pausa todavía suena, la pausa SHALL mantenerse: la cola pasa a la pista que toca, como siempre, y la SHALL dejar cargada en pausa en 0:00, sin que llegue a sonar. Lo mismo vale para la pausa que pide el temporizador para dormir al vencer.
 
 #### Scenario: Pausar sin clic
 - **WHEN** el usuario, con auriculares, pausa una pista que suena fuerte y después la reanuda
@@ -18,6 +18,10 @@ Cuando el usuario pausa la reproducción, desde cualquier superficie (el botón 
 #### Scenario: Pausar y reanudar enseguida
 - **WHEN** el usuario pulsa pausa y vuelve a pulsar antes de que pasen 100 ms
 - **THEN** la música sigue sonando, con una bajada breve de volumen y sin ningún corte seco
+
+#### Scenario: Pausar justo antes de que termine la pista
+- **WHEN** el usuario pausa una pista unos 50 ms antes de que termine
+- **THEN** no suena nada más, y la pantalla muestra la pista siguiente en pausa en 0:00
 
 ### Requirement: Buscar no dispara el fundido
 Buscar una posición con la barra de progreso SHALL NOT producir el fundido de pausa ni de reanudación, y SHALL NOT cambiar si la reproducción está en pausa o sonando.

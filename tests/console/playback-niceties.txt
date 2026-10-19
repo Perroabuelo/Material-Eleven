@@ -9,6 +9,8 @@
 #   - lastdir.txt en "ux0:/pruebas-eleven/niceties/", con los cuatro tonos de
 #     design.md: "01 tono 8s.flac", "02 tono 8s.flac", "03 tono 8s.flac" y
 #     "04 tono 60s.flac";
+#   - biblioteca de "ux0:/Mis cosas" escaneada (291 canciones), en la vista
+#     Canciones;
 #   - el boton de confirmar en Cruz.
 
 scenario Retroceder con mas de 3 s reinicia
@@ -297,22 +299,58 @@ sleep 2s
 press SELECT                    # una accion, para que el wait mire el estado de ahora
 wait nowplaying file="ux0:/pruebas-eleven/niceties/02 tono 8s.flac" paused=1 menu=sleep
 
-# ---- Vencer por tiempo ----
-# Dura unos 16 minutos: va al final para no demorar el resto.
+# ---- Con la Biblioteca ----
+# Estos usan las canciones de "ux0:/Mis cosas", para reconocerlas de oido.
 
-scenario Vencer 15 minutos
-wait folders dir=ux0:/pruebas-eleven/niceties/ sel=0
-press DOWN x4
-wait folders sel=4
+scenario Retroceder con el barajado encendido
+seed 42
+tap 38 180                      # Biblioteca, en el nav rail
+wait library view=songs sel=0
 press CROSS
-wait track event=open file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" result=ok
-press SQUARE                    # la repeticion, para que la pista no se acabe
+wait track event=open result=ok
+press TRIANGLE                  # aleatorio
+sleep 300ms
+press R
+wait queue pos=1 count=291
+press R
+wait queue pos=2 count=291
+press L                         # con menos de 3 s: la que sono antes en el orden barajado
+wait queue pos=1 count=291
+wait track event=open result=ok
+
+# ---- Vencer por tiempo ----
+# Cada uno dura unos 16 minutos: van al final para no demorar el resto.
+
+scenario Vencer en la Biblioteca
+tap 38 180
+wait library view=songs sel=0
+press CROSS
+wait track event=open result=ok
+wait screen to=nowplaying
 press SELECT
 press DOWN
 press CROSS
 wait sleep event=set mode=15
+press CIRCLE                    # de vuelta a la Biblioteca, de donde salio la cancion
+wait screen to=library
 wait sleep event=expire mode=15 timeout=960s
-wait nowplaying file="ux0:/pruebas-eleven/niceties/04 tono 60s.flac" paused=1 sleep=off
 sleep 2s                        # si la pista terminara durante el fundido, seguiria en pausa
+tap 38 40                       # Reproduciendo, en el nav rail
+wait screen to=nowplaying
+wait nowplaying paused=1 sleep=off
+
+scenario Vencer con la reproduccion en pausa
+tap 38 180
+wait library view=songs sel=0
+press CROSS
+wait track event=open result=ok
+wait screen to=nowplaying
+press SELECT
+press DOWN
+press CROSS
+wait sleep event=set mode=15
+press CROSS                     # pausa enseguida
+wait nowplaying paused=1 sleep=15
+wait sleep event=expire mode=15 timeout=960s
 press SELECT
 wait nowplaying paused=1 sleep=off menu=sleep

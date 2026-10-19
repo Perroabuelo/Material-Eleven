@@ -27,7 +27,7 @@
 ## 6. Documentación y versión
 
 - [x] 6.1 En `README.md`, documentar en inglés la regla de retroceder, el temporizador (SELECT en Now Playing, las opciones, el fundido y el modo de fin de pista, el indicador) y el fundido de pausa. Listo cuando el README lo explique.
-- [ ] 6.2 Subir la versión a 4.5.0 (`VITA_VERSION "04.50"` en `CMakeLists.txt`) y agregar la entrada de v4.5.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` y su `param.sfo` diga `04.50`.
+- [x] 6.2 Subir la versión a 4.5.0 (`VITA_VERSION "04.50"` en `CMakeLists.txt`) y agregar la entrada de v4.5.0 a `CHANGELOG.md` con las notas de versión de proposal.md. Listo cuando `scripts/build.sh` genere el `.vpk` y su `param.sfo` diga `04.50`.
 
 ## 7. Verificación en consola
 

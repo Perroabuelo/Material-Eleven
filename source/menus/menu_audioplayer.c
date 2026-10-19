@@ -1235,14 +1235,15 @@ static UI_Screen Menu_RunNowPlayingLoop(void) {
 		Menu_DrawSleepMenu();
 
 		// Confirmar pausa y reanuda, y la leyenda dice cual de las dos hara ahora.
-		// Letras y Visualizador van antes de Triangulo: la barra corta desde el
-		// final. Estilo solo existe en el visualizador (una etiqueta NULL se salta).
+		// Las vistas van antes de Triangulo: la barra corta desde el final, y ya
+		// no le sobra lugar (el temporizador entra en la vista normal y en la de
+		// letras, no en el visualizador). Estilo solo existe en el visualizador
+		// (una etiqueta NULL se salta).
 		const NavRail_Hint hints[] = {
 			{ { HINT_BTN_CONFIRM }, 0, Lang_Get(Audio_IsPaused() ? STR_HINT_PLAY : STR_HINT_PAUSE) },
 			{ { HINT_BTN_CANCEL }, 0, Lang_Get(STR_HINT_BACK) },
 			{ { HINT_BTN_L, HINT_BTN_R }, 0, Lang_Get(STR_HINT_PREV_NEXT) },
-			{ { HINT_BTN_UP }, 0, Lang_Get(STR_HINT_LYRICS) },
-			{ { HINT_BTN_DOWN }, 0, Lang_Get(STR_HINT_VISUALIZER) },
+			{ { HINT_BTN_UP, HINT_BTN_DOWN }, 0, Lang_Get(STR_HINT_VIEWS) },
 			{ { HINT_BTN_LEFT_RIGHT }, 0, (np_view == NP_VIEW_VISUALIZER) ? Lang_Get(STR_HINT_STYLE) : NULL },
 			{ { HINT_BTN_TRIANGLE }, 0, Lang_Get(STR_HINT_SHUFFLE) },
 			{ { HINT_BTN_SQUARE }, 0, Lang_Get(STR_HINT_REPEAT) },
